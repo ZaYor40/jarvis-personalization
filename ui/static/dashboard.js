@@ -258,7 +258,7 @@
     if (data.length === 0) {
       root.appendChild(el("div", { class: "j-empty", text: "Aucun appareil détecté" }));
       root.appendChild(el("div", { style: { marginTop: "14px" } }, [
-        el("a", { class: "btn-ghost", href: "/keypad", text: "Ajouter un appareil Jarvis (Keypad Studio)" }),
+        el("button", { class: "btn-ghost", onclick: () => window.openKeypadDrawer?.(), text: "Ajouter un appareil Jarvis (Keypad Studio)" }),
       ]));
       return;
     }
@@ -294,16 +294,17 @@
       ];
       if (d.type === "macropad") {
         parts.push(el("div", { style: { marginTop: "10px" } }, [
-          el("a", { class: "btn-ghost", href: "/keypad", text: "Configurer dans Keypad Studio" }),
+          el("button", { class: "btn-ghost", onclick: () => window.openKeypadDrawer?.(), text: "Configurer dans Keypad Studio" }),
         ]));
       }
-      grid.appendChild(el("div", { class: "dev-card" }, parts));
+      const isNearby = d.status === "Nearby";
+      grid.appendChild(el("div", { class: "dev-card" + (isNearby ? " dev-card--nearby" : "") }, parts));
     });
     root.appendChild(grid);
     root.appendChild(el("div", {
       style: { display: "flex", justifyContent: "flex-start", marginTop: "16px", flexWrap: "wrap", gap: "8px", alignItems: "center" },
     }, [
-      el("a", { class: "btn-ghost", href: "/keypad", text: "Ajouter un appareil" }),
+      el("button", { class: "btn-ghost", onclick: () => window.openKeypadDrawer?.(), text: "Ajouter un appareil" }),
       el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "Macropad 2K et suivants · Keypad Studio" }),
     ]));
   }
@@ -430,7 +431,7 @@
       { kind: "nav",   group: "Aller à", title: "Écosystème",   glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Devices",      glyph: "04", run: () => { state.active = "devices";     renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "05", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
-      { kind: "nav",   group: "Pages",   title: "Keypad Studio", glyph: "⌨", sub: "firmware macropad CH552", run: () => { window.location.href = "/keypad"; } },
+      { kind: "nav",   group: "Pages",   title: "Keypad Studio", glyph: "⌨", sub: "firmware macropad CH552", run: () => { window.openKeypadDrawer?.(); } },
       { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.handleSettingsClick && window.handleSettingsClick(); } },
       // Slash commands (>)
       { kind: "slash", group: "Commandes", title: "restart",  glyph: ">", sub: "redémarre le runtime agent",  run: () => J.notify({ kind: "warn",   text: "Runtime · restart envoyé" }) },

@@ -99,6 +99,15 @@
   background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 12px;
   padding: 16px;
 }
+.dev-card--nearby {
+  opacity: 0.45;
+  filter: saturate(0.4);
+  transition: opacity 0.15s, filter 0.15s;
+}
+.dev-card--nearby:hover {
+  opacity: 0.75;
+  filter: saturate(0.7);
+}
 .dev-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
 .dev-name { font-size: 13.5px; color: var(--fg-0); letter-spacing: -0.005em; }
 .dev-id { font-family: var(--mono); font-size: 10px; color: var(--fg-3); margin-top: 3px; letter-spacing: 0.04em; }

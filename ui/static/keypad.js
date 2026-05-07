@@ -6,6 +6,7 @@
   "use strict";
   const J = window.Jarvis;
   const el = J.el;
+  const isEmbedded = new URLSearchParams(window.location.search).get("embedded") === "1";
 
   /* ─────────────── Constants ─────────────── */
   const KP2K_MM = {
@@ -1416,6 +1417,7 @@
     }
 
     root.appendChild(renderToolbar());
+    if (isEmbedded) root.appendChild(renderEmbeddedTabs());
 
     const pageWrap = el("div", { class: "kp-page-wrap" });
     let page;
@@ -1437,46 +1439,75 @@
     else stopLightLoop();
   }
 
+  function renderEmbeddedTabs() {
+    const TABS = [
+      { id: "keys",     label: "Touches" },
+      { id: "light",    label: "Éclairage" },
+      { id: "profiles", label: "Profils" },
+      { id: "device",   label: "Appareil" },
+      { id: "firmware", label: "Mise à jour" },
+      { id: "drivers",  label: "Pilotes" },
+      { id: "about",    label: "À propos" },
+    ];
+    const bar = el("div", { class: "kp-emb-tabs" });
+    TABS.forEach(t => {
+      bar.appendChild(el("button", {
+        type: "button",
+        class: "kp-emb-tab" + (state.tab === t.id ? " is-on" : ""),
+        onclick: () => {
+          state.tab = t.id;
+          if (t.id !== "light") stopLightLoop();
+          render();
+        },
+      }, [document.createTextNode(t.label)]));
+    });
+    return bar;
+  }
+
   /* ─────────────── Boot ─────────────── */
   async function boot() {
-    J.mountAtmosphere();
+    if (isEmbedded) {
+      document.body.classList.add("is-embedded");
+    } else {
+      J.mountAtmosphere();
 
-    J.mountSidebar({
-      sections: [
-        {
-          label: "Keypad Studio",
-          items: [
-            { id: "keys",     label: "Touches" },
-            { id: "light",    label: "Éclairage" },
-            { id: "profiles", label: "Profils" },
-            { id: "device",   label: "Appareil" },
-            { id: "firmware", label: "Mise à jour" },
-            { id: "drivers",  label: "Pilotes" },
-            { id: "about",    label: "À propos" },
-          ],
+      J.mountSidebar({
+        sections: [
+          {
+            label: "Keypad Studio",
+            items: [
+              { id: "keys",     label: "Touches" },
+              { id: "light",    label: "Éclairage" },
+              { id: "profiles", label: "Profils" },
+              { id: "device",   label: "Appareil" },
+              { id: "firmware", label: "Mise à jour" },
+              { id: "drivers",  label: "Pilotes" },
+              { id: "about",    label: "À propos" },
+            ],
+          },
+          {
+            label: "Jarvis",
+            items: [
+              { id: "_dashboard", label: "Dashboard" },
+              { id: "_settings",  label: "Système" },
+              { id: "_home",      label: "Accueil" },
+            ],
+          },
+        ],
+        activeId: state.tab,
+        onNav: (id) => {
+          if (id === "_dashboard") { window.location.href = "/dashboard"; return; }
+          if (id === "_settings")  { window.location.href = "/settings"; return; }
+          if (id === "_home")      { window.location.href = "/"; return; }
+          state.tab = id;
+          try { history.replaceState(null, "", "#" + id); } catch (_) {}
+          render();
         },
-        {
-          label: "Jarvis",
-          items: [
-            { id: "_dashboard", label: "Dashboard" },
-            { id: "_settings",  label: "Système" },
-            { id: "_home",      label: "Accueil" },
-          ],
-        },
-      ],
-      activeId: state.tab,
-      onNav: (id) => {
-        if (id === "_dashboard") { window.location.href = "/dashboard"; return; }
-        if (id === "_settings")  { window.location.href = "/settings"; return; }
-        if (id === "_home")      { window.location.href = "/"; return; }
-        state.tab = id;
-        try { history.replaceState(null, "", "#" + id); } catch (_) {}
-        render();
-      },
-    });
+      });
 
-    J.mountTopbar({ pageTitle: "Keypad Studio", crumb: "/ keypad" });
-    J.mountBottomNav && J.mountBottomNav({ active: "system" });
+      J.mountTopbar({ pageTitle: "Keypad Studio", crumb: "/ keypad" });
+      J.mountBottomNav && J.mountBottomNav({ active: "system" });
+    }
 
     try {
       const ws = await api.getWorkspace();

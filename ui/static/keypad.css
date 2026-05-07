@@ -669,3 +669,51 @@ select.kp-field {
   font: 12px var(--mono);
   letter-spacing: 0.08em;
 }
+
+/* ── Mode drawer (embedded) ─────────────────────────────────────── */
+body.is-embedded .app {
+  grid-template-columns: 1fr;
+}
+body.is-embedded .sidebar {
+  display: none;
+}
+body.is-embedded .topbar {
+  display: none;
+}
+body.is-embedded .main {
+  overflow: hidden;
+}
+body.is-embedded .kp-root {
+  height: 100vh;
+  max-height: 100vh;
+}
+
+.kp-emb-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 var(--density-pad) 6px;
+  border-bottom: 1px solid var(--line-1);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+.kp-emb-tab {
+  background: none;
+  border: none;
+  color: var(--fg-3);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+.kp-emb-tab:hover {
+  color: var(--fg-0);
+  background: var(--bg-2);
+}
+.kp-emb-tab.is-on {
+  color: var(--accent);
+  background: rgba(74, 158, 255, 0.1);
+}

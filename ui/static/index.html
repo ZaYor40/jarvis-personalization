@@ -3472,6 +3472,66 @@
   <!-- Wake Up sequence (Phase 0 — veille + timer, phases 1-5 à venir) -->
   <!-- Chargé en dernier car dépend de GSAP -->
   <script src="/wakeup.js"></script>
+
+  <!-- ── Keypad Studio Drawer ──────────────────────────────────── -->
+  <div id="kp-backdrop" onclick="window.closeKeypadDrawer()"></div>
+  <div id="kp-drawer" role="dialog" aria-label="Keypad Studio">
+    <button id="kp-drawer-close" onclick="window.closeKeypadDrawer()" title="Fermer (Échap)">✕</button>
+    <iframe id="kp-drawer-frame" src="" frameborder="0"></iframe>
+  </div>
+  <style>
+    #kp-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 900;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s;
+    }
+    #kp-backdrop.open { opacity: 1; pointer-events: all; }
+    #kp-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: 78%;
+      background: var(--bg-0, #06080D);
+      border-left: 1px solid rgba(255, 255, 255, 0.07);
+      z-index: 901;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: -24px 0 64px rgba(0, 0, 0, 0.45);
+    }
+    #kp-drawer.open { transform: translateX(0); }
+    #kp-drawer-close {
+      position: absolute; top: 13px; right: 15px;
+      background: none; border: none;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 15px; line-height: 1;
+      cursor: pointer; z-index: 2;
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 0.12s, background 0.12s;
+    }
+    #kp-drawer-close:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+    #kp-drawer-frame { flex: 1; border: none; width: 100%; display: block; }
+  </style>
+  <script>
+    (function () {
+      var _loaded = false;
+      function _onEsc(e) { if (e.key === "Escape") window.closeKeypadDrawer(); }
+      window.openKeypadDrawer = function () {
+        var frame = document.getElementById("kp-drawer-frame");
+        if (!_loaded) { frame.src = "/keypad?embedded=1"; _loaded = true; }
+        document.getElementById("kp-backdrop").classList.add("open");
+        document.getElementById("kp-drawer").classList.add("open");
+        document.addEventListener("keydown", _onEsc);
+      };
+      window.closeKeypadDrawer = function () {
+        document.getElementById("kp-backdrop").classList.remove("open");
+        document.getElementById("kp-drawer").classList.remove("open");
+        document.removeEventListener("keydown", _onEsc);
+      };
+    })();
+  </script>
 </body>
 
 </html>
