@@ -417,7 +417,7 @@
       { kind: "nav",   group: "Aller à", title: "Domotique",    glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Devices",      glyph: "04", run: () => { state.active = "devices";     renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "05", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
-      { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.location.href = "/settings"; } },
+      { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.handleSettingsClick && window.handleSettingsClick(); } },
       // Slash commands (>)
       { kind: "slash", group: "Commandes", title: "restart",  glyph: ">", sub: "redémarre le runtime agent",  run: () => J.notify({ kind: "warn",   text: "Runtime · restart envoyé" }) },
       { kind: "slash", group: "Commandes", title: "logs",     glyph: ">", sub: "ouvre les logs récents",       run: () => J.notify({ kind: "info",   text: "Logs · ouverture…" }) },
@@ -443,5 +443,5 @@
     // Demo notification
     setTimeout(() => J.notify({ kind: "success", text: "Mission M·207 — indexation à 70 %" }), 4000);
   }
-  document.addEventListener("DOMContentLoaded", boot);
+  window.Dashboard = { boot };
 })();

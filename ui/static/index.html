@@ -7,10 +7,13 @@
   <title>Jarvis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
-    href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&family=DM+Mono:wght@400&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&family=DM+Mono:wght@400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="/globe.css">
   <link rel="stylesheet" href="/wakeup.css">
+  <link rel="stylesheet" href="/_shared.css">
+  <link rel="stylesheet" href="/dashboard.css">
+  <link rel="stylesheet" href="/settings.css">
   <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
   <style>
     @font-face {
@@ -50,6 +53,35 @@
       color: var(--text);
       font-family: 'DM Sans', sans-serif;
     }
+
+    /* ── Aurora — toutes les vues ────────────────────────────────── */
+    #aurora-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      background:
+        radial-gradient(80vw 60vh at 12% 8%, rgba(74,158,255,.06), transparent 60%),
+        radial-gradient(60vw 50vh at 92% 96%, rgba(184,150,62,.04), transparent 60%);
+    }
+
+    /* ── SPA panel (Dashboard & Settings) ───────────────────────── */
+    #spa-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      opacity: 0;
+      background:
+        radial-gradient(80vw 60vh at 12% 8%, rgba(74,158,255,.06), transparent 60%),
+        radial-gradient(60vw 50vh at 92% 96%, rgba(184,150,62,.04), transparent 60%),
+        var(--bg-0, #06080D);
+      font-family: "Geist", "Inter", -apple-system, system-ui, sans-serif;
+      font-size: 13px;
+      color: var(--fg-0, #DCE8FF);
+    }
+    #spa-panel .app { background: transparent; }
+    #spa-panel .main { background: transparent; padding-bottom: 72px; }
 
     /* ── Three.js canvas behind everything ───────────────────────── */
     #three-canvas {
@@ -1548,7 +1580,7 @@
       <circle cx="16.5" cy="15" r="1" fill="currentColor" stroke="none" />
     </svg>
   </button>
-  <button id="dashboard-nav-btn" onclick="window.location.href='/dashboard'" title="Pilotage">
+  <button id="dashboard-nav-btn" onclick="handleDashboardClick()" title="Pilotage">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
       stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="3" width="18" height="7" rx="1" />
@@ -1569,7 +1601,7 @@
       <path d="M13 2L4.09 13H11L10 22L19.91 11H13V2Z" />
     </svg>
   </button>
-  <button id="settings-nav-btn" onclick="window.location.href='/settings'" title="Système">
+  <button id="settings-nav-btn" onclick="handleSettingsClick()" title="Système">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
       stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3" />
@@ -1602,6 +1634,17 @@
   <!-- Globe tooltip -->
   <div id="globe-tooltip"></div>
 
+  <!-- SPA Panel — Dashboard & Settings inline -->
+  <div id="spa-panel">
+    <div class="app">
+      <aside id="sidebar"></aside>
+      <main class="main">
+        <header id="topbar"></header>
+        <div id="page-root"></div>
+      </main>
+    </div>
+  </div>
+
   <!-- Intel Monde — iframe plein écran -->
   <div id="intel-overlay">
     <iframe id="intel-iframe" src="" title="Intel Monde"></iframe>
@@ -1632,8 +1675,9 @@
 
   <div class="grain"></div>
   <div class="vignette"></div>
+  <div id="aurora-bg"></div>
 
-  <div class="layout">
+  <div class="layout" id="main-layout">
 
     <!-- ══ LEFT PANEL ══════════════════════════════════════════ -->
     <aside class="panel-left" id="panel-left">
@@ -3084,7 +3128,7 @@
       // Open settings overlay
       // ── Helpers ────────────────────────────────────────────────────────
 
-      const _VIEW_IDX = { sphere: 0, globe: 1, intel: 2, settings: 3 };
+      const _VIEW_IDX = { sphere: 0, dashboard: 1, globe: 2, intel: 3, settings: 4 };
 
       // Active le bouton de la vue, désactive tous les autres
       function _setView(view) {
@@ -3099,46 +3143,70 @@
         return (_VIEW_IDX[to] ?? 2) >= (_VIEW_IDX[from] ?? 2) ? 1 : -1;
       }
 
-      function _settingsIsOpen() {
-        const o = document.getElementById('settings-overlay');
-        return o && o.style.display === 'block';
-      }
-      function _closeSettingsIfOpen() {
-        if (_settingsIsOpen()) window.closeSettings();
-      }
+      function _settingsIsOpen() { return false; }
+      function _closeSettingsIfOpen() {}
 
       window._setView = _setView;
       _setView('sphere');
 
-      // ── Settings ────────────────────────────────────────────────────────
-      window.openSettings = function () {
-        if (window._currentView === 'settings') return;
-        const overlay = document.getElementById('settings-overlay');
-        const iframe = document.getElementById('settings-iframe');
-        if (!overlay) return;
-        window._prevSettingsView = window._currentView;
-        _setView('settings');
-        if (!iframe.src || iframe.src === window.location.href) iframe.src = '/settings';
-        overlay.style.display = 'block';
-        gsap.fromTo(overlay, { opacity: 0, x: 24 }, { duration: 0.28, opacity: 1, x: 0, ease: 'power3.out' });
-      };
+      // ── SPA panel helpers (Dashboard & Settings) ─────────────────────────
+      const _SPA_HIDE = ['main-layout', 'panels-toggle'];
 
-      window.closeSettings = function () {
-        const overlay = document.getElementById('settings-overlay');
-        if (!overlay || overlay.style.display === 'none') return;
-        _setView(window._prevSettingsView || 'sphere');
-        gsap.to(overlay, {
-          duration: 0.22, opacity: 0, x: 24, ease: 'power3.in', onComplete: () => {
-            overlay.style.display = 'none'; gsap.set(overlay, { x: 0 });
+      function _showSpaPanel(type) {
+        const panel = document.getElementById('spa-panel');
+        if (!panel) return;
+        _SPA_HIDE.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        panel.style.display = 'block';
+        panel.getBoundingClientRect();
+        gsap.fromTo(panel, { opacity: 0, x: 32 }, { duration: 0.28, opacity: 1, x: 0, ease: 'power3.out' });
+        if (type === 'dashboard' && window.Dashboard) window.Dashboard.boot();
+        else if (type === 'settings' && window.Settings) window.Settings.boot();
+      }
+
+      function _hideSpaPanel(cb) {
+        const panel = document.getElementById('spa-panel');
+        if (!panel || panel.style.display === 'none') { if (cb) cb(); return; }
+        gsap.to(panel, {
+          duration: 0.22, opacity: 0, x: 32, ease: 'power3.in', onComplete: () => {
+            panel.style.display = 'none'; gsap.set(panel, { x: 0 });
+            _SPA_HIDE.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+            if (cb) cb();
           }
         });
+      }
+
+      const _isSpa = () => window._currentView === 'dashboard' || window._currentView === 'settings';
+
+      // ── Settings / Dashboard SPA handlers ───────────────────────────────
+      window.handleSettingsClick = function () {
+        if (window._currentView === 'settings') return;
+        if (window._currentView === 'intel') { window.navigateFromIntel('settings'); return; }
+        if (window._currentView === 'globe' && typeof Globe !== 'undefined') Globe.hide();
+        if (window._currentView === 'dashboard') {
+          _setView('settings');
+          if (window.Settings) window.Settings.boot();
+          return;
+        }
+        _setView('settings');
+        _showSpaPanel('settings');
       };
 
-      window.addEventListener('message', e => {
-        if (e.data === 'jarvis:close-settings') window.closeSettings();
-      });
+      window.handleDashboardClick = function () {
+        if (window._currentView === 'dashboard') return;
+        if (window._currentView === 'intel') { window.navigateFromIntel('dashboard'); return; }
+        if (window._currentView === 'globe' && typeof Globe !== 'undefined') Globe.hide();
+        if (window._currentView === 'settings') {
+          _setView('dashboard');
+          if (window.Dashboard) window.Dashboard.boot();
+          return;
+        }
+        _setView('dashboard');
+        _showSpaPanel('dashboard');
+      };
 
-      window.goToSettings = window.openSettings;
+      window.openSettings = window.handleSettingsClick;
+      window.closeSettings = function () { window.handleSphereClick(); };
+      window.goToSettings = window.handleSettingsClick;
 
       window.transitionTo = function (href, dir) {
         dir = dir || 'forward';
@@ -3171,39 +3239,40 @@
 
       // ── Globe ───────────────────────────────────────────────────────────
       window.handleGlobeClick = function () {
-        _closeSettingsIfOpen();
         if (window._currentView === 'globe') return;
         if (window._currentView === 'intel') { window.navigateFromIntel('globe'); return; }
-        const d = _txDir(window._currentView, 'globe');
-        _slideOut(d);
-        setTimeout(() => {
+        const go = () => {
           if (typeof Globe !== 'undefined') Globe.show();
           _setView('globe');
           gsap.to(ui, { duration: 0.35, opacity: 1, x: 0, filter: 'blur(0px)', ease: 'power2.out' });
-        }, DUR_OUT * 1000 * 0.6);
+        };
+        if (_isSpa()) { _hideSpaPanel(go); return; }
+        const d = _txDir(window._currentView, 'globe');
+        _slideOut(d);
+        setTimeout(go, DUR_OUT * 1000 * 0.6);
       };
 
       // ── Intel ────────────────────────────────────────────────────────────
       window.handleIntelClick = function () {
-        _closeSettingsIfOpen();
         if (window._currentView === 'intel') return;
         if (window._currentView === 'globe' && typeof Globe !== 'undefined') Globe.hide();
-        const d = _txDir(window._currentView, 'intel');
         window._prevIntelView = window._currentView;
         const io = document.getElementById('intel-overlay');
         if (io) gsap.set(io, { opacity: 0 });
-        _slideOut(d);
-        setTimeout(() => {
+        const go = () => {
           document.body.classList.add('intel-mode');
           _setView('intel');
           if (io) gsap.to(io, { duration: DUR_OVL, opacity: 1, ease: EASE_IN });
-        }, DUR_OUT * 1000 * 0.7);
+        };
+        if (_isSpa()) { _hideSpaPanel(go); return; }
+        const d = _txDir(window._currentView, 'intel');
+        _slideOut(d);
+        setTimeout(go, DUR_OUT * 1000 * 0.7);
       };
 
       // ── Sortir de Intel ──────────────────────────────────────────────────
       window.navigateFromIntel = function (target) {
         if (window._currentView !== 'intel') return;
-        if (target === 'dashboard') { window.location.href = '/dashboard'; return; }
         if (target === 'globe' && typeof Globe !== 'undefined') Globe.show();
         const d = _txDir('intel', target);
         const io = document.getElementById('intel-overlay');
@@ -3214,16 +3283,23 @@
         });
         else document.body.classList.remove('intel-mode');
         _setView(target);
-        _slideIn(d, target === 'globe' ? 0 : DUR_OVL * 0.5);
+        if (target === 'dashboard' || target === 'settings') {
+          _showSpaPanel(target);
+        } else {
+          _slideIn(d, target === 'globe' ? 0 : DUR_OVL * 0.5);
+        }
       };
 
       // ── Jarvis / home ────────────────────────────────────────────────────
       window.handleSphereClick = function () {
-        _closeSettingsIfOpen();
         if (window._currentView === 'sphere') return;
         if (window._currentView === 'intel') { window.navigateFromIntel('sphere'); return; }
+        if (_isSpa()) {
+          _hideSpaPanel(() => { _setView('sphere'); });
+          return;
+        }
         if (window._currentView === 'globe') {
-          const d = _txDir('globe', 'sphere'); // -1
+          const d = _txDir('globe', 'sphere');
           if (typeof Globe !== 'undefined') Globe.hide();
           _setView('sphere');
           _slideIn(d, 0.06);
@@ -3379,6 +3455,19 @@
       URL.revokeObjectURL(url);
     });
   </script>
+  <!-- SPA : shared runtime + dashboard + settings -->
+  <script src="/_shared.js"></script>
+  <script>
+    // En mode SPA, l'atmosphère et la bottom nav sont déjà gérées par index.html
+    if (window.Jarvis) {
+      window.Jarvis.mountAtmosphere = function () {};
+      window.Jarvis.mountBottomNav = function () {};
+    }
+  </script>
+  <script src="/settings-charts.js"></script>
+  <script src="/dashboard.js"></script>
+  <script src="/settings.js"></script>
+
   <!-- Wake Up sequence (Phase 0 — veille + timer, phases 1-5 à venir) -->
   <!-- Chargé en dernier car dépend de GSAP -->
   <script src="/wakeup.js"></script>

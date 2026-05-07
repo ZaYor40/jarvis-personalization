@@ -668,6 +668,20 @@
     c.appendChild(setRow("Voix de Jarvis (TTS)", "ElevenLabs · fr-marc-v2",
       el("select", { class: "select-mono" }, selOpts(["fr-marc-v2 (clone)","fr-onyx","fr-aurore"])),
       el("button", { class: "btn-ghost", text: "▶ Précouter" })));
+
+    const quebecToggle = el("div", { class: "toggle" });
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      if (d.jarvis?.quebec_mode) quebecToggle.classList.add("on");
+    }).catch(() => {});
+    quebecToggle.addEventListener("click", () => {
+      const isOn = quebecToggle.classList.toggle("on");
+      fetch("/api/settings/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "QUEBEC_MODE", value: isOn ? "true" : "false" }),
+      }).catch(() => {});
+    });
+    c.appendChild(setRow("Mode Québécois 🍁", "accent + dialecte québécois · voix dédiée ElevenLabs", el("span"), quebecToggle));
   }
   function renderSettingsAutonomy(c) {
     const levels = [
@@ -950,7 +964,7 @@
       { kind: "nav", group: "Aller à", title: "Conso",      glyph: "04", run: () => { state.active = "conso";     renderActive(); refreshSidebar(); } },
       { kind: "nav", group: "Aller à", title: "Paramètres", glyph: "05", run: () => { state.active = "settings";  renderActive(); refreshSidebar(); } },
       { kind: "nav", group: "Aller à", title: "Système",    glyph: "06", run: () => { state.active = "systeme";   renderActive(); refreshSidebar(); } },
-      { kind: "nav", group: "Pages",   title: "Dashboard",  glyph: "→",  sub: "control", run: () => { window.location.href = "/dashboard"; } },
+      { kind: "nav", group: "Pages",   title: "Dashboard",  glyph: "→",  sub: "control", run: () => { window.handleDashboardClick && window.handleDashboardClick(); } },
       { kind: "slash", group: "Commandes", title: "restart", glyph: ">", sub: "redémarre le runtime", run: () => J.notify({ kind: "warn", text: "Runtime · restart envoyé" }) },
       { kind: "slash", group: "Commandes", title: "logs",    glyph: ">", sub: "saute aux logs",       run: () => { state.active = "systeme"; renderActive(); refreshSidebar(); } },
       { kind: "slash", group: "Commandes", title: "spend",   glyph: ">", sub: "saute à conso",        run: () => { state.active = "conso";   renderActive(); refreshSidebar(); } },
@@ -975,5 +989,5 @@
       }
     }).catch(() => {});
   }
-  document.addEventListener("DOMContentLoaded", boot);
+  window.Settings = { boot };
 })();
