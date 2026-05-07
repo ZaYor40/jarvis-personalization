@@ -8,7 +8,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![LiveKit](https://img.shields.io/badge/LiveKit-voice-F5A623?style=flat-square)](https://livekit.io)
 [![Claude](https://img.shields.io/badge/Claude-Anthropic-8B5CF6?style=flat-square)](https://anthropic.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=flat-square)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
 
 Assistant personnel IA, texte & voix temps réel, self-hosted, stack open source.
 
@@ -225,8 +225,13 @@ uv run python scripts/test_llm.py --provider mistral
 
 ---
 
+## Star History
+
 [![Star History Chart](https://api.star-history.com/svg?repos=Grominet95/jarvis-OS&type=Date)](https://star-history.com/#Grominet95/jarvis-OS&Date)
+
+---
+
 
 ## Licence
 
-MIT
+[Proprietary Source License](LICENSE) — © 2026 Barthélemy Houot. All rights reserved.
