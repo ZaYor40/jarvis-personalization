@@ -1372,6 +1372,7 @@
       { kind: "nav", group: "Aller à", title: "Conso",      glyph: "04", run: () => { state.active = "conso";     renderActive(); refreshSidebar(); } },
       { kind: "nav", group: "Aller à", title: "Paramètres", glyph: "05", run: () => { state.active = "settings";  renderActive(); refreshSidebar(); } },
       { kind: "nav", group: "Aller à", title: "Système",    glyph: "06", run: () => { state.active = "systeme";   renderActive(); refreshSidebar(); } },
+      { kind: "nav", group: "Pages",   title: "Keypad Studio", glyph: "⌨", sub: "/keypad", run: () => { window.location.href = "/keypad"; } },
       { kind: "nav", group: "Pages",   title: "Dashboard",  glyph: "→",  sub: "control", run: () => { window.handleDashboardClick && window.handleDashboardClick(); } },
       { kind: "slash", group: "Commandes", title: "restart", glyph: ">", sub: "redémarre le runtime", run: () => J.notify({ kind: "warn", text: "Runtime · restart envoyé" }) },
       { kind: "slash", group: "Commandes", title: "logs",    glyph: ">", sub: "saute aux logs",       run: () => { state.active = "systeme"; renderActive(); refreshSidebar(); } },

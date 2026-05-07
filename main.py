@@ -26,6 +26,8 @@ from api.websocket import router as ws_router
 from api.globe import router as globe_router
 from api.spotify import router as spotify_router
 from api.widgets import router as widgets_router
+from api.keypad import _ui_router as keypad_ui_router
+from api.keypad import router as keypad_router
 from background.notifications import NotificationQueue, ProactiveQueue
 from proactive.engine import ProactiveEngine
 from background.scheduler import Scheduler
@@ -284,6 +286,8 @@ app.include_router(projects_router)
 app.include_router(widgets_router)
 app.include_router(spotify_router)
 app.include_router(globe_router)
+app.include_router(keypad_router)
+app.include_router(keypad_ui_router)
 
 @app.get("/static/mapbox-style.json")
 async def mapbox_style():
@@ -300,6 +304,6 @@ if __name__ == "__main__":
         port=settings.port,
         reload=settings.environment == "development",
         reload_dirs=["api", "agent", "audio", "background", "config", "core",
-                     "llm", "memory", "prompts", "skills", "tools", "ui"],
+                     "keypad", "llm", "memory", "prompts", "skills", "tools", "ui"],
         log_level="warning",
     )

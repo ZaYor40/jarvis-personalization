@@ -1051,6 +1051,39 @@ async def get_devices() -> list:
         "type": "host",
     })
 
+    try:
+        from keypad.usb import usb_status
+
+        st = usb_status()
+        hid = bool(st.get("hidPresent"))
+        boot = bool(st.get("bootloaderPresent"))
+        if hid:
+            mp_status = "Connected"
+            mp_col = "green"
+            a_pair = ("Mode", "HID")
+            b_pair = ("Firmware", "Keypad Studio")
+        elif boot:
+            mp_status = "Nearby"
+            mp_col = "accent"
+            a_pair = ("Mode", "Bootloader")
+            b_pair = ("Flash", "USB prêt")
+        else:
+            mp_status = "Nearby"
+            mp_col = "muted"
+            a_pair = ("Mode", "—")
+            b_pair = ("Studio", "Ajouter via Keypad")
+        devices.insert(1, {
+            "name": "Macropad 2K",
+            "id": "macropad · Le Labo",
+            "status": mp_status,
+            "col": mp_col,
+            "a": list(a_pair),
+            "b": list(b_pair),
+            "type": "macropad",
+        })
+    except Exception:
+        pass
+
     # ── Bluetooth ─────────────────────────────────────────────────────────────
     if sys_name == "Darwin":
         try:
@@ -1144,26 +1177,57 @@ def _parse_bt_macos(out: str, devices: list) -> None:
 
 
 def _parse_bt_windows(devices: list) -> None:
-    import subprocess
-    out = subprocess.check_output(
-        ["powershell", "-Command",
-         "Get-PnpDevice -Class Bluetooth | Select-Object FriendlyName,Status | ConvertTo-Json"],
-        text=True, timeout=8,
-    )
     import json as _json
+    import re
+    import subprocess
+
+    skip = re.compile(
+        r"(?i)enumerator|microsoft\s+bluetooth|^\s*intel\(r\)\s+wireless\s+bluetooth|"
+        r"realtek\s+bluetooth|broadcom\s+bluetooth|virtual|rfcomm|"
+        r"generic\s+attribute|device\s+association|le\s+audio|"
+        r"^bluetooth\s+device\s*\("
+    )
+    ps = (
+        "Get-PnpDevice -Class 'Bluetooth' -PresentOnly | "
+        "Select-Object FriendlyName,Status | ConvertTo-Json -Compress"
+    )
+    out = subprocess.check_output(
+        ["powershell", "-NoProfile", "-Command", ps],
+        text=True,
+        timeout=12,
+    )
     items = _json.loads(out)
     if isinstance(items, dict):
         items = [items]
+    seen: set[str] = set()
     for item in items:
-        name = item.get("FriendlyName", "Unknown")
-        status = item.get("Status", "Unknown")
+        name = (item.get("FriendlyName") or "").strip() or "Unknown"
+        if skip.search(name):
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        status = (item.get("Status") or "Unknown").strip()
+        ok = status == "OK"
+        nl = name.lower()
+        if "mouse" in nl:
+            bt_id = _BT_ID_MAP["mouse"]
+        elif "keyboard" in nl:
+            bt_id = _BT_ID_MAP["keyboard"]
+        elif "headphone" in nl or "headset" in nl or "airpods" in nl or "buds" in nl:
+            bt_id = _BT_ID_MAP["headphones"]
+        elif "gamepad" in nl or "controller" in nl or "xbox" in nl or "dualshock" in nl:
+            bt_id = _BT_ID_MAP["gamepad"]
+        else:
+            bt_id = "bluetooth · BT"
         devices.append({
             "name": name,
-            "id": "bluetooth · BT",
-            "status": "Connected" if status == "OK" else "Nearby",
-            "col": "green" if status == "OK" else "muted",
+            "id": bt_id,
+            "status": "Connected" if ok else "Nearby",
+            "col": "green" if ok else "muted",
             "a": ["Type", "Bluetooth"],
-            "b": ["Status", status],
+            "b": ["État", status],
             "type": "bluetooth",
         })
 
@@ -1258,6 +1322,11 @@ async def get_connectors() -> list:
             "name": "Mistral",
             "sub": "LLM alternatif",
             "status": "on" if _env_ok("MISTRAL_API_KEY") else "off",
+        },
+        {
+            "name": "Keypad Studio",
+            "sub": "Firmware CH552 · /keypad",
+            "status": "on",
         },
     ]
     return connectors

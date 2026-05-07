@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         default="api",
         description="'api' pour Anthropic/Mistral, 'local' pour Ollama.",
     )
+    api_backend: Literal["anthropic", "mistral", "openai"] = Field(
+        default="anthropic",
+        description="Backend API principal quand LLM_PROVIDER=api.",
+    )
 
     # Anthropic
     anthropic_api_key: str = Field(
@@ -32,6 +36,10 @@ class Settings(BaseSettings):
     voice_anthropic_model: str = Field(
         default="claude-haiku-4-5-20251001",
         description="Modèle Anthropic pour la voix (plus rapide).",
+    )
+    openai_model: str = Field(
+        default="gpt-4o-mini",
+        description="Modèle OpenAI à utiliser pour le LLM principal.",
     )
 
     # Mistral
@@ -111,7 +119,7 @@ class Settings(BaseSettings):
 
     # ── Audio / STT / TTS ─────────────────────────────────────
     openai_api_key: str = Field(
-        default="", description="Clé API OpenAI (TTS + Vision).")
+        default="", description="Clé API OpenAI (LLM principal si api_backend=openai, TTS, Vision).")
     whisper_model: str = Field(
         default="tiny",
         description="Taille du modèle faster-whisper : tiny, base, small, medium, large.",

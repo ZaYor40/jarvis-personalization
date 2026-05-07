@@ -50,3 +50,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+tools/arduino-cli/*
+!tools/arduino-cli/.gitkeep
+
+keypad/firmware/Object File1/

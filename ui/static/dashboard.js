@@ -257,15 +257,17 @@
     root.appendChild(secHd("04", "Devices", "Tes appareils", statParts.join(" · ") || "—"));
     if (data.length === 0) {
       root.appendChild(el("div", { class: "j-empty", text: "Aucun appareil détecté" }));
+      root.appendChild(el("div", { style: { marginTop: "14px" } }, [
+        el("a", { class: "btn-ghost", href: "/keypad", text: "Ajouter un appareil Jarvis (Keypad Studio)" }),
+      ]));
       return;
     }
     const grid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" } });
     data.forEach(d => {
-      const splitVal = (s) => { const p = String(s).split(" "); return [p[0], p.slice(1).join(" ")]; };
-      const [aV, aU] = splitVal(d.a[1]);
-      const [bV, bU] = splitVal(d.b[1]);
       const col = COL[d.col] || d.col;
-      grid.appendChild(el("div", { class: "dev-card" }, [
+      const aRaw = d.a && d.a.length > 1 ? String(d.a[1]) : "—";
+      const bRaw = d.b && d.b.length > 1 ? String(d.b[1]) : "—";
+      const parts = [
         el("div", { class: "dev-head" }, [
           el("div", {}, [
             el("div", { class: "dev-name", text: d.name }),
@@ -282,16 +284,28 @@
         el("div", { class: "dev-meters" }, [
           el("div", { class: "dev-meter" }, [
             el("div", { class: "lbl", text: d.a[0] }),
-            el("div", { class: "val" }, [document.createTextNode(aV), aU ? el("span", { class: "u", text: aU }) : null]),
+            el("div", { class: "val" }, [document.createTextNode(aRaw)]),
           ]),
           el("div", { class: "dev-meter" }, [
             el("div", { class: "lbl", text: d.b[0] }),
-            el("div", { class: "val" }, [document.createTextNode(bV), bU ? el("span", { class: "u", text: bU }) : null]),
+            el("div", { class: "val" }, [document.createTextNode(bRaw)]),
           ]),
         ]),
-      ]));
+      ];
+      if (d.type === "macropad") {
+        parts.push(el("div", { style: { marginTop: "10px" } }, [
+          el("a", { class: "btn-ghost", href: "/keypad", text: "Configurer dans Keypad Studio" }),
+        ]));
+      }
+      grid.appendChild(el("div", { class: "dev-card" }, parts));
     });
     root.appendChild(grid);
+    root.appendChild(el("div", {
+      style: { display: "flex", justifyContent: "flex-start", marginTop: "16px", flexWrap: "wrap", gap: "8px", alignItems: "center" },
+    }, [
+      el("a", { class: "btn-ghost", href: "/keypad", text: "Ajouter un appareil" }),
+      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "Macropad 2K et suivants · Keypad Studio" }),
+    ]));
   }
 
   function renderAnalytics(root, data) {
@@ -416,6 +430,7 @@
       { kind: "nav",   group: "Aller à", title: "Écosystème",   glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Devices",      glyph: "04", run: () => { state.active = "devices";     renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "05", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
+      { kind: "nav",   group: "Pages",   title: "Keypad Studio", glyph: "⌨", sub: "firmware macropad CH552", run: () => { window.location.href = "/keypad"; } },
       { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.handleSettingsClick && window.handleSettingsClick(); } },
       // Slash commands (>)
       { kind: "slash", group: "Commandes", title: "restart",  glyph: ">", sub: "redémarre le runtime agent",  run: () => J.notify({ kind: "warn",   text: "Runtime · restart envoyé" }) },
