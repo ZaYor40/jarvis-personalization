@@ -301,12 +301,6 @@
       grid.appendChild(el("div", { class: "dev-card" + (isNearby ? " dev-card--nearby" : "") }, parts));
     });
     root.appendChild(grid);
-    root.appendChild(el("div", {
-      style: { display: "flex", justifyContent: "flex-start", marginTop: "16px", flexWrap: "wrap", gap: "8px", alignItems: "center" },
-    }, [
-      el("button", { class: "btn-ghost", onclick: () => window.openKeypadDrawer?.(), text: "Ajouter un appareil" }),
-      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "Macropad 2K et suivants · Keypad Studio" }),
-    ]));
   }
 
   function renderAnalytics(root, data) {
