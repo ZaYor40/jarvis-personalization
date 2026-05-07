@@ -1071,8 +1071,8 @@
       conns.forEach(conn => {
         const s = STATUS[conn.status] || STATUS.off;
         c.appendChild(setRow(conn.name, conn.sub,
-          el("span", { class: "t-mono", style: { color: s.col, fontSize: "10.5px" }, text: "● " + s.lbl }),
-          el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: conn.status === "expired" ? "renouveler" : "" })
+          conn.status === "expired" ? el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "renouveler" }) : el("span"),
+          el("span", { class: "t-mono", style: { color: s.col, fontSize: "10.5px" }, text: "● " + s.lbl })
         ));
       });
     }).catch(() => { c.innerHTML = ""; c.appendChild(el("div", { class: "j-empty", text: "Impossible de charger." })); });
