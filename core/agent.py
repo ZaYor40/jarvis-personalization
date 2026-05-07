@@ -15,7 +15,7 @@ from llm.base import LLMProvider
 if TYPE_CHECKING:
     from memory.index import MemoryIndex
     from memory.topics import TopicStore
-    from skills._registry import SkillRegistry
+    from skills.registry import SkillRegistry
     from tools.registry import ToolRegistry
 
 _STATIC_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "system_static.md"
@@ -87,9 +87,9 @@ class Agent:
             )
 
         if self._skill_registry is not None:
-            skills_section = self._skill_registry.build_prompt_section()
-            if skills_section:
-                dynamic_parts.append(skills_section)
+            skills_prompt = self._skill_registry.get_combined_system_prompt()
+            if skills_prompt:
+                dynamic_parts.append("# SKILLS ACTIFS\n\n" + skills_prompt)
 
         if notifications:
             notif_content = "\n".join(f"- {n}" for n in notifications)

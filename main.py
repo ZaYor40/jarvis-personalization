@@ -42,7 +42,7 @@ from memory.consolidation import ConsolidationAgent
 from memory.index import MemoryIndex
 from memory.sessions import SessionStore
 from memory.topics import TopicStore
-from skills._registry import SkillRegistry
+from skills.registry import skill_registry
 from tools.browser import BrowserTool
 from tools.vision import VisionTool
 from tools.calendar import CalendarCreateTool, CalendarListTool
@@ -52,9 +52,7 @@ from tools.filesystem import FindFilesTool, ReadFileTool
 from tools.memory import MemoryTopicWriteTool
 from tools.notion import NotionTasksTool
 from tools.registry import ToolRegistry
-from tools.fusion import FusionTool
 from tools.map_control import MapControlTool
-from tools.printer import Printer3DTool
 from tools.spotify import SpotifyTool
 from tools.weather import WeatherTool
 
@@ -86,7 +84,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     voice_llm = AnthropicProvider(model=settings.voice_anthropic_model, max_tokens=1024)
 
     # ── Skill registry ───────────────────────────────────────
-    skill_registry = SkillRegistry(Path(settings.skills_dir))
+    # singleton chargé à l'import — reload() pour forcer un rechargement
+    skill_registry.reload()
 
     # ── Tool registry ────────────────────────────────────────
     _root = Path(__file__).parent
@@ -115,14 +114,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ),
         NotionTasksTool(),
         MemoryTopicWriteTool(),
-        Printer3DTool(),
-        FusionTool(),
         SpotifyTool(),
         GmailListTool(
             credentials_path=_google_creds,
             token_path=_gmail_token,
         ),
     )
+    # Enregistre les outils fournis par les skills installés
+    tool_registry.replace_skill_tools(*skill_registry.get_all_tools())
 
     agent = Agent(
         llm=llm,
@@ -246,7 +245,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         llm_provider=settings.llm_provider,
         memory_dir=str(memory_dir),
         tools=len(tool_registry.schemas()),
-        skills=len(skill_registry.active),
+        skills=len(skill_registry.list_installed()),
         notification_queue_id=id(notifications),
     )
     yield

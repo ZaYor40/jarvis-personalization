@@ -178,9 +178,18 @@ async def get_skills_catalog() -> dict:
 
 @router.get("/api/skills/installed")
 async def get_installed_skills() -> dict:
-    """Liste des skills installés localement."""
+    """Liste des skills installés, enrichie avec env_status et configured."""
     from skills.registry import skill_registry
-    return {"skills": skill_registry.list_installed()}
+    from dotenv import dotenv_values
+    env_values = dotenv_values(".env")
+    enriched = []
+    for s in skill_registry.list_installed():
+        requires_env = s.get("requires_env", [])
+        env_status = {k: bool(env_values.get(k, "").strip()) for k in requires_env}
+        env_vals = {k: env_values.get(k, "") for k in requires_env}
+        configured = all(env_status.values()) if requires_env else True
+        enriched.append({**s, "env_status": env_status, "env_values": env_vals, "configured": configured})
+    return {"skills": enriched}
 
 
 @router.post("/api/skills/install/{skill_name}")
@@ -221,6 +230,15 @@ async def reload_skills(request: Request) -> dict:
         "success": True,
         "loaded": len(skill_registry.get_all()),
     }
+
+
+@router.get("/api/settings/env-status")
+async def get_env_status(keys: str = Query("")) -> dict:
+    """Retourne True/False par clé env — jamais les valeurs."""
+    from dotenv import dotenv_values
+    env_values = dotenv_values(".env")
+    key_list = [k.strip() for k in keys.split(",") if k.strip()]
+    return {k: bool(env_values.get(k, "").strip()) for k in key_list}
 
 
 # ── Permissions API ───────────────────────────────────────────────────────────

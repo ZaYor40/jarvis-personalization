@@ -530,6 +530,75 @@ body.intel-mode #intel-overlay {
   padding: 0;
 }
 
+#intel-fallback {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgb(4, 8, 20);
+}
+
+#intel-fallback.visible {
+  display: flex;
+}
+
+.intel-fallback-inner {
+  max-width: 540px;
+  padding: 40px;
+}
+
+.intel-fallback-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(74, 158, 255, 0.9);
+  margin-bottom: 10px;
+}
+
+.intel-fallback-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: rgba(200, 218, 255, 0.55);
+  margin: 0 0 28px;
+}
+
+.intel-fallback-steps {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: rgba(200, 218, 255, 0.75);
+  line-height: 1.9;
+}
+
+.intel-fallback-steps p {
+  margin: 0 0 6px;
+  color: rgba(200, 218, 255, 0.5);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.intel-fallback-steps ol {
+  padding-left: 18px;
+  margin: 0;
+}
+
+.intel-fallback-steps li {
+  margin-bottom: 12px;
+}
+
+.intel-fallback-steps code {
+  background: rgba(74, 158, 255, 0.08);
+  border: 1px solid rgba(74, 158, 255, 0.22);
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 10px;
+  color: rgba(74, 158, 255, 0.95);
+  display: inline-block;
+  margin-top: 3px;
+}
+
 /* intel-nav-hub supprimé — la nav principale reste visible en mode Intel */
 #intel-nav-hub {
   display: none !important;

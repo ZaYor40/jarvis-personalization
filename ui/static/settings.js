@@ -500,12 +500,17 @@
           : null;
 
         // Inline env config section
+        const SVG_EYE     = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const SVG_EYE_OFF = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+        const SVG_SAVE    = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+        const envVals = s.env_values || {};
         const configSection = el("div", { class: "skill-config" });
         const statusIcons = {};
 
         requiresEnv.forEach(varKey => {
           const isSet    = envStatus[varKey] === true;
-          const sensitive = /KEY|SECRET|TOKEN|CODE|PASSWORD/i.test(varKey);
+          const curValue = envVals[varKey] || "";
 
           const statusIcon = el("span", {
             class: "skill-config-status " + (isSet ? "ok" : "warn"),
@@ -513,33 +518,37 @@
           });
           statusIcons[varKey] = statusIcon;
 
-          const inputEl = el("input", {
-            class: "skill-config-input",
-            type: sensitive ? "password" : "text",
-            placeholder: varKey,
-          });
+          const inputEl = document.createElement("input");
+          inputEl.className = "skill-config-input";
+          inputEl.type = "password";
+          inputEl.placeholder = varKey;
+          inputEl.value = curValue;
 
           const inputWrap = el("div", { class: "skill-config-input-wrap" });
           inputWrap.appendChild(inputEl);
 
-          if (sensitive) {
-            const revealBtn = el("button", { class: "skill-config-reveal", title: "Afficher / masquer", text: "👁" });
-            let revealed = false;
-            revealBtn.onclick = () => {
-              revealed = !revealed;
-              inputEl.type = revealed ? "text" : "password";
-            };
-            inputWrap.appendChild(revealBtn);
-          }
+          const revealBtn = document.createElement("button");
+          revealBtn.className = "skill-config-reveal";
+          revealBtn.title = "Afficher / masquer";
+          revealBtn.innerHTML = SVG_EYE;
+          let revealed = false;
+          revealBtn.onclick = () => {
+            revealed = !revealed;
+            inputEl.type = revealed ? "text" : "password";
+            revealBtn.innerHTML = revealed ? SVG_EYE_OFF : SVG_EYE;
+          };
+          inputWrap.appendChild(revealBtn);
 
-          const saveBtn = el("button", { class: "skill-config-save", title: "Sauvegarder", text: "💾" });
+          const saveBtn = document.createElement("button");
+          saveBtn.className = "skill-config-save";
+          saveBtn.title = "Sauvegarder";
+          saveBtn.innerHTML = SVG_SAVE;
           saveBtn.onclick = async () => {
             const val = inputEl.value.trim();
             if (!val) return;
             saveBtn.disabled = true;
             try {
               await J.api.post("/api/settings/update", { key: varKey, value: val });
-              // Refresh status for all this skill's env vars
               const statusRes = await J.api.get(
                 "/api/settings/env-status?keys=" + requiresEnv.join(",")
               );
@@ -556,7 +565,9 @@
                 badge.textContent = allSet ? "✓ Configuré" : "⚠ Configuration requise";
               }
               J.notify({ kind: "success", text: varKey + " sauvegardé" });
-              inputEl.value = "";
+              inputEl.type = "password";
+              revealed = false;
+              revealBtn.innerHTML = SVG_EYE;
             } catch (e) {
               J.notify({ kind: "error", text: "Erreur : " + e.message });
             }

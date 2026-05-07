@@ -3239,6 +3239,20 @@
       };
 
       // ── Intel ────────────────────────────────────────────────────────────
+      function _checkIntelAvailability() {
+        const iframe = document.getElementById('intel-iframe');
+        const fallback = document.getElementById('intel-fallback');
+        fetch('http://localhost:3000', { mode: 'no-cors', cache: 'no-store' })
+          .then(() => {
+            if (iframe) { iframe.src = 'http://localhost:3000'; iframe.style.display = ''; }
+            if (fallback) fallback.classList.remove('visible');
+          })
+          .catch(() => {
+            if (iframe) { iframe.src = ''; iframe.style.display = 'none'; }
+            if (fallback) fallback.classList.add('visible');
+          });
+      }
+
       window.handleIntelClick = function () {
         if (window._currentView === 'intel') return;
         if (window._currentView === 'globe' && typeof Globe !== 'undefined') Globe.hide();
@@ -3249,6 +3263,7 @@
           document.body.classList.add('intel-mode');
           _setView('intel');
           if (io) gsap.to(io, { duration: DUR_OVL, opacity: 1, ease: EASE_IN });
+          _checkIntelAvailability();
         };
         if (_isSpa()) { _hideSpaPanel(go); return; }
         const d = _txDir(window._currentView, 'intel');

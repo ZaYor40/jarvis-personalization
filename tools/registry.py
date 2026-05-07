@@ -10,11 +10,23 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
+        self._skill_tool_names: set[str] = set()
 
     def register(self, *tools: Tool) -> None:
         for tool in tools:
             self._tools[tool.name] = tool
             logger.debug("Tool registered", name=tool.name)
+
+    def replace_skill_tools(self, *tools: Tool) -> None:
+        """Remplace atomiquement les outils venant des skills."""
+        for name in list(self._skill_tool_names):
+            self._tools.pop(name, None)
+        self._skill_tool_names = set()
+        for tool in tools:
+            self._tools[tool.name] = tool
+            self._skill_tool_names.add(tool.name)
+            logger.debug("Skill tool registered", name=tool.name)
+        logger.info(f"Skill tools sync: {len(tools)} outil(s)")
 
     def has_tools(self) -> bool:
         return bool(self._tools)
