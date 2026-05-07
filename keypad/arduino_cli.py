@@ -79,7 +79,7 @@ def _extract_archive(archive: Path, dest: Path, ext: str) -> None:
             zf.extractall(dest)
     else:
         with tarfile.open(archive, "r:gz") as tf:
-            tf.extractall(dest)
+            tf.extractall(dest, filter="data")
 
 
 def install_arduino_cli(

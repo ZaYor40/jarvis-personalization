@@ -299,6 +299,10 @@ class OpenAIProvider(LLMProvider):
         stream: bool = False,
         context: str = "",
     ) -> str | AsyncIterator[str]:
+        # TODO: implémenter le tool calling OpenAI (function calling natif)
+        if tools:
+            raise NotImplementedError("Tool use non supporté par OpenAIProvider — utilisez AnthropicProvider.")
+
         full_messages = [{"role": "system", "content": system}, *messages]
 
         if stream:

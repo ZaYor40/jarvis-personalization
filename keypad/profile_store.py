@@ -5,6 +5,8 @@ import secrets
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from keypad.firmware_gen import generate_from_bundle
 from keypad.models import (
     KeypadProfile,
@@ -37,7 +39,8 @@ def merge_profile(raw: Any, workspace: str) -> KeypadProfile:
                 merged[k] = v
         merged["workspaceRoot"] = workspace
         return KeypadProfile.model_validate(merged)
-    except Exception:
+    except Exception as exc:
+        logger.warning("merge_profile: validation failed, using defaults. error={}", exc)
         return base
 
 
@@ -47,6 +50,7 @@ def migrate_to_bundle(raw: Any, workspace: str) -> WorkspaceProfileBundle:
         slots: list[ProfileSlot] = []
         for s in raw_profiles:
             if not isinstance(s, dict):
+                logger.warning("migrate_to_bundle: slot invalide ignoré (type={})", type(s).__name__)
                 continue
             sid = s.get("id") or _new_slot_id()
             sname = s.get("name") or "Profil"

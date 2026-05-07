@@ -119,7 +119,7 @@ class Settings(BaseSettings):
 
     # ── Audio / STT / TTS ─────────────────────────────────────
     openai_api_key: str = Field(
-        default="", description="Clé API OpenAI (TTS + Vision).")
+        default="", description="Clé API OpenAI (LLM principal si api_backend=openai, TTS, Vision).")
     whisper_model: str = Field(
         default="tiny",
         description="Taille du modèle faster-whisper : tiny, base, small, medium, large.",

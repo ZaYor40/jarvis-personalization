@@ -131,7 +131,7 @@ $openaiApiKey = ""
 $openaiModel = "gpt-4o-mini"
 $anthropicApiKey = ""
 $anthropicModel = "claude-sonnet-4-6"
-if (Ask-YesNo -Prompt "Utiliser OpenAI comme LLM principal ?" -DefaultNo $false) {
+if (Ask-YesNo -Prompt "Utiliser OpenAI comme LLM principal ?" -DefaultNo $true) {
     $apiBackend = "openai"
     $openaiApiKey = Require-Value -Prompt "Cle API OpenAI (sk-...)" -Secret $true
 } else {
