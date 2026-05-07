@@ -1161,7 +1161,10 @@ async def get_connectors() -> list:
     env = _read_env()
 
     def _env_ok(*keys: str) -> bool:
-        return all((env.get(k) or os.getenv(k, "")).strip() for k in keys)
+        def _valid(v: str) -> bool:
+            v = v.strip()
+            return bool(v) and not v.startswith("...") and v != "—"
+        return all(_valid(env.get(k) or os.getenv(k, "")) for k in keys)
 
     def _token_status(path: str) -> str:
         p = Path(path)
