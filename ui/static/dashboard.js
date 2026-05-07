@@ -16,13 +16,6 @@
     { id: "INI·037", title: "Tester Sonnet 4.5 sur la pipeline transcription",   type: "R&D",       priority: "low",  source: "Anthropic update",       due: "—" },
     { id: "INI·036", title: "Fermer 7 onglets idle Chrome",                       type: "Hygiène",   priority: "low",  source: "Detection auto",         due: "—" },
   ];
-  const MOCK_MISSIONS = [
-    { id: "M·207", status: "run",   title: "Indexation 142 PDFs personnels",                sub: "agent: librarian · pinecone-ix",       prog: 0.68, cur: 96, tot: 142, eta: "12 min" },
-    { id: "M·206", status: "run",   title: 'Brief vidéo : "Pourquoi l\'IA personnelle…"',   sub: "agent: editor · 14 articles + 3 vids", prog: 0.34, cur: null, tot: null, eta: "1h 40" },
-    { id: "M·205", status: "wait",  title: "Reschedule meeting Stripe (3 participants)",     sub: "agent: scheduler · 2 réponses",        prog: 0.50, cur: 1, tot: 3, eta: "—" },
-    { id: "M·204", status: "queue", title: "Synthèse hebdo Substack (12 newsletters)",       sub: "agent: digest · dim. 09:00",           prog: 0,    cur: 0, tot: 12, eta: "Dim." },
-    { id: "M·203", status: "run",   title: "Monitoring spend cloud (AWS+OpenAI+Anthropic)",  sub: "agent: finops · 6h",                   prog: 0.92, cur: null, tot: null, eta: "ongoing" },
-  ];
   const MOCK_KPIS = [
     { lbl: "Vues 30j",        val: 248.3, unit: "K",    delta: "+12.4%", dir: "up", spark: [180,195,188,210,215,230,248] },
     { lbl: "Subs YouTube",    val: 41.2,  unit: "K",    delta: "+1.8%",  dir: "up", spark: [39.8,40.1,40.4,40.6,40.9,41.0,41.2] },
@@ -41,12 +34,6 @@
     { rank: "02", title: "J'ai construit mon propre Jarvis (12 mois)",  views: "142K", chg: "+4.1%" },
     { rank: "03", title: "Pourquoi vos prompts sont nuls",              views: "96.4K", chg: "+12%" },
     { rank: "04", title: "Stack 2026 : ce que j'utilise vraiment",      views: "78.1K", chg: "−2.3%" },
-  ];
-  const MOCK_DEVICES = [
-    { name: "MacBook Pro 16″", id: "mac · M3 Max", status: "Active", col: "var(--green)",  a: ["CPU", "14%"],   b: ["RAM", "42 / 64 GB"] },
-    { name: "iPhone 16 Pro",   id: "ios · 18.4",   status: "Sync",   col: "var(--accent)", a: ["Battery", "82%"], b: ["Last sync", "2 min"] },
-    { name: "AirPods Pro 2",   id: "audio · BT",   status: "Idle",   col: "var(--fg-3)",   a: ["Battery", "—"],  b: ["Last use", "3h"] },
-    { name: "Studio Display",  id: "ext · 5K",     status: "Active", col: "var(--green)",  a: ["Bright.", "62%"],b: ["Color", "P3"] },
   ];
 
   /* ───────── Data loaders ───────── */
@@ -69,14 +56,10 @@
   }
 
   async function loadMissions() {
-    // SHAPE EXPECTED: [{ id, status: "run"|"wait"|"queue", title, sub, prog, cur, tot, eta }]
-    // Backend GET /api/projects → [{ id, title, status, steps_done, steps_total, … }]
-    // status mapping: "running"/"planning"→"run", "waiting"→"wait", "queued"/"queue"→"queue"
-    // Filters out done/failed/killed projects
     try {
       const raw = await J.api.get("/api/projects");
       const sMap = { running: "run", planning: "run", waiting: "wait", queued: "queue", queue: "queue" };
-      return raw
+      const missions = raw
         .filter(p => p.status !== "done" && p.status !== "failed" && p.status !== "killed")
         .map(p => ({
           id:     p.id ? p.id.slice(0, 6).toUpperCase() : "?",
@@ -88,7 +71,9 @@
           tot:    p.steps_total || null,
           eta:    "—",
         }));
-    } catch (_) { return MOCK_MISSIONS; }
+      const doneCount = raw.filter(p => p.status === "done").length;
+      return { missions, doneCount };
+    } catch (_) { return { missions: [], doneCount: 0 }; }
   }
 
   async function loadAnalytics() {
@@ -128,8 +113,8 @@
   }
 
   async function loadDevices() {
-    // TODO: endpoint /api/devices manquant — retourne mock
-    return MOCK_DEVICES;
+    try { return await J.api.get("/api/settings/devices"); }
+    catch (_) { return []; }
   }
 
   /* ───────── Render helpers ───────── */
@@ -206,47 +191,53 @@
   }
 
   function renderMissions(root, data) {
+    const { missions, doneCount } = data;
     root.innerHTML = "";
-    root.appendChild(secHd("02", "Missions", "Ce que l'agent fait pour toi", data.length + " en cours · 18 terminées · 7j"));
+    const statParts = [];
+    if (missions.length > 0) statParts.push(missions.length + " en cours");
+    if (doneCount > 0) statParts.push(doneCount + " terminées");
+    root.appendChild(secHd("02", "Missions", "Ce que l'agent fait pour toi", statParts.join(" · ") || "Aucune mission"));
     const list = el("div");
-    data.forEach(m => {
-      list.appendChild(el("div", { class: "mission" }, [
-        el("div", { class: "m-id" }, [
-          document.createTextNode(m.id),
-          el("div", { class: "m-id-status " + m.status, text: STATUS_LBL[m.status] }),
-        ]),
-        el("div", {}, [
-          el("div", { class: "m-title", text: m.title }),
-          el("div", { class: "m-sub", text: m.sub }),
-        ]),
-        el("div", { class: "m-prog" }, [
-          el("div", { class: "m-prog-bar" }, [el("div", { style: { width: (m.prog * 100) + "%" } })]),
-          el("div", { class: "m-prog-meta" }, [
-            el("span", { text: Math.round(m.prog * 100) + "%" }),
-            el("span", { text: m.cur != null ? (m.cur + " / " + m.tot) : "—" }),
+    if (missions.length === 0) {
+      list.appendChild(el("div", { class: "j-empty", text: "Aucune mission en cours" }));
+    } else {
+      missions.forEach(m => {
+        list.appendChild(el("div", { class: "mission" }, [
+          el("div", { class: "m-id" }, [
+            document.createTextNode(m.id),
+            el("div", { class: "m-id-status " + m.status, text: STATUS_LBL[m.status] }),
           ]),
-        ]),
-        el("div", { class: "m-eta" }, [
-          el("div", { class: "m-eta-lbl", text: "ETA" }),
-          document.createTextNode(m.eta),
-        ]),
-      ]));
-    });
-    root.appendChild(card({
-      title: "Missions",
-      sub: data.length + " en cours · agent autonomous",
-      right: el("button", { class: "btn-ghost", text: "Voir tout · 23" }),
-    }, list));
+          el("div", {}, [
+            el("div", { class: "m-title", text: m.title }),
+            el("div", { class: "m-sub", text: m.sub }),
+          ]),
+          el("div", { class: "m-prog" }, [
+            el("div", { class: "m-prog-bar" }, [el("div", { style: { width: (m.prog * 100) + "%" } })]),
+            el("div", { class: "m-prog-meta" }, [
+              el("span", { text: Math.round(m.prog * 100) + "%" }),
+              el("span", { text: m.cur != null ? (m.cur + " / " + m.tot) : "—" }),
+            ]),
+          ]),
+          el("div", { class: "m-eta" }, [
+            el("div", { class: "m-eta-lbl", text: "ETA" }),
+            document.createTextNode(m.eta),
+          ]),
+        ]));
+      });
+    }
+    const cardOpts = { title: "Missions", sub: missions.length + " en cours · agent autonomous" };
+    if (doneCount > 0) cardOpts.right = el("button", { class: "btn-ghost", text: "Voir tout · " + (missions.length + doneCount) });
+    root.appendChild(card(cardOpts, list));
   }
 
   function renderDomotique(root) {
     root.innerHTML = "";
-    root.appendChild(secHd("03", "Domotique", "Maison", "0 device"));
+    root.appendChild(secHd("03", "Écosystème", "Modules & intégrations", "0 device"));
     root.appendChild(el("div", { class: "placeholder" }, [
       el("div", {}, [
-        el("div", { class: "ph-eyebrow", text: "Domotique · pas encore connectée" }),
+        el("div", { class: "ph-eyebrow", text: "Écosystème · aucun module connecté" }),
         el("div", { class: "ph-title",   text: "Aucun device" }),
-        el("div", { class: "ph-body",    text: "Connecte HomeKit, Matter ou Home Assistant pour piloter lumières, capteurs et thermostats depuis Jarvis." }),
+        el("div", { class: "ph-body",    text: "Connecte un module de l'écosystème Jarvis, HomeKit, Matter ou Home Assistant pour piloter lumières, capteurs et thermostats depuis Jarvis." }),
         el("div", { style: { marginTop: "18px", display: "flex", gap: "8px", justifyContent: "center" } }, [
           el("button", { class: "btn-accent", text: "Connecter un hub" }),
           el("button", { class: "tb-btn",     text: "Documentation" }),
@@ -256,16 +247,24 @@
   }
 
   function renderDevices(root, data) {
+    const COL = { green: "var(--green)", accent: "var(--accent)", muted: "var(--fg-3)" };
+    const activeCount = data.filter(d => d.status === "Active" || d.status === "Connected").length;
+    const nearbyCount = data.filter(d => d.status === "Nearby").length;
+    const statParts = [];
+    if (activeCount) statParts.push(activeCount + " actifs");
+    if (nearbyCount) statParts.push(nearbyCount + " à proximité");
     root.innerHTML = "";
-    root.appendChild(secHd("04", "Devices", "Tes appareils", data.filter(d => d.status === "Active").length + " actifs · " + data.filter(d => d.status === "Idle").length + " idle"));
+    root.appendChild(secHd("04", "Devices", "Tes appareils", statParts.join(" · ") || "—"));
+    if (data.length === 0) {
+      root.appendChild(el("div", { class: "j-empty", text: "Aucun appareil détecté" }));
+      return;
+    }
     const grid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" } });
     data.forEach(d => {
-      const splitVal = (s) => {
-        const parts = String(s).split(" ");
-        return [parts[0], parts.slice(1).join(" ")];
-      };
+      const splitVal = (s) => { const p = String(s).split(" "); return [p[0], p.slice(1).join(" ")]; };
       const [aV, aU] = splitVal(d.a[1]);
       const [bV, bU] = splitVal(d.b[1]);
+      const col = COL[d.col] || d.col;
       grid.appendChild(el("div", { class: "dev-card" }, [
         el("div", { class: "dev-head" }, [
           el("div", {}, [
@@ -275,7 +274,7 @@
           el("div", {}, [
             el("span", {
               class: "t-mono",
-              style: { fontSize: "10px", color: d.col, letterSpacing: ".12em", textTransform: "uppercase" },
+              style: { fontSize: "10px", color: col, letterSpacing: ".12em", textTransform: "uppercase" },
               text: "● " + d.status,
             }),
           ]),
@@ -366,7 +365,7 @@
     sections: [
       { id: "initiatives", label: "Initiatives", meta: "6" },
       { id: "missions",    label: "Missions",    meta: "5" },
-      { id: "domotique",   label: "Domotique",   meta: "—" },
+      { id: "domotique",   label: "Écosystème",  meta: "—" },
       { id: "devices",     label: "Devices",     meta: "4" },
       { id: "analytics",   label: "Analytics",   meta: "7j" },
     ],
@@ -414,7 +413,7 @@
       // Navigation (no slash)
       { kind: "nav",   group: "Aller à", title: "Initiatives",  glyph: "01", run: () => { state.active = "initiatives"; renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Missions",     glyph: "02", run: () => { state.active = "missions";    renderActive(); refreshSidebar(); } },
-      { kind: "nav",   group: "Aller à", title: "Domotique",    glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
+      { kind: "nav",   group: "Aller à", title: "Écosystème",   glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Devices",      glyph: "04", run: () => { state.active = "devices";     renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "05", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.handleSettingsClick && window.handleSettingsClick(); } },
@@ -439,9 +438,6 @@
     J.mountBottomNav({ active: "control" });
     registerCommands();
     renderActive();
-
-    // Demo notification
-    setTimeout(() => J.notify({ kind: "success", text: "Mission M·207 — indexation à 70 %" }), 4000);
   }
   window.Dashboard = { boot };
 })();

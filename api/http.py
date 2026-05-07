@@ -1035,7 +1035,161 @@ async def update_setting(body: SettingUpdateBody) -> dict:
 
 @router.get("/api/settings/devices")
 async def get_devices() -> list:
-    return []
+    import platform
+    import subprocess
+    import psutil
+
+    devices: list[dict] = []
+    sys_name = platform.system()
+
+    # ── Machine locale ────────────────────────────────────────────────────────
+    cpu_pct = psutil.cpu_percent(interval=0.2)
+    mem = psutil.virtual_memory()
+    ram_used = round(mem.used / (1024 ** 3), 1)
+    ram_total = round(mem.total / (1024 ** 3), 1)
+    battery = psutil.sensors_battery()
+
+    if sys_name == "Darwin":
+        try:
+            model = subprocess.check_output(
+                ["sysctl", "-n", "hw.model"], text=True, timeout=3
+            ).strip()
+        except Exception:
+            model = platform.node().replace(".local", "") or "Mac"
+        chip = platform.processor() or platform.machine()
+        host_id = f"mac · {chip}"
+    elif sys_name == "Windows":
+        model = platform.node()
+        host_id = f"windows · {platform.machine()}"
+    else:
+        model = platform.node().replace(".local", "") or "Linux"
+        host_id = f"linux · {platform.machine()}"
+
+    devices.append({
+        "name": model,
+        "id": host_id,
+        "status": "Active",
+        "col": "green",
+        "a": ["CPU", f"{cpu_pct}%"],
+        "b": ["Battery", f"{int(battery.percent)}%"] if battery else ["RAM", f"{ram_used} / {ram_total} GB"],
+        "type": "host",
+    })
+
+    # ── Bluetooth ─────────────────────────────────────────────────────────────
+    if sys_name == "Darwin":
+        try:
+            out = subprocess.check_output(
+                ["system_profiler", "SPBluetoothDataType"], text=True, timeout=6
+            )
+            _parse_bt_macos(out, devices)
+        except Exception:
+            pass
+    elif sys_name == "Windows":
+        try:
+            _parse_bt_windows(devices)
+        except Exception:
+            pass
+
+    return devices
+
+
+_BT_ID_MAP = {
+    "headphones": "audio · BT",
+    "headset":    "audio · BT",
+    "mouse":      "mouse · BT",
+    "keyboard":   "keyboard · BT",
+    "gamepad":    "gamepad · BT",
+    "joystick":   "gamepad · BT",
+}
+
+
+def _parse_bt_macos(out: str, devices: list) -> None:
+    import re
+    section: str | None = None
+    cur: dict | None = None
+
+    def _flush(d: dict | None) -> None:
+        if not d:
+            return
+        name = d["_name"]
+        if re.fullmatch(r"[0-9A-Fa-f:]+", name):
+            return  # bare MAC address — skip
+        bt_type = d["_type"] or "Device"
+        connected = d["_connected"]
+        devices.append({
+            "name": name,
+            "id": _BT_ID_MAP.get(bt_type.lower(), "bluetooth · BT"),
+            "status": "Connected" if connected else "Nearby",
+            "col": "green" if connected else "muted",
+            "a": ["Type", bt_type],
+            "b": ["Vendor", d["_vendor"] or "—"],
+            "type": "bluetooth",
+        })
+
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        stripped = line.strip()
+
+        if indent == 6 and stripped.endswith(":"):
+            _flush(cur)
+            cur = None
+            if "Not Connected" in stripped:
+                section = "not_connected"
+            elif "Connected" in stripped:
+                section = "connected"
+            else:
+                section = None
+            continue
+
+        if section is None:
+            continue
+
+        if indent == 10 and stripped.endswith(":"):
+            _flush(cur)
+            cur = {
+                "_name": stripped[:-1],
+                "_connected": section == "connected",
+                "_type": None,
+                "_vendor": None,
+            }
+            continue
+
+        if cur and indent >= 14 and ":" in stripped:
+            key, _, val = stripped.partition(":")
+            key, val = key.strip(), val.strip()
+            if key == "Minor Type":
+                cur["_type"] = val
+            elif key == "Vendor ID" and "004C" in val:
+                cur["_vendor"] = "Apple"
+
+    _flush(cur)
+
+
+def _parse_bt_windows(devices: list) -> None:
+    import subprocess
+    out = subprocess.check_output(
+        ["powershell", "-Command",
+         "Get-PnpDevice -Class Bluetooth | Select-Object FriendlyName,Status | ConvertTo-Json"],
+        text=True, timeout=8,
+    )
+    import json as _json
+    items = _json.loads(out)
+    if isinstance(items, dict):
+        items = [items]
+    for item in items:
+        name = item.get("FriendlyName", "Unknown")
+        status = item.get("Status", "Unknown")
+        devices.append({
+            "name": name,
+            "id": "bluetooth · BT",
+            "status": "Connected" if status == "OK" else "Nearby",
+            "col": "green" if status == "OK" else "muted",
+            "a": ["Type", "Bluetooth"],
+            "b": ["Status", status],
+            "type": "bluetooth",
+        })
 
 
 @router.get("/api/settings/voices")

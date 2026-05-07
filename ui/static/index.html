@@ -61,8 +61,8 @@
       z-index: 4;
       pointer-events: none;
       background:
-        radial-gradient(80vw 60vh at 12% 8%, rgba(74,158,255,.06), transparent 60%),
-        radial-gradient(60vw 50vh at 92% 96%, rgba(184,150,62,.04), transparent 60%);
+        radial-gradient(80vw 60vh at 12% 8%, rgba(74,158,255,.09), transparent 60%),
+        radial-gradient(60vw 50vh at 92% 96%, rgba(184,150,62,.06), transparent 60%);
     }
 
     /* ── SPA panel (Dashboard & Settings) ───────────────────────── */
@@ -72,13 +72,20 @@
       z-index: 20;
       display: none;
       opacity: 0;
-      background:
-        radial-gradient(80vw 60vh at 12% 8%, rgba(74,158,255,.06), transparent 60%),
-        radial-gradient(60vw 50vh at 92% 96%, rgba(184,150,62,.04), transparent 60%),
-        var(--bg-0, #06080D);
+      background: var(--bg-0, #06080D);
       font-family: "Geist", "Inter", -apple-system, system-ui, sans-serif;
       font-size: 13px;
       color: var(--fg-0, #DCE8FF);
+    }
+    /* Aurora overlay inside SPA panel — renders above card surfaces */
+    #spa-aurora {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      background:
+        radial-gradient(80vw 60vh at 12% 8%, rgba(74,158,255,.09), transparent 60%),
+        radial-gradient(60vw 50vh at 92% 96%, rgba(184,150,62,.06), transparent 60%);
     }
     #spa-panel .app { background: transparent; }
     #spa-panel .main { background: transparent; padding-bottom: 72px; }
@@ -1636,6 +1643,7 @@
 
   <!-- SPA Panel — Dashboard & Settings inline -->
   <div id="spa-panel">
+    <div id="spa-aurora"></div>
     <div class="app">
       <aside id="sidebar"></aside>
       <main class="main">
@@ -1753,28 +1761,6 @@
               onclick="document.getElementById('gdp-flight-search').value=''; Globe.searchFlight('')"
               title="Effacer">✕</button>
           </div>
-          <!-- Couche nuageuse -->
-          <div class="gdp-switch-row">
-            <span class="gdp-switch-label">☁ Nuages</span>
-            <label class="gdp-switch" title="Activer la couche nuageuse">
-              <input type="checkbox" id="gdp-clouds-check" onchange="Globe.toggleClouds()">
-              <span class="gdp-switch-track"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Navires -->
-        <div class="gdp-section">
-          <div class="gdp-section-hd">
-            <span class="gdp-section-dot" style="background:#B8963E"></span>
-            <span class="gdp-section-label">Navires</span>
-            <span class="gdp-section-count" id="gdp-vessel-count">—</span>
-            <label class="gdp-switch" title="Afficher / masquer les navires">
-              <input type="checkbox" id="gdp-vessels-check" checked onchange="Globe.toggleVessels()">
-              <span class="gdp-switch-track"></span>
-            </label>
-          </div>
-          <div class="gdp-vessel-status" id="gdp-vessel-status">Initialisation…</div>
         </div>
 
         <!-- Météo -->
