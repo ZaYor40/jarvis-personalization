@@ -404,10 +404,243 @@
 
   /* ───────── Tools ───────── */
   async function renderTools(root) {
-    // SHAPE EXPECTED: [{ glyph, name, sub, calls, lat, on }]
-    // Backend GET /api/tools → [{ name, description }]
-    // No calls/lat/on toggle state from backend — shows tools as always-on
     root.innerHTML = '<div class="surface"><div class="j-loading">Chargement…</div></div>';
+
+    // Fetch installed skills + catalog in parallel
+    let installed = [], catalog = [], offline = false;
+    try {
+      const [instRes, catRes] = await Promise.all([
+        J.api.get("/api/skills/installed"),
+        J.api.get("/api/skills/catalog"),
+      ]);
+      installed = (instRes && instRes.skills) ? instRes.skills : [];
+      catalog   = (catRes  && catRes.skills)  ? catRes.skills  : [];
+      offline   = !!(catRes && catRes.offline);
+    } catch (_) { /* keep empty */ }
+
+    root.innerHTML = "";
+
+    /* ─── Section 1 : Skills actifs ─────────────────────────── */
+    const reloadBtn = el("button", { class: "btn-ghost", text: "↺ Recharger" });
+    root.appendChild(secHd("01", "Skills actifs", "Extensions chargées par Jarvis", installed.length + " actif(s)"));
+
+    const activeList = el("div");
+    const searchInput = el("input", {
+      class: "modal-search",
+      placeholder: "Rechercher un skill…",
+      style: { width: "100%", marginBottom: "12px", boxSizing: "border-box" },
+    });
+
+    function renderInstalled() {
+      activeList.innerHTML = "";
+      if (!installed.length) {
+        activeList.appendChild(el("div", {
+          class: "card-sub",
+          style: { padding: "12px 0", opacity: "0.6" },
+          text: "Aucun skill installé. Utilisez la Marketplace ci-dessous.",
+        }));
+        return;
+      }
+      installed.forEach(s => {
+        const confirmWrap = el("div", { style: { display: "none", gap: "8px" } });
+        const confirmBtn  = el("button", { class: "btn-ghost", style: { color: "var(--red, #f55)" }, text: "Confirmer" });
+        const cancelBtn   = el("button", { class: "btn-ghost", text: "Annuler" });
+        confirmWrap.appendChild(confirmBtn);
+        confirmWrap.appendChild(cancelBtn);
+
+        const uninstallBtn = el("button", { class: "btn-ghost", text: "Désinstaller" });
+        uninstallBtn.onclick = () => {
+          uninstallBtn.style.display = "none";
+          confirmWrap.style.display  = "flex";
+        };
+        cancelBtn.onclick = () => {
+          confirmWrap.style.display  = "none";
+          uninstallBtn.style.display = "";
+        };
+        confirmBtn.onclick = async () => {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = "…";
+          try {
+            const r = await fetch("/api/skills/uninstall/" + encodeURIComponent(s.name), { method: "DELETE" });
+            const data = await r.json();
+            if (data.success) {
+              J.notify({ kind: "info", text: "Skill désinstallé : " + s.name });
+              installed = installed.filter(x => x.name !== s.name);
+              catalog = catalog.map(c => c.name === s.name ? Object.assign({}, c, { installed: false }) : c);
+              renderInstalled();
+              renderMarket(searchInput.value.trim().toLowerCase());
+            } else {
+              J.notify({ kind: "error", text: data.message || "Erreur désinstallation" });
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = "Confirmer";
+              confirmWrap.style.display  = "none";
+              uninstallBtn.style.display = "";
+            }
+          } catch (e) {
+            J.notify({ kind: "error", text: "Erreur réseau : " + e.message });
+          }
+        };
+
+        const tagsWrap = el("div", { style: { display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px" } });
+        (s.tags || []).forEach(t => tagsWrap.appendChild(el("span", {
+          style: { background: "var(--surface-2,rgba(255,255,255,.06))", borderRadius: "4px", padding: "1px 6px", fontSize: "10px", color: "var(--fg-3)" },
+          text: t,
+        })));
+
+        activeList.appendChild(el("div", { class: "tool-row", style: { alignItems: "start" } }, [
+          el("div", { class: "tg", text: (s.name || "sk").slice(0, 2).toUpperCase() }),
+          el("div", { style: { flex: 1 } }, [
+            el("span", { style: { color: "var(--fg-0)" }, text: s.name }),
+            el("span", { class: "tn-sub", text: " v" + (s.version || "1.0.0") + " · " + (s.author || "—") }),
+            el("span", { class: "tn-sub", text: s.description || "" }),
+            tagsWrap,
+          ]),
+          el("div", { style: { display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-end" } }, [
+            uninstallBtn,
+            confirmWrap,
+          ]),
+        ]));
+      });
+    }
+
+    reloadBtn.onclick = async () => {
+      reloadBtn.disabled = true;
+      reloadBtn.textContent = "…";
+      try {
+        const r = await J.api.post("/api/skills/reload", null);
+        J.notify({ kind: "success", text: "Skills rechargés (" + (r.loaded || 0) + " actifs)" });
+        const res = await J.api.get("/api/skills/installed");
+        installed = (res && res.skills) ? res.skills : [];
+        renderInstalled();
+      } catch (e) {
+        J.notify({ kind: "error", text: "Erreur reload : " + e.message });
+      }
+      reloadBtn.disabled = false;
+      reloadBtn.textContent = "↺ Recharger";
+    };
+
+    renderInstalled();
+    root.appendChild(card({
+      title: "Skills actifs",
+      sub:   installed.length + " / " + catalog.length + " skills disponibles",
+      right: reloadBtn,
+    }, activeList));
+
+    /* ─── Section 2 : Marketplace ───────────────────────────── */
+    root.appendChild(secHd("02", "Marketplace", "Catalogue jarvis-skills", ""));
+
+    const onlineBadge = el("span", {
+      style: { fontSize: "11px", opacity: "0.7" },
+      text: offline ? "● Hors ligne" : "● En ligne",
+    });
+    if (offline) onlineBadge.title = "Catalogue local — repo GitHub inaccessible";
+
+    const marketList = el("div");
+
+    function renderMarket(filter) {
+      marketList.innerHTML = "";
+      const filtered = filter
+        ? catalog.filter(s =>
+            s.name.toLowerCase().includes(filter) ||
+            (s.description || "").toLowerCase().includes(filter) ||
+            (s.tags || []).some(t => t.toLowerCase().includes(filter))
+          )
+        : catalog;
+
+      if (!filtered.length) {
+        marketList.appendChild(el("div", {
+          class: "card-sub",
+          style: { padding: "12px 0", opacity: "0.6" },
+          text: filter ? "Aucun skill trouvé." : "Catalogue vide.",
+        }));
+        return;
+      }
+
+      filtered.forEach(s => {
+        const isInst = s.installed || installed.some(i => i.name === s.name);
+        const actionBtn = el("button", {
+          class: "btn-ghost",
+          style: isInst ? { opacity: "0.5", cursor: "default" } : {},
+          text: isInst ? "Installé ✓" : "Installer",
+          disabled: isInst,
+        });
+        if (!isInst) {
+          actionBtn.onclick = async () => {
+            actionBtn.disabled = true;
+            actionBtn.textContent = "…";
+            try {
+              const r = await J.api.post("/api/skills/install/" + encodeURIComponent(s.name), null);
+              if (r.success) {
+                J.notify({ kind: "success", text: "Skill installé ✓ : " + s.name });
+                catalog = catalog.map(c => c.name === s.name ? Object.assign({}, c, { installed: true }) : c);
+                const res = await J.api.get("/api/skills/installed");
+                installed = (res && res.skills) ? res.skills : [];
+                renderInstalled();
+                renderMarket(searchInput.value.trim().toLowerCase());
+              } else {
+                J.notify({ kind: "error", text: r.message || "Erreur installation" });
+                actionBtn.disabled = false;
+                actionBtn.textContent = "Installer";
+              }
+            } catch (e) {
+              J.notify({ kind: "error", text: "Erreur réseau : " + e.message });
+              actionBtn.disabled = false;
+              actionBtn.textContent = "Installer";
+            }
+          };
+        }
+
+        const tagsWrap = el("div", { style: { display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px" } });
+        (s.tags || []).forEach(t => tagsWrap.appendChild(el("span", {
+          style: { background: "var(--surface-2,rgba(255,255,255,.06))", borderRadius: "4px", padding: "1px 6px", fontSize: "10px", color: "var(--fg-3)" },
+          text: t,
+        })));
+
+        marketList.appendChild(el("div", { class: "tool-row", style: { alignItems: "start" } }, [
+          el("div", { class: "tg", text: (s.name || "sk").slice(0, 2).toUpperCase() }),
+          el("div", { style: { flex: 1 } }, [
+            el("span", { style: { color: "var(--fg-0)" }, text: s.name }),
+            el("span", { class: "tn-sub", text: " · " + (s.author || "—") }),
+            el("span", { class: "tn-sub", text: s.description || "" }),
+            tagsWrap,
+          ]),
+          actionBtn,
+        ]));
+      });
+    }
+
+    searchInput.oninput = () => renderMarket(searchInput.value.trim().toLowerCase());
+    renderMarket("");
+
+    const refreshBtn = el("button", { class: "btn-ghost", text: "↻ Actualiser" });
+    refreshBtn.onclick = async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = "…";
+      try {
+        const catRes = await J.api.get("/api/skills/catalog");
+        catalog = (catRes && catRes.skills) ? catRes.skills : [];
+        offline  = !!(catRes && catRes.offline);
+        onlineBadge.textContent = offline ? "● Hors ligne" : "● En ligne";
+        renderMarket(searchInput.value.trim().toLowerCase());
+        J.notify({ kind: "info", text: "Catalogue actualisé — " + catalog.length + " skill(s)" });
+      } catch (e) {
+        J.notify({ kind: "error", text: "Erreur catalogue : " + e.message });
+      }
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = "↻ Actualiser";
+    };
+
+    const mktRight = el("div", { style: { display: "flex", gap: "10px", alignItems: "center" } });
+    mktRight.appendChild(onlineBadge);
+    mktRight.appendChild(refreshBtn);
+
+    root.appendChild(card({
+      title: "Marketplace",
+      sub:   catalog.length + " skills disponibles",
+      right: mktRight,
+    }, [searchInput, marketList]));
+
+    /* ─── Section 3 : Outils runtime ────────────────────────── */
     let tools = TOOLS.map(t => Object.assign({}, t));
     try {
       const raw = await J.api.get("/api/tools");
@@ -423,17 +656,16 @@
       }
     } catch (_) { /* keep mock */ }
 
-    root.innerHTML = "";
-    root.appendChild(secHd("03", "Outils", "Capabilities branchées", tools.filter(t=>t.on).length + " actifs"));
-    const list = el("div");
-    const state = tools;
-    function rerender() {
-      list.innerHTML = "";
-      state.forEach((t, i) => {
-        list.appendChild(el("div", { class: "tool-row" }, [
+    root.appendChild(secHd("03", "Outils runtime", "Capabilities branchées", tools.filter(t => t.on).length + " actifs"));
+    const toolList = el("div");
+    const toolState = tools;
+    function rerenderTools() {
+      toolList.innerHTML = "";
+      toolState.forEach((t, i) => {
+        toolList.appendChild(el("div", { class: "tool-row" }, [
           el("div", { class: "tg", text: t.glyph }),
           el("div", {}, [
-            el("span", { style:{color:"var(--fg-0)"}, text: t.name }),
+            el("span", { style: { color: "var(--fg-0)" }, text: t.name }),
             el("span", { class: "tn-sub", text: t.sub }),
           ]),
           el("div", { class: "tnum", text: t.calls.toLocaleString() }),
@@ -441,13 +673,20 @@
           el("div", {
             class: "toggle" + (t.on ? " on" : ""),
             style: { justifySelf: "end" },
-            onclick: () => { state[i].on = !state[i].on; rerender(); J.notify({ kind: state[i].on ? "success" : "info", text: t.name + (state[i].on ? " · activé" : " · désactivé") }); },
+            onclick: () => {
+              toolState[i].on = !toolState[i].on;
+              rerenderTools();
+              J.notify({ kind: toolState[i].on ? "success" : "info", text: t.name + (toolState[i].on ? " · activé" : " · désactivé") });
+            },
           }),
         ]));
       });
     }
-    rerender();
-    root.appendChild(card({ title: "Outils", sub: state.filter(t=>t.on).length + " / " + state.length + " actifs · runtime" }, list));
+    rerenderTools();
+    root.appendChild(card({
+      title: "Outils",
+      sub: toolState.filter(t => t.on).length + " / " + toolState.length + " actifs · runtime",
+    }, toolList));
   }
 
   /* ───────── Conso ───────── */
@@ -647,12 +886,12 @@
 
   /* ───────── Settings (sub-pages) ───────── */
   const SETTINGS_NAV = [
-    { id: "keys",       label: "API Keys",       meta: "4",      eyebrow: "clefs d'accès",    title: "API Keys" },
-    { id: "audio",      label: "Audio & Vidéo",  meta: "",       eyebrow: "input / output",   title: "Audio & Vidéo" },
-    { id: "autonomy",   label: "Autonomie",      meta: "L2",     eyebrow: "comportement",     title: "Autonomie" },
-    { id: "connectors", label: "Connecteurs",    meta: "6/8",    eyebrow: "intégrations",     title: "Connecteurs" },
-    { id: "appearance", label: "Apparence",      meta: "dark",   eyebrow: "interface",        title: "Apparence" },
-    { id: "agents",     label: "Agents",         meta: "5",      eyebrow: "équipe IA",        title: "Agents" },
+    { id: "keys",       label: "API Keys",    meta: "",  eyebrow: "clefs d'accès",   title: "API Keys" },
+    { id: "audio",      label: "Audio & Vidéo", meta: "", eyebrow: "input / output", title: "Audio & Vidéo" },
+    { id: "modeles",    label: "Modèles",     meta: "",  eyebrow: "IA & voix",       title: "Modèles" },
+    { id: "connectors", label: "Connecteurs", meta: "",  eyebrow: "intégrations",    title: "Connecteurs" },
+    { id: "autonomy",   label: "Autonomie",   meta: "",  eyebrow: "comportement",    title: "Autonomie" },
+    { id: "appearance", label: "Apparence",   meta: "",  eyebrow: "interface",       title: "Apparence" },
   ];
 
   function setRow(title, sub, control, status) {
@@ -666,170 +905,200 @@
     ]);
   }
 
-  function renderSettingsKeys(c) {
-    const keys = [
-      { name:"Anthropic",  sub:"claude-sonnet-4.5 · org_4F8a", val:"sk-ant-api03-9F4a8b2c1d6e...kQ", status:"valid" },
-      { name:"OpenAI",     sub:"gpt-5 · whisper-1",            val:"sk-proj-2A8d9f1e3c5b...mP",      status:"valid" },
-      { name:"Pinecone",   sub:"ix-personal · 1536d",          val:"pcsk_4Hq2_AbcDef123Ghi...",      status:"valid" },
-      { name:"ElevenLabs", sub:"voice · fr-marc-v2",           val:"el_8X2c4a...",                   status:"warn" },
-    ];
-    keys.forEach(k => {
-      c.appendChild(setRow(k.name, k.sub,
-        el("input", { class: "input-mono", type: "password", value: k.val }),
-        el("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, [
-          el("span", { class: "t-mono", style: { fontSize: "10px", color: k.status==="valid" ? "var(--green)" : "var(--gold)" }, text: "● " + (k.status==="valid" ? "OK" : "EXPIRE") }),
-          el("button", { class: "btn-ghost", text: "Show" }),
-          el("button", { class: "btn-ghost", text: "⋯" }),
-        ])
-      ));
-    });
+  function comingSoon(c) {
+    c.appendChild(el("div", { class: "j-empty", style: { margin: "32px 0" }, text: "À venir — pas encore développé." }));
   }
-  function renderSettingsAudio(c) {
-    function selOpts(arr) { return arr.map(o => el("option", { text: o })); }
-    c.appendChild(setRow("Microphone", "capture par défaut",
-      el("select", { class: "select-mono" }, selOpts(["MacBook Pro Microphone","AirPods Pro 2","Shure MV7"])),
-      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--green)" }, text: "● −18 dB" })));
-    c.appendChild(setRow("Sortie audio", "où Jarvis parle",
-      el("select", { class: "select-mono" }, selOpts(["AirPods Pro 2","MacBook Pro Speakers","HomePod mini"])),
-      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "vol 64%" })));
-    c.appendChild(setRow("Caméra", "video input",
-      el("select", { class: "select-mono" }, selOpts(["FaceTime HD Camera","Logitech Brio"])),
-      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "1080p · 30fps" })));
-    c.appendChild(setRow("Voice wake-word", '"Jarvis" · always listening',
-      el("span", { class: "t-mono", style: { color: "var(--fg-3)", fontSize: "10.5px" }, text: "OFF" }),
-      el("div", { class: "toggle" })));
-    c.appendChild(setRow("Voix de Jarvis (TTS)", "ElevenLabs · fr-marc-v2",
-      el("select", { class: "select-mono" }, selOpts(["fr-marc-v2 (clone)","fr-onyx","fr-aurore"])),
-      el("button", { class: "btn-ghost", text: "▶ Précouter" })));
 
+  function saveSetting(key, value) {
+    return fetch("/api/settings/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value: String(value) }),
+    }).catch(() => {});
+  }
+
+  function renderSettingsKeys(c) {
+    const KEY_META = {
+      ANTHROPIC_API_KEY:    { name: "Anthropic",        sub: "Claude — LLM principal" },
+      OPENAI_API_KEY:       { name: "OpenAI",           sub: "Whisper STT / fallback LLM" },
+      ELEVENLABS_API_KEY:   { name: "ElevenLabs",       sub: "TTS — voix de Jarvis" },
+      ELEVENLABS_VOICE_ID:  { name: "ElevenLabs Voice ID", sub: "ID de voix par défaut" },
+      GOOGLE_API_KEY:       { name: "Google",           sub: "Gemini · Calendar · Drive" },
+      LIVEKIT_URL:          { name: "LiveKit URL",      sub: "serveur agent vocal temps réel" },
+      LIVEKIT_API_KEY:      { name: "LiveKit API Key",  sub: "auth LiveKit" },
+      LIVEKIT_API_SECRET:   { name: "LiveKit Secret",   sub: "auth LiveKit" },
+      NOTION_TOKEN:         { name: "Notion",           sub: "intégration workspace" },
+      SPOTIFY_CLIENT_ID:    { name: "Spotify Client ID",sub: "OAuth Spotify" },
+      DEEPGRAM_API_KEY:     { name: "Deepgram",         sub: "STT alternatif" },
+      MISTRAL_API_KEY:      { name: "Mistral",          sub: "LLM alternatif" },
+    };
+    c.appendChild(el("div", { class: "j-loading", text: "Chargement…" }));
+    J.api.get("/api/settings").then(data => {
+      c.innerHTML = "";
+      const keys = data.api_keys || {};
+      Object.keys(KEY_META).forEach(envKey => {
+        const meta = KEY_META[envKey];
+        const masked = keys[envKey] || "";
+        const isSet = masked.length > 0;
+        const inp = el("input", {
+          class: "input-mono", type: "password",
+          value: masked, placeholder: isSet ? "" : "non configuré",
+          style: { opacity: isSet ? "1" : "0.4" },
+        });
+        inp.addEventListener("blur", () => {
+          const v = inp.value.trim();
+          if (v && !v.includes("•")) saveSetting(envKey, v);
+        });
+        const showBtn = el("button", { class: "btn-ghost", text: "Afficher" });
+        showBtn.addEventListener("click", () => {
+          inp.type = inp.type === "password" ? "text" : "password";
+          showBtn.textContent = inp.type === "password" ? "Afficher" : "Masquer";
+        });
+        c.appendChild(setRow(meta.name, meta.sub, inp,
+          el("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, [
+            el("span", { class: "t-mono", style: { fontSize: "10px", color: isSet ? "var(--green)" : "var(--fg-3)" }, text: isSet ? "● OK" : "○ vide" }),
+            showBtn,
+          ])
+        ));
+      });
+    }).catch(() => { c.innerHTML = ""; c.appendChild(el("div", { class: "j-empty", text: "Impossible de charger les clés." })); });
+  }
+
+  function renderSettingsAudio(c) {
+    // Devices from browser
+    function buildDeviceSel(kind, savedKey) {
+      const sel = el("select", { class: "select-mono" });
+      el("option", { text: "Détection…" });
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        navigator.mediaDevices.enumerateDevices().then(devs => {
+          sel.innerHTML = "";
+          devs.filter(d => d.kind === kind).forEach(d => {
+            sel.appendChild(el("option", { value: d.deviceId, text: d.label || d.deviceId.slice(0, 20) }));
+          });
+          if (!sel.options.length) sel.appendChild(el("option", { text: "Aucun détecté" }));
+        }).catch(() => { sel.innerHTML = ""; sel.appendChild(el("option", { text: "Non disponible" })); });
+      }
+      return sel;
+    }
+
+    c.appendChild(setRow("Microphone", "capture par défaut", buildDeviceSel("audioinput"),
+      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "audio input" })));
+    c.appendChild(setRow("Sortie audio", "où Jarvis parle", buildDeviceSel("audiooutput"),
+      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "audio output" })));
+    c.appendChild(setRow("Caméra", "video input", buildDeviceSel("videoinput"),
+      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "video" })));
+
+    // Wake session (facial control)
+    const wakeToggle = el("div", { class: "toggle" });
+    fetch("/api/wakeup/status").then(r => r.json()).then(d => {
+      if (d.enabled) wakeToggle.classList.add("on");
+    }).catch(() => {});
+    wakeToggle.addEventListener("click", () => {
+      const isOn = wakeToggle.classList.toggle("on");
+      saveSetting("WAKEUP_ENABLED", isOn ? "true" : "false");
+    });
+    c.appendChild(setRow("Séance Wake", "activation + contrôle facial au démarrage", el("span"), wakeToggle));
+
+    // Quebec mode
     const quebecToggle = el("div", { class: "toggle" });
-    fetch("/api/settings").then(r => r.json()).then(d => {
+    J.api.get("/api/settings").then(d => {
       if (d.jarvis?.quebec_mode) quebecToggle.classList.add("on");
     }).catch(() => {});
     quebecToggle.addEventListener("click", () => {
       const isOn = quebecToggle.classList.toggle("on");
-      fetch("/api/settings/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "QUEBEC_MODE", value: isOn ? "true" : "false" }),
-      }).catch(() => {});
+      saveSetting("QUEBEC_MODE", isOn ? "true" : "false");
     });
-    c.appendChild(setRow("Mode Québécois 🍁", "accent + dialecte québécois · voix dédiée ElevenLabs", el("span"), quebecToggle));
+    c.appendChild(setRow("Mode Québécois", "accent + dialecte québécois · voix dédiée ElevenLabs", el("span"), quebecToggle));
   }
-  function renderSettingsAutonomy(c) {
-    const levels = [
-      { n:0, lbl:"Manuel",         sub:"chaque action demande confirmation" },
-      { n:1, lbl:"Assisté",        sub:"propose des actions, n'exécute jamais seul" },
-      { n:2, lbl:"Autonome · L2",  sub:"exécute librement sauf actions destructives" },
-      { n:3, lbl:"Total",          sub:"plein pouvoir, alerte uniquement en cas d'erreur" },
-    ];
-    let lvl = 2;
-    const wrap = el("div", { style: { gridColumn: "2 / 4", display: "flex", flexDirection: "column", gap: "8px" } });
-    function rerender() {
-      wrap.innerHTML = "";
-      levels.forEach(l => {
-        wrap.appendChild(el("div", {
-          onclick: () => { lvl = l.n; rerender(); },
-          style: {
-            display: "grid", gridTemplateColumns: "24px 1fr auto", alignItems: "center", gap: "12px",
-            padding: "10px 14px", borderRadius: "8px", cursor: "pointer",
-            border: "1px solid " + (lvl === l.n ? "var(--accent-line)" : "var(--line-1)"),
-            background: lvl === l.n ? "var(--accent-soft)" : "transparent",
-          },
-        }, [
-          el("span", { class: "t-mono", style: { color: lvl===l.n ? "var(--accent)" : "var(--fg-3)", fontSize: "11px" }, text: "L" + l.n }),
-          el("div", {}, [
-            el("div", { style: { color: "var(--fg-0)", fontSize: "13px" }, text: l.lbl }),
-            el("div", { style: { fontFamily: "var(--mono)", fontSize: "10.5px", color: "var(--fg-3)", marginTop: "2px" }, text: l.sub }),
-          ]),
-          el("span", { class: "t-mono", style: { color: lvl===l.n ? "var(--green)" : "var(--fg-4)", fontSize: "10px" }, text: lvl===l.n ? "● ACTIF" : "○" }),
-        ]));
-      });
-    }
-    rerender();
-    const row1 = el("div", { class: "set-row", style: { borderTop: "0", paddingTop: "0" } }, [
-      el("div", { class: "set-l" }, [
-        el("span", { class: "set-l-title", text: "Niveau d'autonomie" }),
-        el("span", { class: "set-l-sub", text: "jusqu'où Jarvis peut agir sans toi" }),
-      ]),
-      wrap,
-    ]);
-    c.appendChild(row1);
-    c.appendChild(setRow("Confirmation à partir de", "coût d'une action",
-      el("input", { class: "input-mono", value: "$5.00" }),
-      el("span", { class: "t-mono", style: { color: "var(--fg-3)", fontSize: "10px" }, text: "au-dessus → demande" })));
-    c.appendChild(setRow("Plage horaire active", "silence radio en dehors",
-      el("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, [
-        el("input", { class: "input-mono", value: "06:00", style: { width: "90px" } }),
-        el("span", { style: { color: "var(--fg-3)" }, text: "→" }),
-        el("input", { class: "input-mono", value: "23:00", style: { width: "90px" } }),
-      ]),
-      el("span", { class: "t-mono", style: { color: "var(--green)", fontSize: "10px" }, text: "● ACTIF" })));
+
+  function renderSettingsModeles(c) {
+    c.appendChild(el("div", { class: "j-loading", text: "Chargement…" }));
+    J.api.get("/api/settings").then(data => {
+      c.innerHTML = "";
+      const llm = data.llm || {};
+      const audio = data.audio || {};
+
+      function sel(opts, current, key) {
+        const s = el("select", { class: "select-mono" });
+        opts.forEach(o => s.appendChild(el("option", { value: o, text: o, selected: o === current ? "" : null })));
+        s.addEventListener("change", () => saveSetting(key, s.value));
+        return s;
+      }
+
+      const ANTHROPIC_MODELS = ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"];
+      const LLM_PROVIDERS    = ["anthropic", "openai", "gemini"];
+      const TTS_PROVIDERS    = ["elevenlabs", "local", "deepgram"];
+      const WHISPER_MODELS   = ["tiny", "base", "small", "medium", "large"];
+
+      c.appendChild(setRow("LLM Provider", "moteur de raisonnement principal",
+        sel(LLM_PROVIDERS, llm.llm_provider, "LLM_PROVIDER"),
+        el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "LLM_PROVIDER" })));
+
+      c.appendChild(setRow("Modèle Anthropic", "utilisé pour le chat et les missions",
+        sel(ANTHROPIC_MODELS, llm.anthropic_model, "ANTHROPIC_MODEL"),
+        el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "ANTHROPIC_MODEL" })));
+
+      c.appendChild(setRow("Modèle vocal", "Claude utilisé dans le pipeline voix",
+        sel(ANTHROPIC_MODELS, llm.voice_anthropic_model, "VOICE_ANTHROPIC_MODEL"),
+        el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "VOICE_ANTHROPIC_MODEL" })));
+
+      c.appendChild(setRow("TTS Provider", "moteur de synthèse vocale",
+        sel(TTS_PROVIDERS, audio.tts_provider, "TTS_PROVIDER"),
+        el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "TTS_PROVIDER" })));
+
+      const elevInp = el("input", { class: "input-mono", value: audio.elevenlabs_model || "", placeholder: "ex: eleven_turbo_v2_5" });
+      elevInp.addEventListener("blur", () => saveSetting("ELEVENLABS_MODEL", elevInp.value.trim()));
+      c.appendChild(setRow("ElevenLabs Model", "modèle ElevenLabs utilisé pour la synthèse",
+        elevInp,
+        el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "ELEVENLABS_MODEL" })));
+
+      c.appendChild(setRow("Whisper Model", "taille du modèle STT local",
+        sel(WHISPER_MODELS, audio.whisper_model, "WHISPER_MODEL"),
+        el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "WHISPER_MODEL" })));
+
+    }).catch(() => { c.innerHTML = ""; c.appendChild(el("div", { class: "j-empty", text: "Impossible de charger les paramètres." })); });
   }
+
   function renderSettingsConnectors(c) {
-    const conns = [
-      { name:"Gmail",          status:"on",  sub:"OAuth · 4 mailboxes" },
-      { name:"Google Calendar",status:"on",  sub:"r/w · calendrier perso" },
-      { name:"YouTube API",    status:"on",  sub:"v3 · stats + uploads" },
-      { name:"X / Twitter",    status:"err", sub:"401 · re-link requis" },
-      { name:"Notion",         status:"on",  sub:"workspace personnel" },
-      { name:"Plaid (banques)",status:"off", sub:"3 comptes prêts à lier" },
-      { name:"Stripe",         status:"on",  sub:"revenue read-only" },
-      { name:"Slack",          status:"off", sub:"non lié" },
+    // Dérive le statut depuis les clés API configurées
+    const CONN_MAP = [
+      { name: "Anthropic (Claude)",   keys: ["ANTHROPIC_API_KEY"],                    sub: "LLM principal" },
+      { name: "ElevenLabs",           keys: ["ELEVENLABS_API_KEY"],                   sub: "TTS voix" },
+      { name: "OpenAI",               keys: ["OPENAI_API_KEY"],                       sub: "Whisper STT / fallback" },
+      { name: "Google",               keys: ["GOOGLE_API_KEY"],                       sub: "Gemini · Calendar · Drive" },
+      { name: "LiveKit",              keys: ["LIVEKIT_URL","LIVEKIT_API_KEY","LIVEKIT_API_SECRET"], sub: "agent vocal temps réel" },
+      { name: "Notion",               keys: ["NOTION_TOKEN"],                         sub: "workspace" },
+      { name: "Spotify",              keys: ["SPOTIFY_CLIENT_ID","SPOTIFY_CLIENT_SECRET"], sub: "lecture musicale" },
+      { name: "Deepgram",             keys: ["DEEPGRAM_API_KEY"],                     sub: "STT alternatif" },
+      { name: "Mistral",              keys: ["MISTRAL_API_KEY"],                      sub: "LLM alternatif" },
     ];
-    conns.forEach(co => {
-      const col = co.status === "on" ? "var(--green)" : co.status === "err" ? "var(--red)" : "var(--fg-3)";
-      const lbl = co.status === "on" ? "CONNECTÉ" : co.status === "err" ? "ERREUR AUTH" : "NON LIÉ";
-      const btn = co.status === "on" ? "Gérer" : co.status === "err" ? "Réparer" : "Connecter";
-      c.appendChild(setRow(co.name, co.sub,
-        el("span", { class: "t-mono", style: { color: col, fontSize: "10.5px" }, text: "● " + lbl }),
-        el("button", { class: "btn-ghost", text: btn })));
-    });
+    c.appendChild(el("div", { class: "j-loading", text: "Chargement…" }));
+    J.api.get("/api/settings").then(data => {
+      c.innerHTML = "";
+      const keys = data.api_keys || {};
+      CONN_MAP.forEach(conn => {
+        const isOn = conn.keys.every(k => (keys[k] || "").length > 0);
+        const col = isOn ? "var(--green)" : "var(--fg-3)";
+        const lbl = isOn ? "CONFIGURÉ" : "NON LIÉ";
+        c.appendChild(setRow(conn.name, conn.sub,
+          el("span", { class: "t-mono", style: { color: col, fontSize: "10.5px" }, text: "● " + lbl }),
+          el("button", { class: "btn-ghost", text: "API Keys", onclick: () => {} })));
+      });
+    }).catch(() => { c.innerHTML = ""; c.appendChild(el("div", { class: "j-empty", text: "Impossible de charger." })); });
   }
-  function renderSettingsAppearance(c) {
-    c.appendChild(setRow("Thème", "deep navy uniquement (par design)",
-      el("div", { style: { display: "flex", gap: "8px" } }, [
-        el("span", { class: "badge badge--accent", text: "Deep Navy" }),
-        el("span", { class: "badge badge--solid", style: { opacity: "0.5" }, text: "Slate (bientôt)" }),
-      ]),
-      el("span")));
-    c.appendChild(setRow("Densité", "espacement général",
-      el("div", { style: { display: "flex", gap: "4px" } }, ["compact","regular","comfy"].map((d, i) =>
-        el("span", { class: "badge" + (i === 1 ? " badge--accent" : ""), text: d })
-      )),
-      el("span", { class: "t-mono", style: { fontSize: "10px", color: "var(--fg-3)" }, text: "tweak · live" })));
-    c.appendChild(setRow("Effets atmosphériques", "grain · vignette · aurora",
-      el("div", { style: { display: "flex", gap: "8px" } }, ["grain","vignette","aurora"].map(d =>
-        el("span", { class: "badge badge--green" }, [el("span",{class:"pri-dot"}), document.createTextNode(d)])
-      )),
-      el("span")));
-    c.appendChild(setRow("Police d'interface", "stack actuel",
-      el("span", { class: "t-mono", style: { fontSize: "11px", color: "var(--fg-1)" }, text: "Geist · Geist Mono" }),
-      el("button", { class: "btn-ghost", text: "Changer" })));
-  }
-  function renderSettingsAgents(c) {
-    const agents = [
-      { name:"librarian",  sub:"index + search knowledge base",         on:true,  model:"sonnet-4.5" },
-      { name:"editor",     sub:"rédaction · brief vidéo + newsletter", on:true,  model:"sonnet-4.5" },
-      { name:"scheduler",  sub:"calendrier · reschedule + booking",     on:true,  model:"haiku-4.5"  },
-      { name:"finops",     sub:"monitoring spend cloud + perso",         on:true,  model:"haiku-4.5"  },
-      { name:"digest",     sub:"synthèse hebdo · newsletters + RSS",     on:true,  model:"sonnet-4.5" },
-      { name:"triager",    sub:"triage email + notifs",                  on:false, model:"haiku-4.5"  },
-    ];
-    agents.forEach(a => {
-      const sel = el("select", { class: "select-mono" });
-      ["sonnet-4.5","haiku-4.5","gpt-5"].forEach(m => sel.appendChild(el("option", { value: m, text: m, selected: m===a.model ? "" : null })));
-      c.appendChild(setRow(a.name, a.sub, sel, el("div", { class: "toggle" + (a.on ? " on" : "") })));
-    });
-  }
+
   const SETTINGS_RENDERERS = {
-    keys: renderSettingsKeys, audio: renderSettingsAudio, autonomy: renderSettingsAutonomy,
-    connectors: renderSettingsConnectors, appearance: renderSettingsAppearance, agents: renderSettingsAgents,
+    keys: renderSettingsKeys,
+    audio: renderSettingsAudio,
+    modeles: renderSettingsModeles,
+    connectors: renderSettingsConnectors,
+    autonomy: comingSoon,
+    appearance: comingSoon,
   };
 
   function renderSettings(root) {
     root.innerHTML = "";
-    root.appendChild(secHd("05", "Paramètres", "Configuration", "6 sections"));
+    root.appendChild(secHd("05", "Paramètres", "Configuration", SETTINGS_NAV.length + " sections"));
 
     let page = "keys";
     const shell = el("div", { class: "settings-shell" });
@@ -957,7 +1226,7 @@
   const SECTIONS = [
     { id: "sessions",  label: "Sessions",    meta: "6"      },
     { id: "memoire",   label: "Mémoire",     meta: "10"     },
-    { id: "outils",    label: "Outils",      meta: "6/8"    },
+    { id: "outils",    label: "Outils",      meta: "skills" },
     { id: "conso",     label: "Conso",       meta: "…"      },
     { id: "settings",  label: "Paramètres",  meta: "6"      },
     { id: "systeme",   label: "Système",     meta: "live"   },
