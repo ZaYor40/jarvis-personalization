@@ -261,10 +261,9 @@
     }
     const grid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" } });
     data.forEach(d => {
-      const splitVal = (s) => { const p = String(s).split(" "); return [p[0], p.slice(1).join(" ")]; };
-      const [aV, aU] = splitVal(d.a[1]);
-      const [bV, bU] = splitVal(d.b[1]);
       const col = COL[d.col] || d.col;
+      const aRaw = d.a && d.a.length > 1 ? String(d.a[1]) : "—";
+      const bRaw = d.b && d.b.length > 1 ? String(d.b[1]) : "—";
       grid.appendChild(el("div", { class: "dev-card" }, [
         el("div", { class: "dev-head" }, [
           el("div", {}, [
@@ -282,11 +281,11 @@
         el("div", { class: "dev-meters" }, [
           el("div", { class: "dev-meter" }, [
             el("div", { class: "lbl", text: d.a[0] }),
-            el("div", { class: "val" }, [document.createTextNode(aV), aU ? el("span", { class: "u", text: aU }) : null]),
+            el("div", { class: "val" }, [document.createTextNode(aRaw)]),
           ]),
           el("div", { class: "dev-meter" }, [
             el("div", { class: "lbl", text: d.b[0] }),
-            el("div", { class: "val" }, [document.createTextNode(bV), bU ? el("span", { class: "u", text: bU }) : null]),
+            el("div", { class: "val" }, [document.createTextNode(bRaw)]),
           ]),
         ]),
       ]));
@@ -416,6 +415,7 @@
       { kind: "nav",   group: "Aller à", title: "Écosystème",   glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Devices",      glyph: "04", run: () => { state.active = "devices";     renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "05", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
+      { kind: "nav",   group: "Pages",   title: "Keypad Studio", glyph: "⌨", sub: "firmware macropad CH552", run: () => { window.location.href = "/keypad"; } },
       { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.handleSettingsClick && window.handleSettingsClick(); } },
       // Slash commands (>)
       { kind: "slash", group: "Commandes", title: "restart",  glyph: ">", sub: "redémarre le runtime agent",  run: () => J.notify({ kind: "warn",   text: "Runtime · restart envoyé" }) },

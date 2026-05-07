@@ -1144,26 +1144,57 @@ def _parse_bt_macos(out: str, devices: list) -> None:
 
 
 def _parse_bt_windows(devices: list) -> None:
-    import subprocess
-    out = subprocess.check_output(
-        ["powershell", "-Command",
-         "Get-PnpDevice -Class Bluetooth | Select-Object FriendlyName,Status | ConvertTo-Json"],
-        text=True, timeout=8,
-    )
     import json as _json
+    import re
+    import subprocess
+
+    skip = re.compile(
+        r"(?i)enumerator|microsoft\s+bluetooth|^\s*intel\(r\)\s+wireless\s+bluetooth|"
+        r"realtek\s+bluetooth|broadcom\s+bluetooth|virtual|rfcomm|"
+        r"generic\s+attribute|device\s+association|le\s+audio|"
+        r"^bluetooth\s+device\s*\("
+    )
+    ps = (
+        "Get-PnpDevice -Class 'Bluetooth' -PresentOnly | "
+        "Select-Object FriendlyName,Status | ConvertTo-Json -Compress"
+    )
+    out = subprocess.check_output(
+        ["powershell", "-NoProfile", "-Command", ps],
+        text=True,
+        timeout=12,
+    )
     items = _json.loads(out)
     if isinstance(items, dict):
         items = [items]
+    seen: set[str] = set()
     for item in items:
-        name = item.get("FriendlyName", "Unknown")
-        status = item.get("Status", "Unknown")
+        name = (item.get("FriendlyName") or "").strip() or "Unknown"
+        if skip.search(name):
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        status = (item.get("Status") or "Unknown").strip()
+        ok = status == "OK"
+        nl = name.lower()
+        if "mouse" in nl:
+            bt_id = _BT_ID_MAP["mouse"]
+        elif "keyboard" in nl:
+            bt_id = _BT_ID_MAP["keyboard"]
+        elif "headphone" in nl or "headset" in nl or "airpods" in nl or "buds" in nl:
+            bt_id = _BT_ID_MAP["headphones"]
+        elif "gamepad" in nl or "controller" in nl or "xbox" in nl or "dualshock" in nl:
+            bt_id = _BT_ID_MAP["gamepad"]
+        else:
+            bt_id = "bluetooth · BT"
         devices.append({
             "name": name,
-            "id": "bluetooth · BT",
-            "status": "Connected" if status == "OK" else "Nearby",
-            "col": "green" if status == "OK" else "muted",
+            "id": bt_id,
+            "status": "Connected" if ok else "Nearby",
+            "col": "green" if ok else "muted",
             "a": ["Type", "Bluetooth"],
-            "b": ["Status", status],
+            "b": ["État", status],
             "type": "bluetooth",
         })
 
@@ -1258,6 +1289,11 @@ async def get_connectors() -> list:
             "name": "Mistral",
             "sub": "LLM alternatif",
             "status": "on" if _env_ok("MISTRAL_API_KEY") else "off",
+        },
+        {
+            "name": "Keypad Studio",
+            "sub": "Firmware CH552 · /keypad",
+            "status": "on",
         },
     ]
     return connectors
