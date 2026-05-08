@@ -625,8 +625,92 @@
       right: reloadBtn,
     }, activeList));
 
-    /* ─── Section 2 : Marketplace ───────────────────────────── */
-    root.appendChild(secHd("02", "Marketplace", "Catalogue jarvis-skills", ""));
+    /* ─── Section 1b : Presets installés ────────────────────── */
+    root.appendChild(secHd("02", "Presets installés", "Séquences déclenchables via Jarvis", ""));
+
+    let presets = [];
+    try {
+      const pr = await J.api.get("/api/presets");
+      presets = (pr && pr.presets) ? pr.presets : [];
+    } catch (_) { /* offline */ }
+
+    const presetList = el("div");
+
+    function renderPresetList() {
+      presetList.innerHTML = "";
+      if (!presets.length) {
+        presetList.appendChild(el("div", {
+          class: "card-sub",
+          style: { padding: "12px 0", opacity: "0.6" },
+          text: "Aucun preset installé.",
+        }));
+        return;
+      }
+      presets.forEach((p, i) => {
+        const platformsText = (p.platforms || []).join(", ") || "—";
+        const stepsText = (p.steps_count || 0) + " action" + (p.steps_count !== 1 ? "s" : "");
+
+        const confirmWrap = el("div", { style: { display: "none", gap: "8px" } });
+        const confirmBtn  = el("button", { class: "btn-ghost", style: { color: "var(--red, #f55)" }, text: "Confirmer" });
+        const cancelBtn   = el("button", { class: "btn-ghost", text: "Annuler" });
+        confirmWrap.appendChild(confirmBtn);
+        confirmWrap.appendChild(cancelBtn);
+
+        const uninstallBtn = el("button", { class: "btn-ghost", text: "Désinstaller" });
+        uninstallBtn.onclick = () => {
+          uninstallBtn.style.display = "none";
+          confirmWrap.style.display  = "flex";
+        };
+        cancelBtn.onclick = () => {
+          confirmWrap.style.display  = "none";
+          uninstallBtn.style.display = "";
+        };
+        confirmBtn.onclick = async () => {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = "…";
+          try {
+            const r = await fetch("/api/skills/uninstall/" + encodeURIComponent(p.name), { method: "DELETE" });
+            const data = await r.json();
+            if (data.success) {
+              J.notify({ kind: "info", text: "Preset désinstallé : " + p.name });
+              presets = presets.filter(x => x.name !== p.name);
+              renderPresetList();
+            } else {
+              J.notify({ kind: "error", text: data.message || "Erreur désinstallation" });
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = "Confirmer";
+              confirmWrap.style.display  = "none";
+              uninstallBtn.style.display = "";
+            }
+          } catch (e) {
+            J.notify({ kind: "error", text: "Erreur réseau : " + e.message });
+          }
+        };
+
+        const infoCol = el("div", { style: { flex: 1 } });
+        infoCol.appendChild(el("span", { style: { color: "var(--fg-0)" }, text: p.label || p.name }));
+        infoCol.appendChild(el("span", { class: "tn-sub", text: ` ${stepsText} · ${platformsText}` }));
+        if (p.description) infoCol.appendChild(el("span", { class: "tn-sub", text: p.description }));
+
+        presetList.appendChild(el("div", { class: "tool-row", style: { alignItems: "start" } }, [
+          el("div", { class: "tg", text: (p.name || "pr").slice(0, 2).toUpperCase() }),
+          infoCol,
+          el("div", { style: { display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-end" } }, [
+            uninstallBtn,
+            confirmWrap,
+          ]),
+        ]));
+      });
+    }
+
+    renderPresetList();
+    root.appendChild(card({
+      title: "Presets installés",
+      sub:   presets.length + " preset(s) · déclenchables vocalement",
+    }, presetList));
+
+    /* ─── Section 3 : Marketplace ───────────────────────────── */
+    root.appendChild(secHd("03", "Marketplace", "Catalogue jarvis-skills", ""));
 
     const onlineBadge = el("span", {
       style: { fontSize: "11px", opacity: "0.7" },
@@ -812,7 +896,7 @@
       }
     } catch (_) { /* keep mock */ }
 
-    root.appendChild(secHd("03", "Outils runtime", "Capabilities branchées", tools.filter(t => t.on).length + " actifs"));
+    root.appendChild(secHd("04", "Outils runtime", "Capabilities branchées", tools.filter(t => t.on).length + " actifs"));
     const toolList = el("div");
     const toolState = tools;
     function rerenderTools() {

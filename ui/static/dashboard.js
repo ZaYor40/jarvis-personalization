@@ -591,91 +591,6 @@
     step1();
   }
 
-  /* ───────── Presets ───────── */
-  async function loadPresets() {
-    try {
-      const res = await J.api.get("/api/presets");
-      return (res && res.presets) ? res.presets : [];
-    } catch (_) { return []; }
-  }
-
-  const _presetProgress = {};
-
-  function renderPresets(root, presets) {
-    root.appendChild(secHd("05", "Presets", "Séquences automatisées", presets.length + " installé(s)"));
-
-    if (!presets.length) {
-      const empty = el("div", { class: "j-empty" });
-      empty.appendChild(document.createTextNode("Aucun preset installé. "));
-      const link = el("a", { href: "/settings", style: { color: "var(--accent)" }, text: "Aller au Marketplace →" });
-      empty.appendChild(link);
-      root.appendChild(card({ title: "Presets installés", sub: "0 preset" }, empty));
-      return;
-    }
-
-    const list = el("div");
-    presets.forEach((r, i) => {
-      const triggersText = (r.triggers || []).slice(0, 2).map(t => `"${t}"`).join(", ");
-      const platformsText = (r.platforms || []).join(", ") || "—";
-      const stepsText = (r.steps_count || 0) + " step" + (r.steps_count !== 1 ? "s" : "");
-
-      const progressEl = el("div", {
-        style: { fontSize: "11px", color: "var(--fg-3)", marginTop: "4px", display: "none" },
-      });
-
-      const launchBtn = el("button", { class: "btn-ghost", text: "▶ Lancer" });
-      launchBtn.onclick = async () => {
-        launchBtn.disabled = true;
-        launchBtn.textContent = "▶ En cours…";
-        progressEl.style.display = "block";
-        progressEl.textContent = "Démarrage…";
-        _presetProgress[r.name] = { btn: launchBtn, progress: progressEl };
-        try {
-          const res = await fetch("/api/presets/" + encodeURIComponent(r.name) + "/execute", { method: "POST" });
-          const data = await res.json();
-          const done = data.steps_done || 0;
-          const fail = data.steps_failed || 0;
-          J.notify({ kind: "success", text: `Preset "${r.label || r.name}" terminée — ${done} étapes réalisées` + (fail ? `, ${fail} en erreur` : "") });
-        } catch (e) {
-          J.notify({ kind: "error", text: "Erreur preset : " + e.message });
-        }
-        launchBtn.disabled = false;
-        launchBtn.textContent = "▶ Lancer";
-        progressEl.style.display = "none";
-        delete _presetProgress[r.name];
-      };
-
-      const infoCol = el("div", { style: { flex: 1 } });
-      infoCol.appendChild(el("span", { style: { color: "var(--fg-0)" }, text: r.label || r.name }));
-      infoCol.appendChild(el("span", { class: "tn-sub", text: ` ${stepsText} · ${platformsText}` }));
-      if (triggersText) infoCol.appendChild(el("span", { class: "tn-sub", text: triggersText }));
-      infoCol.appendChild(progressEl);
-
-      list.appendChild(el("div", {
-        class: "tool-row",
-        style: { borderTop: i ? "1px solid var(--line-1)" : "0", alignItems: "start" },
-      }, [
-        el("div", { class: "tg", text: "▶" }),
-        infoCol,
-        launchBtn,
-      ]));
-    });
-
-    const mktLink = el("a", { href: "/settings", class: "btn-ghost", style: { fontSize: "12px" }, text: "Marketplace →" });
-    root.appendChild(card({ title: "Presets installés", sub: presets.length + " preset(s)", right: mktLink }, list));
-  }
-
-  // WebSocket handler temps réel (appelé depuis _shared.js si exposé)
-  window._handlePresetEvent = function(msg) {
-    const entry = _presetProgress[msg.preset];
-    if (!entry) return;
-    if (msg.type === "preset_step") {
-      entry.progress.textContent = `Étape ${msg.step_index}/${msg.total_steps || "?"} : ${msg.step_name}`;
-    } else if (msg.type === "preset_finished") {
-      entry.progress.textContent = "Terminé ✓";
-    }
-  };
-
   /* ───────── App state + routing ───────── */
   const state = {
     active: "initiatives",
@@ -684,7 +599,6 @@
       { id: "missions",    label: "Missions",    meta: "5" },
       { id: "domotique",   label: "Écosystème",  meta: "—" },
       { id: "devices",     label: "Devices",     meta: "4" },
-      { id: "presets",    label: "Presets",    meta: "" },
       { id: "analytics",   label: "Analytics",   meta: "7j" },
     ],
   };
@@ -716,7 +630,6 @@
         case "missions":    renderMissions(surface, await loadMissions()); break;
         case "domotique":   renderDomotique(surface); break;
         case "devices":     renderDevices(surface, await loadDevices()); break;
-        case "presets":    renderPresets(surface, await loadPresets()); break;
         case "analytics":   renderAnalytics(surface, await loadAnalytics()); break;
       }
     } catch (err) {
@@ -734,8 +647,7 @@
       { kind: "nav",   group: "Aller à", title: "Missions",     glyph: "02", run: () => { state.active = "missions";    renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Écosystème",   glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Devices",      glyph: "04", run: () => { state.active = "devices";     renderActive(); refreshSidebar(); } },
-      { kind: "nav",   group: "Aller à", title: "Presets",     glyph: "05", run: () => { state.active = "presets";    renderActive(); refreshSidebar(); } },
-      { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "06", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
+      { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "05", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Pages",   title: "Keypad Studio", glyph: "⌨", sub: "firmware macropad CH552", run: () => { window.openKeypadDrawer?.(); } },
       { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.handleSettingsClick && window.handleSettingsClick(); } },
       // Slash commands (>)
