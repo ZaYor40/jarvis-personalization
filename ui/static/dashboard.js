@@ -404,6 +404,7 @@
       { lbl: "Forks",   val: d.forks },
       { lbl: "Watchers",val: d.watchers },
       { lbl: "Issues",  val: d.open_issues },
+      { lbl: "Pull Req",val: d.open_prs },
     ].forEach(m => row.appendChild(el("div", { class: "widget-metric" }, [
       el("div", { class: "widget-metric-lbl", text: m.lbl }),
       el("div", { class: "widget-metric-val", text: String(m.val) }),
@@ -546,11 +547,19 @@
       ]));
       modal.appendChild(el("p", { class: "modal-sub", text: "Configuration requise" }));
 
+      const inputs = {};
       const form = el("div", { class: "modal-form" });
       selected.requires_env.forEach(key => {
+        const alreadySet = selected.env_status && selected.env_status[key];
+        const inp = el("input", {
+          class: "j-input",
+          type: "text",
+          placeholder: alreadySet ? "●●●● (déjà configuré)" : key,
+        });
+        inputs[key] = inp;
         form.appendChild(el("div", { class: "modal-field" }, [
           el("label", { class: "modal-field-lbl", text: key }),
-          el("input", { class: "j-input", type: "text", placeholder: key }),
+          inp,
         ]));
       });
       modal.appendChild(form);
@@ -560,12 +569,28 @@
       modal.appendChild(el("div", { class: "modal-footer" }, [
         el("button", { class: "btn-ghost", onclick: step1, text: "← Retour" }),
         el("button", { class: "btn-accent", onclick: async () => {
-          status.textContent = "Test en cours…";
+          const toSave = Object.entries(inputs).filter(([, inp]) => inp.value.trim());
+          const allSet = selected.requires_env.every(k =>
+            (inputs[k] && inputs[k].value.trim()) || (selected.env_status && selected.env_status[k])
+          );
+          if (!allSet) { status.textContent = "✗ Remplir toutes les clés requises"; return; }
+
+          status.textContent = "Sauvegarde dans .env…";
+          for (const [key, inp] of toSave) {
+            const r = await fetch("/api/settings/update", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ key, value: inp.value.trim() }),
+            });
+            if (!(await r.json()).ok) { status.textContent = "✗ Erreur sauvegarde " + key; return; }
+          }
+
+          status.textContent = "Ajout du widget…";
           const r = await fetch("/api/analytics/add/" + selected.id, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
           const d = await r.json();
           if (d.success) step3(true);
           else status.textContent = "✗ " + d.message;
-        }, text: "Tester la connexion →" }),
+        }, text: "Sauvegarder et ajouter →" }),
       ]));
     }
 

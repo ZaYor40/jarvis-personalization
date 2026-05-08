@@ -1037,6 +1037,7 @@ async def update_setting(body: SettingUpdateBody) -> dict:
     from config.settings import settings as _s
     env_key = body.key.upper()
     _write_env({env_key: body.value})
+    os.environ[env_key] = body.value  # mise à jour immédiate du process
 
     field_name = _SETTINGS_FIELD_MAP.get(env_key)
     if field_name and hasattr(_s, field_name):

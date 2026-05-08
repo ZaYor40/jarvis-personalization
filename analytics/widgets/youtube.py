@@ -8,7 +8,7 @@ class YouTubeWidget(WidgetBase):
 
     id = "youtube"
     label = "YouTube Analytics"
-    description = "Vues, abonnés et performances de la chaîne BarthH95."
+    description = "Vues, abonnés et performances via YouTube Data API v3."
     icon = "Y"
     requires_env = ["YOUTUBE_API_KEY", "YOUTUBE_CHANNEL_ID"]
     size = "large"

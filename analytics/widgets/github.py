@@ -1,4 +1,5 @@
 """Widget GitHub — stars, forks, commits récents."""
+import asyncio
 import os
 import httpx
 from analytics.widgets.base import WidgetBase, WidgetConfig, WidgetData
@@ -18,23 +19,31 @@ class GitHubWidget(WidgetBase):
             return WidgetData(success=False, data={}, error="Config manquante")
 
         token = os.getenv("GITHUB_TOKEN")
-        repo = os.getenv("GITHUB_REPO")  # ex: "Grominet95/jarvis-OS"
+        repo = os.getenv("GITHUB_REPO", "").strip().rstrip("/")
+        # Accepte URL complète ou "owner/repo"
+        if "github.com/" in repo:
+            repo = repo.split("github.com/")[-1]
 
         try:
-            async with httpx.AsyncClient(
-                timeout=10,
-                headers={"Authorization": f"Bearer {token}"}
-            ) as client:
-                r = await client.get(f"https://api.github.com/repos/{repo}")
-                data = r.json()
+            headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+            async with httpx.AsyncClient(timeout=10, headers=headers) as client:
+                repo_r, prs_r = await asyncio.gather(
+                    client.get(f"https://api.github.com/repos/{repo}"),
+                    client.get(f"https://api.github.com/repos/{repo}/pulls",
+                               params={"state": "open", "per_page": 100}),
+                )
+                data = repo_r.json()
+                open_prs = len(prs_r.json()) if isinstance(prs_r.json(), list) else 0
+                open_issues_total = data.get("open_issues_count", 0)
 
                 return WidgetData(
                     success=True,
                     data={
-                        "stars": data.get("stargazers_count", 0),
-                        "forks": data.get("forks_count", 0),
-                        "open_issues": data.get("open_issues_count", 0),
-                        "watchers": data.get("watchers_count", 0),
+                        "stars":       data.get("stargazers_count", 0),
+                        "forks":       data.get("forks_count", 0),
+                        "watchers":    data.get("subscribers_count", 0),
+                        "open_issues": max(0, open_issues_total - open_prs),
+                        "open_prs":    open_prs,
                     }
                 )
         except Exception as e:
