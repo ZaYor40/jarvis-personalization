@@ -301,6 +301,7 @@
       grid.appendChild(el("div", { class: "j-empty", style: { gridColumn: "span 4" }, text: "Aucun widget actif — cliquer + Ajouter pour commencer." }));
     } else {
       active.forEach(manifest => grid.appendChild(renderWidget(manifest, data[manifest.id])));
+      enableWidgetDnD(grid);
     }
     root.appendChild(grid);
 
@@ -314,8 +315,9 @@
 
   function renderWidget(manifest, wd) {
     const isNative = manifest.requires_env.length === 0;
-    const div = el("div", { class: "widget widget-" + manifest.size });
+    const div = el("div", { class: "widget widget-" + manifest.size, dataset: { widgetId: manifest.id } });
     div.appendChild(el("div", { class: "widget-header" }, [
+      el("div",  { class: "widget-drag-handle", draggable: "true", text: "⠿" }),
       el("div",  { class: "widget-icon",  text: manifest.icon }),
       el("span", { class: "widget-label", text: manifest.label }),
       isNative ? null : el("button", { class: "widget-remove", onclick: () => removeWidget(manifest.id), text: "×" }),
@@ -424,6 +426,67 @@
     if ((await res.json()).success) renderActive();
   }
 
+  function enableWidgetDnD(grid) {
+    let dragged = null;
+    let placeholder = null;
+
+    function makePlaceholder(ref) {
+      const sizes = ["widget-small", "widget-medium", "widget-large", "widget-full"];
+      const sizeClass = Array.from(ref.classList).find(c => sizes.includes(c)) || "widget-medium";
+      return el("div", { class: "widget-placeholder " + sizeClass });
+    }
+
+    grid.addEventListener("dragstart", e => {
+      const handle = e.target.closest(".widget-drag-handle");
+      if (!handle) return;
+      dragged = handle.closest(".widget");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "");
+      placeholder = makePlaceholder(dragged);
+      requestAnimationFrame(() => {
+        if (dragged) dragged.classList.add("widget--dragging");
+      });
+    });
+
+    grid.addEventListener("dragover", e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (!dragged || !placeholder) return;
+      const target = e.target.closest(".widget:not(.widget--dragging)");
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      if (e.clientX < rect.left + rect.width / 2) {
+        grid.insertBefore(placeholder, target);
+      } else {
+        target.after(placeholder);
+      }
+    });
+
+    grid.addEventListener("drop", e => e.preventDefault());
+
+    grid.addEventListener("dragend", () => {
+      if (!dragged) return;
+      dragged.classList.remove("widget--dragging");
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(dragged, placeholder);
+        placeholder.remove();
+      }
+      placeholder = null;
+      saveWidgetOrder(grid);
+      dragged = null;
+    });
+  }
+
+  function saveWidgetOrder(grid) {
+    const order = Array.from(grid.querySelectorAll(".widget[data-widget-id]"))
+      .map(w => w.dataset.widgetId);
+    fetch("/api/analytics/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order }),
+    });
+  }
+
   async function openAddWidgetModal() {
     const res = await J.api.get("/api/analytics/catalog");
     const catalog = (res.widgets || []).filter(w => !w.active && w.requires_env.length > 0);
@@ -528,30 +591,30 @@
     step1();
   }
 
-  /* ───────── Routines ───────── */
-  async function loadRoutines() {
+  /* ───────── Presets ───────── */
+  async function loadPresets() {
     try {
-      const res = await J.api.get("/api/routines");
-      return (res && res.routines) ? res.routines : [];
+      const res = await J.api.get("/api/presets");
+      return (res && res.presets) ? res.presets : [];
     } catch (_) { return []; }
   }
 
-  const _routineProgress = {};
+  const _presetProgress = {};
 
-  function renderRoutines(root, routines) {
-    root.appendChild(secHd("05", "Routines", "Séquences automatisées", routines.length + " installée(s)"));
+  function renderPresets(root, presets) {
+    root.appendChild(secHd("05", "Presets", "Séquences automatisées", presets.length + " installé(s)"));
 
-    if (!routines.length) {
+    if (!presets.length) {
       const empty = el("div", { class: "j-empty" });
-      empty.appendChild(document.createTextNode("Aucune routine installée. "));
+      empty.appendChild(document.createTextNode("Aucun preset installé. "));
       const link = el("a", { href: "/settings", style: { color: "var(--accent)" }, text: "Aller au Marketplace →" });
       empty.appendChild(link);
-      root.appendChild(card({ title: "Routines installées", sub: "0 routine" }, empty));
+      root.appendChild(card({ title: "Presets installés", sub: "0 preset" }, empty));
       return;
     }
 
     const list = el("div");
-    routines.forEach((r, i) => {
+    presets.forEach((r, i) => {
       const triggersText = (r.triggers || []).slice(0, 2).map(t => `"${t}"`).join(", ");
       const platformsText = (r.platforms || []).join(", ") || "—";
       const stepsText = (r.steps_count || 0) + " step" + (r.steps_count !== 1 ? "s" : "");
@@ -566,20 +629,20 @@
         launchBtn.textContent = "▶ En cours…";
         progressEl.style.display = "block";
         progressEl.textContent = "Démarrage…";
-        _routineProgress[r.name] = { btn: launchBtn, progress: progressEl };
+        _presetProgress[r.name] = { btn: launchBtn, progress: progressEl };
         try {
-          const res = await fetch("/api/routines/" + encodeURIComponent(r.name) + "/execute", { method: "POST" });
+          const res = await fetch("/api/presets/" + encodeURIComponent(r.name) + "/execute", { method: "POST" });
           const data = await res.json();
           const done = data.steps_done || 0;
           const fail = data.steps_failed || 0;
-          J.notify({ kind: "success", text: `Routine "${r.label || r.name}" terminée — ${done} étapes réalisées` + (fail ? `, ${fail} en erreur` : "") });
+          J.notify({ kind: "success", text: `Preset "${r.label || r.name}" terminée — ${done} étapes réalisées` + (fail ? `, ${fail} en erreur` : "") });
         } catch (e) {
-          J.notify({ kind: "error", text: "Erreur routine : " + e.message });
+          J.notify({ kind: "error", text: "Erreur preset : " + e.message });
         }
         launchBtn.disabled = false;
         launchBtn.textContent = "▶ Lancer";
         progressEl.style.display = "none";
-        delete _routineProgress[r.name];
+        delete _presetProgress[r.name];
       };
 
       const infoCol = el("div", { style: { flex: 1 } });
@@ -599,16 +662,16 @@
     });
 
     const mktLink = el("a", { href: "/settings", class: "btn-ghost", style: { fontSize: "12px" }, text: "Marketplace →" });
-    root.appendChild(card({ title: "Routines installées", sub: routines.length + " routine(s)", right: mktLink }, list));
+    root.appendChild(card({ title: "Presets installés", sub: presets.length + " preset(s)", right: mktLink }, list));
   }
 
   // WebSocket handler temps réel (appelé depuis _shared.js si exposé)
-  window._handleRoutineEvent = function(msg) {
-    const entry = _routineProgress[msg.routine];
+  window._handlePresetEvent = function(msg) {
+    const entry = _presetProgress[msg.preset];
     if (!entry) return;
-    if (msg.type === "routine_step") {
+    if (msg.type === "preset_step") {
       entry.progress.textContent = `Étape ${msg.step_index}/${msg.total_steps || "?"} : ${msg.step_name}`;
-    } else if (msg.type === "routine_finished") {
+    } else if (msg.type === "preset_finished") {
       entry.progress.textContent = "Terminé ✓";
     }
   };
@@ -621,7 +684,7 @@
       { id: "missions",    label: "Missions",    meta: "5" },
       { id: "domotique",   label: "Écosystème",  meta: "—" },
       { id: "devices",     label: "Devices",     meta: "4" },
-      { id: "routines",    label: "Routines",    meta: "" },
+      { id: "presets",    label: "Presets",    meta: "" },
       { id: "analytics",   label: "Analytics",   meta: "7j" },
     ],
   };
@@ -653,7 +716,7 @@
         case "missions":    renderMissions(surface, await loadMissions()); break;
         case "domotique":   renderDomotique(surface); break;
         case "devices":     renderDevices(surface, await loadDevices()); break;
-        case "routines":    renderRoutines(surface, await loadRoutines()); break;
+        case "presets":    renderPresets(surface, await loadPresets()); break;
         case "analytics":   renderAnalytics(surface, await loadAnalytics()); break;
       }
     } catch (err) {
@@ -671,7 +734,7 @@
       { kind: "nav",   group: "Aller à", title: "Missions",     glyph: "02", run: () => { state.active = "missions";    renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Écosystème",   glyph: "03", run: () => { state.active = "domotique";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Devices",      glyph: "04", run: () => { state.active = "devices";     renderActive(); refreshSidebar(); } },
-      { kind: "nav",   group: "Aller à", title: "Routines",     glyph: "05", run: () => { state.active = "routines";    renderActive(); refreshSidebar(); } },
+      { kind: "nav",   group: "Aller à", title: "Presets",     glyph: "05", run: () => { state.active = "presets";    renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Aller à", title: "Analytics",    glyph: "06", run: () => { state.active = "analytics";   renderActive(); refreshSidebar(); } },
       { kind: "nav",   group: "Pages",   title: "Keypad Studio", glyph: "⌨", sub: "firmware macropad CH552", run: () => { window.openKeypadDrawer?.(); } },
       { kind: "nav",   group: "Pages",   title: "Système",      glyph: "→",  sub: "tools, mémoire, conso, params", run: () => { window.handleSettingsClick && window.handleSettingsClick(); } },

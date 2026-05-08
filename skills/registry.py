@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 from loguru import logger
-from skills.base import SkillBase, RoutineSkill
+from skills.base import SkillBase, PresetSkill
 
 SKILLS_INSTALLED_DIR = Path("skills/installed")
 
@@ -56,12 +56,12 @@ class SkillRegistry:
                 if (isinstance(attr, type)
                         and issubclass(attr, SkillBase)
                         and attr is not SkillBase
-                        and attr is not RoutineSkill):
+                        and attr is not PresetSkill):
                     skill = attr(metadata=metadata)
                     self._skills[skill.name] = skill
                     skill_type = metadata.get("type", "conversational")
-                    if skill_type == "routine" or isinstance(skill, RoutineSkill):
-                        logger.debug(f"Routine chargée : {skill.name} v{skill.version}")
+                    if skill_type == "preset" or isinstance(skill, PresetSkill):
+                        logger.debug(f"Preset chargé : {skill.name} v{skill.version}")
                     else:
                         logger.debug(f"Skill conversationnel chargé : {skill.name} v{skill.version}")
                     break
@@ -114,25 +114,25 @@ class SkillRegistry:
                 logger.error(f"Erreur get_tools() pour {skill.name}: {e}")
         return tools
 
-    def get_routines(self) -> dict[str, RoutineSkill]:
-        """Retourne uniquement les skills de type routine."""
+    def get_presets(self) -> dict[str, PresetSkill]:
+        """Retourne uniquement les skills de type preset."""
         return {
             name: skill
             for name, skill in self._skills.items()
-            if isinstance(skill, RoutineSkill)
+            if isinstance(skill, PresetSkill)
         }
 
-    def get_routine(self, name: str) -> RoutineSkill | None:
-        """Retourne une routine par son nom."""
+    def get_preset(self, name: str) -> PresetSkill | None:
+        """Retourne un preset par son nom."""
         skill = self._skills.get(name)
-        if skill and isinstance(skill, RoutineSkill):
+        if skill and isinstance(skill, PresetSkill):
             return skill
         return None
 
-    def find_routine_by_trigger(self, text: str) -> RoutineSkill | None:
-        """Trouve une routine dont un trigger correspond au texte (partiel, insensible à la casse)."""
+    def find_preset_by_trigger(self, text: str) -> PresetSkill | None:
+        """Trouve un preset dont un trigger correspond au texte (partiel, insensible à la casse)."""
         text_lower = text.lower()
-        for skill in self.get_routines().values():
+        for skill in self.get_presets().values():
             for trigger in skill.get_triggers():
                 if trigger.lower() in text_lower:
                     return skill

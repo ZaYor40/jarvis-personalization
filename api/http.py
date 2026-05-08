@@ -232,15 +232,15 @@ async def reload_skills(request: Request) -> dict:
     }
 
 
-# ── Routines API ─────────────────────────────────────────────────────────────
+# ── Presets API ─────────────────────────────────────────────────────────────
 
-@router.get("/api/routines")
-async def get_routines() -> dict:
-    """Liste toutes les routines installées."""
+@router.get("/api/presets")
+async def get_presets() -> dict:
+    """Liste tous les presets installées."""
     from skills.registry import skill_registry
-    routines = skill_registry.get_routines()
+    presets = skill_registry.get_presets()
     return {
-        "routines": [
+        "presets": [
             {
                 "name": r.name,
                 "label": r.label,
@@ -249,30 +249,30 @@ async def get_routines() -> dict:
                 "platforms": r.get_platforms(),
                 "steps_count": len(r.get_steps()),
             }
-            for r in routines.values()
+            for r in presets.values()
         ]
     }
 
 
-@router.post("/api/routines/{routine_name}/execute")
-async def execute_routine_endpoint(routine_name: str, request: Request) -> dict:
-    """Lance une routine depuis l'UI (bouton ▶)."""
+@router.post("/api/presets/{preset_name}/execute")
+async def execute_preset_endpoint(preset_name: str, request: Request) -> dict:
+    """Lance un preset depuis l'UI (bouton ▶)."""
     from skills.registry import skill_registry
-    from skills.executor import RoutineExecutor
+    from skills.executor import PresetExecutor
     from audio.tts import tts_engine
     from background.notifications import broadcast_event
     from core.gateway import get_tool_registry
 
-    routine = skill_registry.get_routine(routine_name)
-    if not routine:
-        return {"success": False, "message": f"Routine '{routine_name}' introuvable"}
+    preset = skill_registry.get_preset(preset_name)
+    if not preset:
+        return {"success": False, "message": f"Preset '{preset_name}' introuvable"}
 
-    executor = RoutineExecutor(
+    executor = PresetExecutor(
         tool_registry=get_tool_registry(),
         tts_engine=tts_engine,
     )
 
-    results = await executor.execute(routine, broadcast_fn=broadcast_event)
+    results = await executor.execute(preset, broadcast_fn=broadcast_event)
     return results
 
 
@@ -1659,3 +1659,11 @@ async def refresh_analytics():
     from analytics.registry import analytics_registry
     data = await analytics_registry.fetch_all()
     return {"refreshed": len(data)}
+
+
+@router.post("/api/analytics/reorder")
+async def reorder_widgets(request: Request):
+    """Sauvegarde le nouvel ordre des widgets."""
+    from analytics.registry import analytics_registry
+    body = await request.json()
+    return analytics_registry.reorder(body.get("order", []))

@@ -639,7 +639,7 @@
     let marketTypeFilter = "all";
 
     const filterTabs = el("div", { style: { display: "flex", gap: "6px", marginBottom: "10px" } });
-    ["Tous", "Skills", "Routines"].forEach(label => {
+    ["Tous", "Skills", "Presets"].forEach(label => {
       const id = label === "Tous" ? "all" : label.toLowerCase();
       const btn = el("button", {
         class: "btn-ghost",
@@ -659,9 +659,9 @@
       marketList.innerHTML = "";
       let filtered = catalog;
       if (marketTypeFilter === "skills") {
-        filtered = filtered.filter(s => (s.type || "conversational") !== "routine");
-      } else if (marketTypeFilter === "routines") {
-        filtered = filtered.filter(s => s.type === "routine");
+        filtered = filtered.filter(s => (s.type || "conversational") !== "preset");
+      } else if (marketTypeFilter === "presets") {
+        filtered = filtered.filter(s => s.type === "preset");
       }
       if (filter) {
         filtered = filtered.filter(s =>
@@ -682,7 +682,7 @@
 
       filtered.forEach(s => {
         const isInst = s.installed || installed.some(i => i.name === s.name);
-        const isRoutine = s.type === "routine";
+        const isPreset = s.type === "preset";
         const actionBtn = el("button", {
           class: "btn-ghost",
           style: isInst ? { opacity: "0.5", cursor: "default" } : {},
@@ -738,25 +738,25 @@
         const mktInfoCol = el("div", { style: { flex: 1 } });
         mktInfoCol.appendChild(el("span", { style: { color: "var(--fg-0)" }, text: s.name }));
         mktInfoCol.appendChild(el("span", { class: "tn-sub", text: " · " + (s.author || "—") }));
-        if (isRoutine) {
+        if (isPreset) {
           mktInfoCol.appendChild(el("span", {
             class: "badge badge--accent",
             style: { fontSize: "9px", padding: "1px 5px", marginLeft: "5px", verticalAlign: "middle" },
-            text: "ROUTINE",
+            text: "PRESET",
           }));
         }
         mktInfoCol.appendChild(el("span", { class: "tn-sub", text: s.description || "" }));
-        if (isRoutine && (s.platforms || []).length) {
+        if (isPreset && (s.platforms || []).length) {
           mktInfoCol.appendChild(el("span", { class: "tn-sub", text: "Plateformes : " + s.platforms.join(", ") }));
         }
-        if (isRoutine && (s.triggers || []).length) {
+        if (isPreset && (s.triggers || []).length) {
           const trigText = s.triggers.slice(0, 2).map(t => `"${t}"`).join(", ");
           mktInfoCol.appendChild(el("span", { class: "tn-sub", text: trigText }));
         }
         mktInfoCol.appendChild(tagsWrap);
         if (requiresCol.children.length) mktInfoCol.appendChild(requiresCol);
 
-        const glyphText = isRoutine ? "▶" : (s.name || "sk").slice(0, 2).toUpperCase();
+        const glyphText = isPreset ? "▶" : (s.name || "sk").slice(0, 2).toUpperCase();
         marketList.appendChild(el("div", { class: "tool-row", style: { alignItems: "start" } }, [
           el("div", { class: "tg", text: glyphText }),
           mktInfoCol,

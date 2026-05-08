@@ -1,16 +1,16 @@
-"""Exécuteur de routines Jarvis — gère l'exécution step par step."""
+"""Exécuteur de presets Jarvis — gère l'exécution step par step."""
 from __future__ import annotations
 
 import asyncio
 import platform
 from loguru import logger
 
-from skills.base import RoutineSkill, RoutineStep
+from skills.base import PresetSkill, PresetStep
 
 
-class RoutineExecutor:
+class PresetExecutor:
     """
-    Exécute une routine step par step.
+    Exécute un preset step par step.
     Types supportés : cli, spotify, tts, ai, wait, notify
     """
 
@@ -19,14 +19,14 @@ class RoutineExecutor:
         self._tts = tts_engine
         self._llm = llm_client
 
-    async def execute(self, routine: RoutineSkill, broadcast_fn=None) -> dict:
+    async def execute(self, preset: PresetSkill, broadcast_fn=None) -> dict:
         """
-        Exécute tous les steps d'une routine.
+        Exécute tous les steps d'un preset.
         broadcast_fn : coroutine async(dict) pour envoyer des events WebSocket.
         """
-        steps = routine.get_steps()
+        steps = preset.get_steps()
         results = {
-            "routine": routine.name,
+            "preset": preset.name,
             "success": True,
             "steps_done": 0,
             "steps_skipped": 0,
@@ -34,13 +34,13 @@ class RoutineExecutor:
             "logs": [],
         }
 
-        logger.info(f"Routine '{routine.name}' — démarrage ({len(steps)} steps)")
+        logger.info(f"Preset '{preset.name}' — démarrage ({len(steps)} steps)")
 
         if broadcast_fn:
             await broadcast_fn({
-                "type": "routine_started",
-                "routine": routine.name,
-                "label": routine.label,
+                "type": "preset_started",
+                "preset": preset.name,
+                "label": preset.label,
                 "total_steps": len(steps),
             })
 
@@ -63,8 +63,8 @@ class RoutineExecutor:
 
             if broadcast_fn:
                 await broadcast_fn({
-                    "type": "routine_step",
-                    "routine": routine.name,
+                    "type": "preset_step",
+                    "preset": preset.name,
                     "step_index": i + 1,
                     "step_name": step.name,
                     "step_type": step.type,
@@ -73,13 +73,13 @@ class RoutineExecutor:
 
         if broadcast_fn:
             await broadcast_fn({
-                "type": "routine_finished",
-                "routine": routine.name,
+                "type": "preset_finished",
+                "preset": preset.name,
                 "results": results,
             })
 
         logger.info(
-            f"Routine '{routine.name}' terminée — "
+            f"Preset '{preset.name}' terminée — "
             f"{results['steps_done']} ✓ "
             f"{results['steps_skipped']} skipped "
             f"{results['steps_failed']} ✗"
@@ -87,7 +87,7 @@ class RoutineExecutor:
 
         return results
 
-    async def _execute_step(self, step: RoutineStep, index: int, total: int) -> dict:
+    async def _execute_step(self, step: PresetStep, index: int, total: int) -> dict:
         logger.debug(f"Step {index}/{total} [{step.type}] : {step.name}")
 
         handlers = {
@@ -109,7 +109,7 @@ class RoutineExecutor:
             logger.error(f"Erreur step '{step.name}': {e}")
             return {"status": "failed", "message": str(e)}
 
-    async def _exec_cli(self, step: RoutineStep) -> dict:
+    async def _exec_cli(self, step: PresetStep) -> dict:
         cmd = step.get_command()
 
         if cmd is None:
@@ -129,7 +129,7 @@ class RoutineExecutor:
             return {"status": "done", "message": stdout.decode()[:200]}
         return {"status": "failed", "message": stderr.decode()[:200]}
 
-    async def _exec_spotify(self, step: RoutineStep) -> dict:
+    async def _exec_spotify(self, step: PresetStep) -> dict:
         if not self._tools:
             return {"status": "skipped", "message": "ToolRegistry non disponible"}
 
@@ -142,7 +142,7 @@ class RoutineExecutor:
             return {"status": "done", "message": result.content}
         return {"status": "failed", "message": result.content}
 
-    async def _exec_tts(self, step: RoutineStep) -> dict:
+    async def _exec_tts(self, step: PresetStep) -> dict:
         if not self._tts or not step.text:
             return {"status": "skipped", "message": "TTS non disponible ou texte vide"}
 
@@ -153,7 +153,7 @@ class RoutineExecutor:
 
         return {"status": "done", "message": f"TTS : {step.text[:50]}"}
 
-    async def _exec_ai(self, step: RoutineStep) -> dict:
+    async def _exec_ai(self, step: PresetStep) -> dict:
         if not self._llm or not step.prompt:
             return {"status": "skipped", "message": "LLM non disponible ou prompt vide"}
 
@@ -172,12 +172,12 @@ class RoutineExecutor:
 
         return {"status": "done", "message": text[:100]}
 
-    async def _exec_wait(self, step: RoutineStep) -> dict:
+    async def _exec_wait(self, step: PresetStep) -> dict:
         seconds = max(0, min(step.seconds, 30))
         await asyncio.sleep(seconds)
         return {"status": "done", "message": f"Attente {seconds}s"}
 
-    async def _exec_notify(self, step: RoutineStep) -> dict:
+    async def _exec_notify(self, step: PresetStep) -> dict:
         cmd = step.get_command()
 
         if not cmd:

@@ -44,18 +44,18 @@ class SkillBase(ABC):
     def is_active(self) -> bool:
         return bool(self.SYSTEM_PROMPT)
 
-    def is_routine(self) -> bool:
+    def is_preset(self) -> bool:
         return False
 
     def __repr__(self):
         return f"<Skill {self.name} v{self.version} by {self.author}>"
 
 
-# ── Routine support ──────────────────────────────────────────────────────────
+# ── Preset support ──────────────────────────────────────────────────────────
 
 
-class RoutineStep:
-    """Un step d'une routine."""
+class PresetStep:
+    """Un step d'un preset."""
 
     def __init__(self, data: dict):
         self.name = data.get("name", "")
@@ -90,9 +90,9 @@ class RoutineStep:
         return None
 
 
-class RoutineSkill(SkillBase):
+class PresetSkill(SkillBase):
     """
-    Skill de type routine — exécute une séquence de steps depuis skill.yaml.
+    Skill de type preset — exécute une séquence de steps depuis skill.yaml.
 
     Le SYSTEM_PROMPT est auto-généré depuis les triggers définis dans skill.yaml.
     Surcharger SYSTEM_PROMPT pour un comportement vocal personnalisé.
@@ -110,10 +110,10 @@ class RoutineSkill(SkillBase):
 
         triggers_str = '", "'.join(triggers)
         return (
-            f"\n## Skill Routine : {label}\n\n{description}\n\n"
+            f"\n## Skill Preset : {label}\n\n{description}\n\n"
             f'Quand l\'utilisateur dit "{triggers_str}" ou une formulation similaire,\n'
-            f'appeler l\'outil execute_routine avec routine_name="{name}".\n\n'
-            "Ne pas exécuter les étapes manuellement — utiliser uniquement execute_routine.\n"
+            f'appeler l\'outil execute_preset avec preset_name="{name}".\n\n'
+            "Ne pas exécuter les étapes manuellement — utiliser uniquement execute_preset.\n"
         )
 
     def get_system_prompt(self) -> str:
@@ -122,7 +122,7 @@ class RoutineSkill(SkillBase):
     def is_active(self) -> bool:
         return bool(self.SYSTEM_PROMPT)
 
-    def get_steps(self) -> list[RoutineStep]:
+    def get_steps(self) -> list[PresetStep]:
         installed_dir = Path("skills/installed") / self.name
         yaml_file = installed_dir / "skill.yaml"
 
@@ -135,7 +135,7 @@ class RoutineSkill(SkillBase):
         if not skill_yaml:
             return []
 
-        return [RoutineStep(step) for step in skill_yaml.get("steps", [])]
+        return [PresetStep(step) for step in skill_yaml.get("steps", [])]
 
     def get_triggers(self) -> list[str]:
         return self.metadata.get("triggers", [])
@@ -143,5 +143,5 @@ class RoutineSkill(SkillBase):
     def get_platforms(self) -> list[str]:
         return self.metadata.get("platforms", [])
 
-    def is_routine(self) -> bool:
+    def is_preset(self) -> bool:
         return True

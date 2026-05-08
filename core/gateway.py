@@ -16,7 +16,7 @@ def _get_orchestrator(app_state):  # type: ignore[return]
     return getattr(app_state, "orchestrator", None)
 
 
-# ── Singleton tool registry (pour les routines) ───────────────────────────────
+# ── Singleton tool registry (pour les presets) ───────────────────────────────
 _tool_registry_instance = None
 
 

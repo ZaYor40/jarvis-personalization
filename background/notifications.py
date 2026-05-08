@@ -75,7 +75,7 @@ class ProactiveQueue:
         )
 
 
-# ── Module-level helpers pour les routines ───────────────────────────────────
+# ── Module-level helpers pour les presets ───────────────────────────────────
 
 _proactive_queue_instance: "ProactiveQueue | None" = None
 
