@@ -1,11 +1,11 @@
 .PHONY: boot run voice livekit start
 
 start:
-	@echo "Démarrage Jarvis complet (LiveKit + API + Voice)..."
+	@echo "Démarrage Jarvis (LiveKit + API + Voice)..."
 	@trap 'kill $$(jobs -p) 2>/dev/null; exit 0' INT TERM; \
-	livekit-server --dev --keys "devkey: devsecretdevsecretdevsecretdevsecret" & \
-	uv run python main.py & \
-	sleep 3 && uv run python voice_agent.py dev; \
+	livekit-server --dev --node-ip 127.0.0.1 --keys "devkey: devsecretdevsecretdevsecretdevsecret" & \
+	sleep 2 && uv run python main.py & \
+	sleep 4 && uv run python voice_agent.py dev; \
 	wait
 
 invoque:
@@ -16,7 +16,7 @@ run:
 
 livekit:
 	@echo "Démarrage LiveKit local sur ws://localhost:7880"
-	@livekit-server --dev --keys "devkey: devsecretdevsecretdevsecretdevsecret"
+	@livekit-server --dev --node-ip 127.0.0.1 --keys "devkey: devsecretdevsecretdevsecretdevsecret"
 
 voice:
 	@uv run python voice_agent.py dev

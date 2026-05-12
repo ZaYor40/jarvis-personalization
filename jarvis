@@ -1,25 +1,140 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Se place dans le dossier réel du script (résout les symlinks) pour que
+# `jarvis run` marche depuis n'importe où.
+_SCRIPT="$(readlink -f "$0" 2>/dev/null || python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$0")"
+cd "$(dirname "$_SCRIPT")"
+
 case "${1:-}" in
   eclosion) bash setup.sh ;;
-  run)      uv run python main.py ;;
+  api)      uv run python main.py ;;
   voice)    uv run python voice_agent.py dev ;;
-  livekit)  livekit-server --dev --keys "devkey: devsecretdevsecretdevsecretdevsecret" ;;
-  start)
+  livekit)  livekit-server --dev --node-ip 127.0.0.1 --keys "devkey: devsecretdevsecretdevsecretdevsecret" ;;
+  run|start)
     exec /usr/bin/env bash --noprofile --norc -c '
-      echo "Démarrage Jarvis complet (LiveKit + API + Voice)..."
+      # ── Styles ────────────────────────────────────────────────────
+      R="\033[0m"; B="\033[1m"
+      CY="\033[38;2;0;212;255m"
+      TL="\033[38;2;0;255;180m"
+      GY="\033[38;2;120;130;150m"
+      DG="\033[38;2;70;80;95m"
+      WH="\033[38;2;220;230;255m"
+      YL="\033[93m"; RD="\033[91m"
+      CLEAR_LINE="\033[1A\033[2K"
+
+      _row_wait() { printf "  ${YL}●${R}  ${B}%-8s${R}  ${GY}%s${R}\n" "$1" "$2"; }
+      _row_ok()   { printf "  ${TL}●${R}  ${B}%-8s${R}  ${GY}%s${R}\n" "$1" "$2"; }
+      _row_err()  { printf "  ${RD}●${R}  ${B}%-8s${R}  ${RD}%s${R}\n" "$1" "$2"; }
+
+      _header() {
+        printf "\n"
+        printf "  ${CY}${B}J · A · R · V · I · S${R}\n"
+        printf "  ${DG}activation système${R}\n"
+        printf "  ${DG}─────────────────────────────────────────────${R}\n"
+        printf "\n"
+      }
+
+      _banner() {
+        printf "\n"
+        printf "  ${DG}─────────────────────────────────────────────${R}\n"
+        printf "  ${TL}${B}✓  Jarvis prêt${R}\n"
+        printf "\n"
+        printf "  ${WH}→${R} ${B}http://localhost:8000${R}      ${GY}interface${R}\n"
+        printf "  ${WH}→${R} ${GY}clique sur le micro pour le mode vocal${R}\n"
+        printf "  ${WH}→${R} ${GY}Ctrl-C pour arrêter${R}\n"
+        printf "  ${DG}─────────────────────────────────────────────${R}\n"
+        printf "  ${DG}Logs détaillés : /tmp/jarvis/{livekit,api,voice}.log${R}\n"
+        printf "\n"
+      }
+
+      _header
+
+      # ── Cleanup ports + anciens process ──────────────────────────
+      pkill -f "livekit-server" 2>/dev/null || true
+      pkill -f "voice_agent.py" 2>/dev/null || true
+      for _p in 7880 7881 8000; do
+        _pid=$(lsof -nP -iTCP:$_p -sTCP:LISTEN -t 2>/dev/null || true)
+        [ -n "$_pid" ] && kill -9 $_pid 2>/dev/null || true
+      done
+      sleep 0.3
+
       _pids=()
-      _cleanup() { for p in "${_pids[@]}"; do kill "$p" 2>/dev/null; done; exit 0; }
+      _cleanup() {
+        printf "\n  ${GY}arrêt en cours...${R}\n"
+        for p in "${_pids[@]}"; do kill "$p" 2>/dev/null; done
+        wait 2>/dev/null
+        printf "  ${TL}●${R}  ${GY}Jarvis arrêté${R}\n\n"
+        exit 0
+      }
       trap _cleanup INT TERM EXIT
-      livekit-server --dev --keys "devkey: devsecretdevsecretdevsecretdevsecret" &
+
+      _wait_http() {
+        local url="$1" max="${2:-60}" i=0
+        while [ $i -lt $max ]; do
+          curl -fsS -o /dev/null --max-time 1 "$url" 2>/dev/null && return 0
+          sleep 0.3; i=$((i+1))
+        done
+        return 1
+      }
+
+      _wait_grep() {
+        local file="$1" pattern="$2" max="${3:-60}" i=0
+        while [ $i -lt $max ]; do
+          [ -f "$file" ] && grep -q "$pattern" "$file" 2>/dev/null && return 0
+          sleep 0.3; i=$((i+1))
+        done
+        return 1
+      }
+
+      mkdir -p /tmp/jarvis
+      LK_LOG=/tmp/jarvis/livekit.log
+      API_LOG=/tmp/jarvis/api.log
+      VOICE_LOG=/tmp/jarvis/voice.log
+      : > "$LK_LOG"; : > "$API_LOG"; : > "$VOICE_LOG"
+
+      # 1) LiveKit
+      _row_wait "LiveKit" "démarrage..."
+      livekit-server --dev --node-ip 127.0.0.1 \
+        --keys "devkey: devsecretdevsecretdevsecretdevsecret" > "$LK_LOG" 2>&1 &
       _pids+=($!)
-      sleep 1
-      uv run python main.py &
+      if _wait_http "http://127.0.0.1:7880/" 40; then
+        printf "$CLEAR_LINE"; _row_ok "LiveKit" "ws://localhost:7880"
+      else
+        printf "$CLEAR_LINE"; _row_err "LiveKit" "timeout — voir $LK_LOG"
+        exit 1
+      fi
+
+      # 2) FastAPI
+      _row_wait "API" "démarrage..."
+      uv run python main.py > "$API_LOG" 2>&1 &
       _pids+=($!)
-      sleep 3
-      uv run python voice_agent.py dev &
+      if _wait_http "http://127.0.0.1:8000/health" 90; then
+        printf "$CLEAR_LINE"; _row_ok "API" "http://localhost:8000"
+      else
+        printf "$CLEAR_LINE"; _row_err "API" "timeout — voir $API_LOG"
+        exit 1
+      fi
+
+      # 3) Voice worker (prewarm = ~10s pour charger Silero VAD + plugins)
+      _row_wait "Vocal" "préchauffement (~10s)..."
+      PYTHONWARNINGS=ignore uv run python voice_agent.py dev --log-level info > "$VOICE_LOG" 2>&1 &
       _pids+=($!)
+      if _wait_grep "$VOICE_LOG" "Jarvis vocal prêt" 90; then
+        printf "$CLEAR_LINE"; _row_ok "Vocal" "prêt"
+      else
+        printf "$CLEAR_LINE"; _row_err "Vocal" "préchauffement long — voir $VOICE_LOG"
+      fi
+
+      _banner
+
+      # Stream live filtré : on garde lessentiel (loguru INFO/WARN/ERROR
+      # de main.py, événements voice agent) et on coupe le bruit.
+      tail -F -n 0 "$VOICE_LOG" "$API_LOG" 2>/dev/null \
+        | grep --line-buffered -vE \
+            "objc\[|pkg_resources|Using selector|Watching|plugin registered|HTTP server listening|starting worker|registered worker|^[[:space:]]*$" &
+      _pids+=($!)
+
       wait
     '
     ;;
@@ -179,8 +294,8 @@ PYEOF
     echo ""
     echo "  Usage : jarvis <commande>"
     echo ""
-    echo "    start      —  démarre tout (LiveKit + API + Voice)"
-    echo "    run        —  démarre le serveur uniquement"
+    echo "    run        —  démarre tout (LiveKit + API + Voice)"
+    echo "    api        —  démarre le serveur FastAPI uniquement"
     echo "    voice      —  démarre le pipeline vocal uniquement"
     echo "    livekit    —  démarre le serveur LiveKit local"
     echo "    eclosion   —  installation et configuration"

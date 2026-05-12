@@ -38,6 +38,8 @@ from background.worker import BackgroundWorker
 from config.settings import settings
 from core.agent import Agent
 from core.approval_checker import ApprovalChecker
+from channels.telegram_bot import TelegramChannel, get_telegram_channel
+import channels.telegram_bot as _tg_module
 from core.gateway import Gateway
 from core.session import SessionManager
 from llm.api import AnthropicProvider
@@ -200,29 +202,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     asyncio.create_task(proactive_engine.start(), name="proactive-engine")
 
-    # ── LiveKit Voice Agent ──────────────────────────────────
-    voice_server = None
-    voice_agent_task = None
-    if os.getenv("LIVEKIT_URL"):
-        try:
-            from livekit.agents import WorkerOptions
-            from livekit.agents.worker import AgentServer
-            from voice_agent import entrypoint as voice_entrypoint
-            voice_server = AgentServer.from_server_options(
-                WorkerOptions(entrypoint_fnc=voice_entrypoint, agent_name="jarvis")
-            )
-            voice_agent_task = asyncio.create_task(voice_server.run(), name="livekit-voice-agent")
-
-            def _on_voice_task_done(t: asyncio.Task) -> None:
-                if not t.cancelled() and t.exception():
-                    logger.error("LiveKit voice agent crash", error=str(t.exception()))
-
-            voice_agent_task.add_done_callback(_on_voice_task_done)
-            logger.info("LiveKit voice agent démarré")
-        except Exception as e:
-            logger.warning("LiveKit voice agent non démarré", error=str(e))
-    else:
-        logger.info("LIVEKIT_URL absent — voice agent LiveKit désactivé")
+    # Le worker LiveKit (vocal) tourne dans un process séparé via `voice_agent.py dev`
+    # lancé par `jarvis start`. main.py ne s'occupe que du backend FastAPI / texte.
 
     app.state.orchestrator = orchestrator
     app.state.session_store = session_store
@@ -255,6 +236,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from analytics.registry import analytics_registry as _analytics_registry
     logger.info("AnalyticsRegistry initialisé", widgets=len(_analytics_registry.get_active()))
 
+    # Démarrer le canal Telegram si configuré
+    if os.getenv("TELEGRAM_ENABLED", "false").lower() == "true":
+        telegram = TelegramChannel(gateway=app.state.gateway)
+        _tg_module._telegram_instance = telegram
+        asyncio.create_task(telegram.start(), name="telegram-bot")
+        logger.info("Canal Telegram démarré")
+
     logger.info(
         "Jarvis démarré",
         env=settings.environment,
@@ -272,14 +260,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await worker_task
     except asyncio.CancelledError:
         pass
-    if voice_server:
-        await voice_server.aclose()
-    if voice_agent_task and not voice_agent_task.done():
-        voice_agent_task.cancel()
-        try:
-            await voice_agent_task
-        except asyncio.CancelledError:
-            pass
+    telegram = get_telegram_channel()
+    if telegram:
+        await telegram.stop()
     logger.info("Jarvis arrêté")
 
 

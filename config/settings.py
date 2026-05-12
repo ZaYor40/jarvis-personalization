@@ -305,7 +305,7 @@ class Settings(BaseSettings):
 
     # ── Logging ───────────────────────────────────────────────
     log_level: Literal["DEBUG", "INFO", "WARNING",
-                       "ERROR"] = Field(default="DEBUG")
+                       "ERROR"] = Field(default="INFO")
 
 
 # Singleton — importé partout via `from config.settings import settings`

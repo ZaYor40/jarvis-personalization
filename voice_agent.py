@@ -18,11 +18,27 @@ from livekit.agents.voice.room_io import RoomOptions, AudioInputOptions
 
 import logging
 import os
+import sys
+import warnings
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
+
+# Réduit le bruit du terminal : warnings Python + format loguru aligné sur main.py.
+warnings.filterwarnings("ignore", category=UserWarning, module="pkg_resources")
+try:
+    from loguru import logger as _loguru
+    _loguru.remove()
+    _loguru.add(
+        sys.stderr,
+        level="INFO",
+        format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan> — {message}",
+        colorize=True,
+    )
+except Exception:
+    pass
 
 
 logger = logging.getLogger("jarvis-voice")
@@ -187,10 +203,19 @@ class JarvisVoiceAgent(Agent):
 
 
 def prewarm(proc: object) -> None:
-    """Pré-charge les skills et outils avant l'arrivée d'un job."""
+    """Pré-charge les skills, outils et le modèle VAD avant l'arrivée d'un job."""
     proc.userdata["instructions"] = _build_voice_instructions()  # type: ignore[attr-defined]
     proc.userdata["tools"] = _build_voice_tools()  # type: ignore[attr-defined]
-    logger.info("Voice agent pre-warmed — prêt à recevoir un job")
+    # Le modèle ONNX silero met ~300-800ms à charger ; le faire ici évite de payer
+    # ce coût au premier clic micro.
+    proc.userdata["vad"] = silero.VAD.load(  # type: ignore[attr-defined]
+        min_speech_duration=0.05,
+        min_silence_duration=0.2,
+        activation_threshold=0.5,
+    )
+    logger.info("=" * 40)
+    logger.info("✓ Jarvis vocal prêt — clique sur le micro")
+    logger.info("=" * 40)
 
 
 # ─── Session et pipeline ───────────────────────────────────────────────────────
@@ -198,6 +223,7 @@ def prewarm(proc: object) -> None:
 
 async def entrypoint(ctx: object) -> None:
     from dotenv import dotenv_values
+    from livekit import rtc as lk_rtc
     _env = dotenv_values(Path(__file__).parent / ".env")
 
     _quebec = _env.get("QUEBEC_MODE", "false").strip().lower() in ("true", "1", "yes")
@@ -206,19 +232,35 @@ async def entrypoint(ctx: object) -> None:
 
     logger.info("TTS config — quebec=%s model=%s voice=%s", _quebec, _tts_model, _voice_id)
 
+    # Pré-connecte la room avec un connect_timeout étendu pour éviter les retries v0/v1 de 5s.
+    # livekit-agents utilise rtc.RoomOptions() sans connect_timeout (défaut Rust ~5s),
+    # ce qui cause des timeouts systématiques sur le v0 path. On se connecte nous-mêmes d'abord.
+    _info = getattr(ctx, "_info", None)
+    if _info and not getattr(ctx, "_connected", False):
+        try:
+            await ctx.room.connect(
+                _info.url, _info.token,
+                options=lk_rtc.RoomOptions(auto_subscribe=True, connect_timeout=15.0),
+            )
+            ctx._connected = True  # empêche la double connexion dans session.start()
+            logger.info("Room pre-connected: %s", ctx.room.name)
+        except Exception as e:
+            logger.warning("Pre-connect failed (%s), session.start() va réessayer", e)
+
     # Récupère les données pré-chargées par prewarm (fallback si prewarm non exécuté)
     userdata = getattr(ctx, "proc", None)
     userdata = getattr(userdata, "userdata", {}) if userdata else {}
     instructions = userdata.get("instructions") or _build_voice_instructions()
     tools = userdata.get("tools") or _build_voice_tools()
+    vad = userdata.get("vad") or silero.VAD.load(
+        min_speech_duration=0.05,
+        min_silence_duration=0.2,
+        activation_threshold=0.5,
+    )
 
     session = AgentSession(
-        # VAD — détection de voix
-        vad=silero.VAD.load(
-            min_speech_duration=0.05,
-            min_silence_duration=0.3,
-            activation_threshold=0.5,
-        ),
+        # VAD — détection de voix (pré-chargé dans prewarm)
+        vad=vad,
         # STT — Deepgram Nova-2 streaming
         stt=deepgram.STT(
             model="nova-2",
@@ -231,13 +273,14 @@ async def entrypoint(ctx: object) -> None:
             model="gemini-2.5-flash",
             temperature=0.7,
         ),
-        # TTS — ElevenLabs
+        # TTS — ElevenLabs : chunk_length_schedule courts → 1er chunk audio plus rapide.
+        # streaming_latency est deprecated, on le retire.
         tts=elevenlabs.TTS(
             model=_tts_model,
             voice_id=_voice_id,
             api_key=_env.get("ELEVENLABS_API_KEY", os.getenv("ELEVENLABS_API_KEY", "")),
             encoding="pcm_24000",
-            streaming_latency=3,
+            chunk_length_schedule=[50, 90, 160, 250],
         ),
         # Désactive l'adaptive interruption (agent-gateway.livekit.cloud) — local dev only
         turn_handling={"interruption": {"mode": "vad"}},
@@ -265,5 +308,8 @@ if __name__ == "__main__":
             agent_name="jarvis",
             initialize_process_timeout=30.0,  # 10s par défaut, trop court si réseau lent
             max_retry=32,
+            # Garde 1 process Python pré-chauffé (skills/tools/VAD déjà chargés)
+            # pour que le clic micro ne paie pas un cold start de 5-7s.
+            num_idle_processes=1,
         )
     )

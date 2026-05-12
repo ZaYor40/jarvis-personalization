@@ -308,13 +308,46 @@ DEEPGRAM_API_KEY=""
 
 echo -e "  ${TC_CYAN}${BOLD}Pipeline vocal temps réel (LiveKit + Deepgram)${RESET}"
 echo -e "  ${TC_GRAY}  Requis pour parler à voix haute avec JARVIS.${RESET}"
-echo -e "  ${TC_GRAY}  LiveKit : cloud.livekit.io  ·  Deepgram : deepgram.com (gratuit 200h/mois)${RESET}"
+echo -e "  ${TC_GRAY}  Par défaut : LiveKit tourne en local sur ta machine (zéro config).${RESET}"
+echo -e "  ${TC_GRAY}  Deepgram (STT) : compte gratuit sur deepgram.com (200h/mois).${RESET}"
 nl
 if ask_yesno "Activer le pipeline vocal ?" "n"; then
-  ask "LiveKit URL  (wss://...)" LIVEKIT_URL ""
-  ask_secret "LiveKit API Key" LIVEKIT_API_KEY
-  ask_secret "LiveKit API Secret" LIVEKIT_API_SECRET
-  ask_secret "Deepgram API Key" DEEPGRAM_API_KEY
+  # Installer livekit-server local si absent
+  if ! command -v livekit-server &>/dev/null; then
+    case "$(uname -s)" in
+      Darwin)
+        if command -v brew &>/dev/null; then
+          run_task "Installation de livekit-server (Homebrew)" brew install livekit
+        else
+          badge_warn "Homebrew introuvable — installe livekit-server manuellement : https://github.com/livekit/livekit/releases"
+        fi
+        ;;
+      Linux)
+        run_task "Installation de livekit-server" bash -c "curl -sSL https://get.livekit.io | bash"
+        ;;
+      *)
+        badge_warn "OS non supporté — installe livekit-server manuellement : https://github.com/livekit/livekit/releases"
+        ;;
+    esac
+  else
+    badge_ok "livekit-server déjà installé ($(livekit-server --version 2>&1 | awk '{print $NF}' | head -1))"
+  fi
+
+  # Choix local vs cloud
+  if ask_yesno "Utiliser LiveKit Cloud plutôt que le serveur local ?" "n"; then
+    ask "LiveKit URL  (wss://...)" LIVEKIT_URL ""
+    ask_secret "LiveKit API Key" LIVEKIT_API_KEY
+    ask_secret "LiveKit API Secret" LIVEKIT_API_SECRET
+    badge_ok "LiveKit → Cloud ($LIVEKIT_URL)"
+  else
+    # Clés de dev hardcodées (matchent celles passées à livekit-server --dev dans le script jarvis)
+    LIVEKIT_URL="ws://localhost:7880"
+    LIVEKIT_API_KEY="devkey"
+    LIVEKIT_API_SECRET="devsecretdevsecretdevsecretdevsecret"
+    badge_ok "LiveKit → local (ws://localhost:7880)"
+  fi
+
+  ask_secret "Deepgram API Key  (STT)" DEEPGRAM_API_KEY
   badge_ok "Pipeline vocal configuré"
 else
   badge_skip "Pipeline vocal ignoré"
