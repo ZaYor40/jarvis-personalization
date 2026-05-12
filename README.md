@@ -194,6 +194,42 @@ Ajoute un collector dans `proactive/collectors/` pour l'étendre.
 
 ---
 
+## Telegram — accès mobile
+
+Jarvis est accessible depuis n'importe où via un bot Telegram. Même LLM, même mémoire, mêmes outils — juste depuis ton téléphone.
+
+**1. Créer le bot**
+
+Ouvre Telegram → cherche `@BotFather` → `/newbot` → choisis un nom et un username (doit finir par `bot`). BotFather te donne un token.
+
+**2. Récupérer ton user ID**
+
+Cherche `@userinfobot` sur Telegram → envoie n'importe quel message → il te répond avec ton ID numérique.
+
+**3. Configurer le `.env`**
+
+```env
+TELEGRAM_BOT_TOKEN=7xxxxxxxxx:AAF...
+TELEGRAM_OWNER_ID=123456789
+TELEGRAM_ENABLED=true
+```
+
+**4. Lancer Jarvis** — les logs affichent `Telegram bot démarré`. Ouvre le chat avec ton bot et envoie `/start`.
+
+**Commandes disponibles**
+
+| Commande | Action |
+|---|---|
+| `/start` | Message de bienvenue + liste des commandes |
+| `/status` | État de tous les composants (Jarvis Doctor) |
+| `/initiatives` | Initiatives en attente dans le Command Center |
+| `/help` | Aide complète |
+| Message libre | Parle à Jarvis normalement |
+
+**Sécurité** : seul ton `TELEGRAM_OWNER_ID` est autorisé. Tout autre compte reçoit `⛔ Accès non autorisé.` et n'est pas traité.
+
+---
+
 ## Développement
 
 ```bash
