@@ -1793,7 +1793,165 @@
   /* ───────── Système (logs + actions) ───────── */
   function renderSysteme(root) {
     root.innerHTML = "";
-    root.appendChild(secHd("06", "Système", "Stream & actions", "live · 14d uptime"));
+    root.appendChild(secHd("06", "Système", "Stream & actions", "live"));
+
+    // ── Jarvis Doctor ─────────────────────────────────────────────────────────
+    const DOCTOR_LABELS = {
+      fastapi:   "FastAPI",
+      anthropic: "Anthropic",
+      elevenlabs:"ElevenLabs",
+      deepgram:  "Deepgram",
+      mapbox:    "Mapbox",
+      docker:    "Docker",
+      memory:    "Mémoire",
+      skills:    "Skills",
+      proactive: "ProactiveEngine",
+    };
+
+    const doctorCard = card({ title: "Jarvis Doctor", sub: "diagnostic des composants" });
+    const doctorHd = el("div", { class: "doctor-hd" }, [
+      el("span", { class: "doctor-title", text: "État des composants" }),
+    ]);
+    const refreshBtn = el("button", { class: "doctor-refresh", text: "↻ Vérifier" });
+    doctorHd.appendChild(refreshBtn);
+    const doctorList = el("div", { class: "doctor-list" });
+    const doctorOverall = el("div", { class: "doctor-overall loading", text: "Chargement…" });
+
+    let doctorRows = {};
+
+    function buildSkeleton() {
+      doctorList.innerHTML = "";
+      doctorRows = {};
+      Object.entries(DOCTOR_LABELS).forEach(([key, label]) => {
+        const dot    = el("div", { class: "dr-dot loading" });
+        const name   = el("span", { class: "dr-name", text: label });
+        const detail = el("span", { class: "dr-detail", text: "…" });
+        const row    = el("div", { class: "doctor-row" }, [dot, name, detail]);
+        doctorList.appendChild(row);
+        doctorRows[key] = { dot, detail };
+      });
+    }
+
+    async function runDoctor() {
+      refreshBtn.classList.add("spinning");
+      doctorOverall.className = "doctor-overall loading";
+      doctorOverall.textContent = "Diagnostic en cours…";
+      if (Object.keys(doctorRows).length === 0) buildSkeleton();
+      else Object.values(doctorRows).forEach(r => { r.dot.className = "dr-dot loading"; r.detail.textContent = "…"; });
+      try {
+        const d = await J.api.get("/api/health");
+        Object.entries(d.checks || {}).forEach(([key, check]) => {
+          if (!doctorRows[key]) return;
+          const { dot, detail } = doctorRows[key];
+          dot.className = "dr-dot " + (check.status || "error");
+          detail.textContent = check.detail || "—";
+        });
+        doctorOverall.className = "doctor-overall " + (d.status === "ok" ? "ok" : "degraded");
+        doctorOverall.textContent = d.status === "ok" ? "Tous les composants sont opérationnels" : "Dégradé — voir détails ci-dessus";
+      } catch (_) {
+        Object.values(doctorRows).forEach(r => { r.dot.className = "dr-dot error"; r.detail.textContent = "Erreur"; });
+        doctorOverall.className = "doctor-overall degraded";
+        doctorOverall.textContent = "Impossible de contacter l'API";
+      }
+      refreshBtn.classList.remove("spinning");
+    }
+
+    refreshBtn.addEventListener("click", runDoctor);
+    buildSkeleton();
+    doctorCard.appendChild(doctorHd);
+    doctorCard.appendChild(doctorList);
+    doctorCard.appendChild(doctorOverall);
+    root.appendChild(doctorCard);
+    runDoctor();
+
+    // ── Performances ──────────────────────────────────────────────────────────
+    function fmtUptime(s) {
+      const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+      return d ? d + "j " + h + "h" : h ? h + "h " + m + "m" : m + "m";
+    }
+    function mkGauge(label, pct, valStr, color) {
+      const w = el("div", { class: "perf-gauge" });
+      w.appendChild(el("div", { class: "perf-gauge-hd" }, [
+        el("span", { class: "perf-gauge-lbl", text: label }),
+        el("span", { class: "perf-gauge-val", text: valStr }),
+      ]));
+      const track = el("div", { class: "perf-gauge-track" });
+      const fill  = el("div", { class: "perf-gauge-fill", style: { width: Math.min(pct, 100) + "%", background: color } });
+      track.appendChild(fill);
+      w.appendChild(track);
+      return { node: w, fill, valEl: w.querySelector(".perf-gauge-val") };
+    }
+    function gaugeColor(pct) {
+      if (pct > 85) return "var(--red, #e05050)";
+      if (pct > 60) return "var(--gold, #d4a017)";
+      return "var(--accent)";
+    }
+
+    const perfCard = card({ title: "Performances", sub: "temps réel · màj 3s" });
+    const perfGrid = el("div", { class: "perf-grid" });
+    perfCard.appendChild(perfGrid);
+    root.appendChild(perfCard);
+
+    let gauges = null;
+    let perfTimer = null;
+
+    async function refreshPerf() {
+      try {
+        const d = await J.api.get("/api/system/perf");
+        if (!gauges) {
+          perfGrid.innerHTML = "";
+          const cpuColor  = gaugeColor(d.cpu_pct);
+          const ramColor  = gaugeColor(d.ram_pct);
+          const diskColor = gaugeColor(d.disk_pct);
+
+          const gCpu  = mkGauge("CPU",    d.cpu_pct,  d.cpu_pct + "% · " + d.cpu_cores + "c / " + d.cpu_threads + "t", cpuColor);
+          const gRam  = mkGauge("RAM",    d.ram_pct,  d.ram_used_gb + " / " + d.ram_total_gb + " GB", ramColor);
+          const gDisk = mkGauge("Disque", d.disk_pct, d.disk_used_gb + " / " + d.disk_total_gb + " GB", diskColor);
+
+          const statsRow = el("div", { class: "perf-stats-row" });
+          const uptimeEl = el("span", { class: "perf-stat", text: "uptime · " + fmtUptime(d.uptime_s) });
+          const platEl   = el("span", { class: "perf-stat", text: d.platform });
+          const procEl   = el("span", { class: "perf-stat" });
+          statsRow.append(uptimeEl, platEl, procEl);
+
+          perfGrid.appendChild(gCpu.node);
+          perfGrid.appendChild(gRam.node);
+          perfGrid.appendChild(gDisk.node);
+          if (d.battery_pct !== null) {
+            const bat = d.battery_pct + "%" + (d.battery_charging ? " ⚡" : "");
+            perfGrid.appendChild(mkGauge("Batterie", d.battery_pct, bat, gaugeColor(100 - d.battery_pct)).node);
+          }
+          perfGrid.appendChild(statsRow);
+          gauges = { gCpu, gRam, gDisk, uptimeEl, platEl, procEl };
+        } else {
+          const { gCpu, gRam, gDisk, uptimeEl, procEl } = gauges;
+          const cc = gaugeColor(d.cpu_pct);
+          gCpu.fill.style.width  = Math.min(d.cpu_pct, 100) + "%";
+          gCpu.fill.style.background = cc;
+          gCpu.valEl.textContent = d.cpu_pct + "% · " + d.cpu_cores + "c / " + d.cpu_threads + "t";
+          gRam.fill.style.width  = Math.min(d.ram_pct, 100) + "%";
+          gRam.fill.style.background = gaugeColor(d.ram_pct);
+          gRam.valEl.textContent = d.ram_used_gb + " / " + d.ram_total_gb + " GB";
+          gDisk.fill.style.width = Math.min(d.disk_pct, 100) + "%";
+          gDisk.valEl.textContent = d.disk_used_gb + " / " + d.disk_total_gb + " GB";
+          uptimeEl.textContent = "uptime · " + fmtUptime(d.uptime_s);
+          if (d.process && d.process.ram_mb) {
+            procEl.textContent = "jarvis · " + d.process.ram_mb + " MB · " + d.process.cpu_pct + "% cpu";
+          }
+        }
+      } catch (_) {
+        if (!gauges) perfGrid.innerHTML = "<span style='color:var(--fg-3);font-size:11px'>Métriques indisponibles</span>";
+      }
+    }
+
+    refreshPerf();
+    perfTimer = setInterval(refreshPerf, 3000);
+
+    // Nettoyage quand la section est démontée
+    const obs = new MutationObserver(() => {
+      if (!document.contains(perfCard)) { clearInterval(perfTimer); obs.disconnect(); }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
 
     const grid = el("div", { class: "sys-grid" });
 

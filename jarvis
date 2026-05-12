@@ -5,13 +5,186 @@ case "${1:-}" in
   eclosion) bash setup.sh ;;
   run)      uv run python main.py ;;
   voice)    uv run python voice_agent.py dev ;;
+  livekit)  livekit-server --dev --keys "devkey: devsecretdevsecretdevsecretdevsecret" ;;
+  start)
+    exec /usr/bin/env bash --noprofile --norc -c '
+      echo "Démarrage Jarvis complet (LiveKit + API + Voice)..."
+      _pids=()
+      _cleanup() { for p in "${_pids[@]}"; do kill "$p" 2>/dev/null; done; exit 0; }
+      trap _cleanup INT TERM EXIT
+      livekit-server --dev --keys "devkey: devsecretdevsecretdevsecretdevsecret" &
+      _pids+=($!)
+      sleep 1
+      uv run python main.py &
+      _pids+=($!)
+      sleep 3
+      uv run python voice_agent.py dev &
+      _pids+=($!)
+      wait
+    '
+    ;;
+  doctor)
+    uv run python3 - <<'PYEOF'
+import sys, os, subprocess, urllib.request, urllib.error
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def load_env(path=".env"):
+    env = {}
+    try:
+        for line in Path(path).read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            env[k.strip()] = v.strip()
+    except FileNotFoundError:
+        pass
+    return env
+
+ENV = load_env()
+def e(k): return ENV.get(k) or os.environ.get(k, "")
+
+# ANSI
+R  = "\033[0m";  B  = "\033[1m";  D  = "\033[2m"
+CY = "\033[96m"; GR = "\033[32m"; YL = "\033[33m"; RD = "\033[31m"
+DOT = {"ok": GR+"●"+R, "warning": YL+"●"+R, "error": RD+"●"+R}
+
+def http_get(url, headers=None, timeout=6):
+    req = urllib.request.Request(url, headers=headers or {})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.status
+
+def check_fastapi():
+    port = e("PORT") or "8000"
+    try:
+        s = http_get(f"http://localhost:{port}/health")
+        return ("ok", f"En ligne · :{port}") if s < 400 else ("error", f"HTTP {s}")
+    except: return ("warning", f"Serveur eteint · port {port}")
+
+def check_anthropic():
+    key = e("ANTHROPIC_API_KEY")
+    if not key: return ("warning", "API key manquante")
+    try:
+        s = http_get("https://api.anthropic.com/v1/models",
+                     {"x-api-key": key, "anthropic-version": "2023-06-01"})
+        return ("ok", e("ANTHROPIC_MODEL") or "claude-sonnet-4-6") if s == 200 else ("error", f"HTTP {s}")
+    except: return ("error", "Inaccessible")
+
+def check_elevenlabs():
+    key = e("ELEVENLABS_API_KEY")
+    if not key: return ("warning", "API key manquante")
+    try:
+        s = http_get("https://api.elevenlabs.io/v1/user", {"xi-api-key": key})
+        return ("ok", e("ELEVENLABS_MODEL") or "—") if s == 200 else ("error", f"HTTP {s}")
+    except: return ("error", "Inaccessible")
+
+def check_deepgram():
+    key = e("DEEPGRAM_API_KEY")
+    if not key: return ("warning", "API key manquante")
+    try:
+        s = http_get("https://api.deepgram.com/v1/projects",
+                     {"Authorization": f"Token {key}"})
+        return ("ok", "Nova-2") if s == 200 else ("error", f"HTTP {s}")
+    except: return ("error", "Inaccessible")
+
+def check_mapbox():
+    t = e("MAPBOX_TOKEN")
+    return ("ok", "Token present") if t else ("warning", "MAPBOX_TOKEN manquante")
+
+def check_docker():
+    try:
+        r = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
+        return ("ok", "Disponible") if r.returncode == 0 else ("error", "Non disponible")
+    except FileNotFoundError: return ("error", "Non installe")
+    except: return ("error", "Erreur")
+
+def check_memory():
+    p = Path("memory_data/topics")
+    n = len(list(p.glob("*.md"))) if p.exists() else 0
+    return ("ok", f"{n} topics")
+
+def check_skills():
+    p = Path("skills/installed")
+    n = len([d for d in p.iterdir() if d.is_dir()]) if p.exists() else 0
+    return ("ok", f"{n} installes")
+
+def check_proactive():
+    port = e("PORT") or "8000"
+    try:
+        s = http_get(f"http://localhost:{port}/api/proactive/status")
+        return ("ok", "Actif") if s == 200 else ("warning", "Serveur eteint")
+    except: return ("warning", "Serveur eteint")
+
+CHECKS = [
+    ("fastapi",    "FastAPI",         check_fastapi),
+    ("anthropic",  "Anthropic",       check_anthropic),
+    ("elevenlabs", "ElevenLabs",      check_elevenlabs),
+    ("deepgram",   "Deepgram",        check_deepgram),
+    ("mapbox",     "Mapbox",          check_mapbox),
+    ("docker",     "Docker",          check_docker),
+    ("memory",     "Memoire",         check_memory),
+    ("skills",     "Skills",          check_skills),
+    ("proactive",  "ProactiveEngine", check_proactive),
+]
+
+ICONS = {"ok": GR+"●"+R, "warning": YL+"●"+R, "error": RD+"✗"+R}
+
+TITLE = "J·A·R·V·I·S  ─  diagnostic système"
+IW    = len(TITLE) + 8
+
+# Spinner
+sys.stdout.write(f"\n  {D}scanning...{R}")
+sys.stdout.flush()
+
+results = {}
+with ThreadPoolExecutor(max_workers=6) as pool:
+    futures = {pool.submit(fn): key for key, _, fn in CHECKS}
+    for fut in as_completed(futures):
+        key = futures[fut]
+        try: results[key] = fut.result()
+        except Exception as exc: results[key] = ("error", str(exc))
+
+sys.stdout.write("\033[2K\r")
+sys.stdout.flush()
+
+# ── Header ────────────────────────────────────────────────────────────────────
+print(f"  {CY}╭{'─' * IW}╮{R}")
+print(f"  {CY}│{R}    {B}{TITLE}{R}    {CY}│{R}")
+print(f"  {CY}╰{'─' * IW}╯{R}")
+print()
+
+# ── Checks ────────────────────────────────────────────────────────────────────
+for key, label, _ in CHECKS:
+    status, detail = results.get(key, ("error", "—"))
+    icon = ICONS.get(status, ICONS["error"])
+    print(f"  {icon}  {B}{label:<18}{R}  {D}{detail}{R}")
+
+# ── Footer ────────────────────────────────────────────────────────────────────
+overall = "ok" if all(results.get(k, ("error",))[0] == "ok" for k, _, _ in CHECKS) else "degraded"
+ok_n  = sum(1 for k, _, _ in CHECKS if results.get(k, ("error",))[0] == "ok")
+bad_n = len(CHECKS) - ok_n
+
+print()
+print(f"  {D}{'─' * IW}{R}")
+if overall == "ok":
+    print(f"  {GR}{B}  ✓  tous les systèmes sont opérationnels{R}")
+else:
+    s = "s" if bad_n > 1 else ""
+    print(f"  {YL}{B}  ⚠  {ok_n}/{len(CHECKS)} opérationnels  ─  {bad_n} alerte{s} détectée{s}{R}")
+print()
+PYEOF
+    ;;
   *)
     echo ""
     echo "  Usage : jarvis <commande>"
     echo ""
+    echo "    start      —  démarre tout (LiveKit + API + Voice)"
+    echo "    run        —  démarre le serveur uniquement"
+    echo "    voice      —  démarre le pipeline vocal uniquement"
+    echo "    livekit    —  démarre le serveur LiveKit local"
     echo "    eclosion   —  installation et configuration"
-    echo "    run        —  démarre le serveur"
-    echo "    voice      —  démarre le pipeline vocal"
+    echo "    doctor     —  diagnostic des composants"
     echo ""
     exit 1
     ;;

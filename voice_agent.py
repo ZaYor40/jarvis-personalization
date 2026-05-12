@@ -12,6 +12,7 @@ from livekit.agents import (
     AgentSession,
     WorkerOptions,
     cli,
+    llm as lk_llm,
 )
 from livekit.agents.voice.room_io import RoomOptions, AudioInputOptions
 
@@ -26,9 +27,9 @@ load_dotenv(Path(__file__).parent / ".env")
 
 logger = logging.getLogger("jarvis-voice")
 
-# ─── Prompt système vocal ──────────────────────────────────────────────────────
+# ─── Prompt système vocal (base) ───────────────────────────────────────────────
 
-VOICE_SYSTEM_PROMPT = """
+_VOICE_SYSTEM_BASE = """
 Tu es Jarvis, l'assistant IA personnel de Barth.
 
 Règles absolues pour la voix :
@@ -41,26 +42,118 @@ Règles absolues pour la voix :
   et propose de l'envoyer par écrit dans l'interface.
 - Tu connais Barth : auto-entrepreneur à Lyon, YouTuber maker/électronique,
   projet Chimp NFC, Jarvis IA, communauté Le Labo.
+- Quand tu utilises un outil, annonce-le en 1 phrase courte avant (ex: "Je vérifie l'imprimante…").
 
 Réponds en français sauf si Barth parle en anglais.
 """
+
+
+# ─── Chargement des skills ─────────────────────────────────────────────────────
+
+
+def _build_voice_instructions() -> str:
+    """Prompt système = base + SYSTEM_PROMPT de chaque skill actif."""
+    try:
+        from skills.registry import SkillRegistry
+        reg = SkillRegistry.get_instance()
+        skill_prompt = reg.get_combined_system_prompt()
+        if skill_prompt:
+            return _VOICE_SYSTEM_BASE + "\n\n# SKILLS ACTIFS\n\n" + skill_prompt
+    except Exception as e:
+        logger.warning("Skills non chargés pour les instructions vocales: %s", e)
+    return _VOICE_SYSTEM_BASE
+
+
+def _make_livekit_tool(jarvis_tool: object) -> "lk_llm.RawFunctionTool":
+    """Wraps un Jarvis Tool comme LiveKit RawFunctionTool."""
+    schema = jarvis_tool.to_claude_schema()  # type: ignore[attr-defined]
+    raw_schema = {
+        "name": schema["name"],
+        "description": schema["description"],
+        "parameters": schema["input_schema"],
+    }
+
+    async def _execute(raw_arguments: dict[str, object]) -> str:
+        result = await jarvis_tool.execute(**raw_arguments)  # type: ignore[attr-defined]
+        return f"[ERREUR] {result.content}" if result.is_error else result.content
+
+    return lk_llm.function_tool(_execute, raw_schema=raw_schema)
+
+
+def _voice_broadcast(event: dict) -> None:
+    """Envoie un événement UI via HTTP au serveur FastAPI (localhost)."""
+    import threading
+    import urllib.request
+    import json as _json
+
+    def _post() -> None:
+        from config.settings import settings
+        url = f"http://localhost:{settings.port}/internal/broadcast"
+        data = _json.dumps(event).encode()
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            urllib.request.urlopen(req, timeout=2)
+        except Exception as e:
+            logger.debug("Voice broadcast HTTP fail: %s", e)
+
+    threading.Thread(target=_post, daemon=True).start()
+
+
+def _build_voice_tools() -> list:
+    """Retourne les LiveKit tools : skills + outils de base utiles en vocal."""
+    jarvis_tools = []
+
+    # Outils de base
+    try:
+        from tools.weather import WeatherTool
+        from tools.cli import ExecuteCLITool
+        from tools.map_control import MapControlTool
+        from tools.preset import ExecutePresetTool
+
+        jarvis_tools += [
+            WeatherTool(),
+            ExecuteCLITool(),
+            MapControlTool(broadcast_event=_voice_broadcast),
+            ExecutePresetTool(),
+        ]
+    except Exception as e:
+        logger.warning("Outils de base non chargés: %s", e)
+
+    # Outils des skills installés (BambuLab, Fusion360…)
+    try:
+        from skills.registry import SkillRegistry
+        reg = SkillRegistry.get_instance()
+        jarvis_tools += reg.get_all_tools()
+    except Exception as e:
+        logger.warning("Skill tools non chargés: %s", e)
+
+    tools = [_make_livekit_tool(t) for t in jarvis_tools]
+    logger.info("Voice tools chargés: %s", [t._info.name for t in tools])
+    return tools
 
 
 # ─── Agent Jarvis ──────────────────────────────────────────────────────────────
 
 
 class JarvisVoiceAgent(Agent):
-    def __init__(self) -> None:
-        super().__init__(
-            instructions=VOICE_SYSTEM_PROMPT,
-            tools=[],
-        )
+    def __init__(self, instructions: str, tools: list) -> None:
+        super().__init__(instructions=instructions, tools=tools)
 
     async def on_enter(self) -> None:
         await self.session.say(
             "Systèmes en ligne. Bonjour Barth.",
             allow_interruptions=True,
         )
+
+
+# ─── Prewarm — chargé une fois au démarrage du process ─────────────────────────
+
+
+def prewarm(proc: object) -> None:
+    """Pré-charge les skills et outils avant l'arrivée d'un job."""
+    proc.userdata["instructions"] = _build_voice_instructions()  # type: ignore[attr-defined]
+    proc.userdata["tools"] = _build_voice_tools()  # type: ignore[attr-defined]
+    logger.info("Voice agent pre-warmed — prêt à recevoir un job")
 
 
 # ─── Session et pipeline ───────────────────────────────────────────────────────
@@ -75,6 +168,12 @@ async def entrypoint(ctx: object) -> None:
     _tts_model = "eleven_multilingual_v2" if _quebec else _env.get("ELEVENLABS_MODEL", "eleven_turbo_v2_5")
 
     logger.info("TTS config — quebec=%s model=%s voice=%s", _quebec, _tts_model, _voice_id)
+
+    # Récupère les données pré-chargées par prewarm (fallback si prewarm non exécuté)
+    userdata = getattr(ctx, "proc", None)
+    userdata = getattr(userdata, "userdata", {}) if userdata else {}
+    instructions = userdata.get("instructions") or _build_voice_instructions()
+    tools = userdata.get("tools") or _build_voice_tools()
 
     session = AgentSession(
         # VAD — détection de voix
@@ -105,7 +204,7 @@ async def entrypoint(ctx: object) -> None:
         ),
     )
 
-    agent = JarvisVoiceAgent()
+    agent = JarvisVoiceAgent(instructions=instructions, tools=tools)
 
     await session.start(
         room=ctx.room,
@@ -123,6 +222,9 @@ if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
+            prewarm_fnc=prewarm,
             agent_name="jarvis",
+            initialize_process_timeout=30.0,  # 10s par défaut, trop court si réseau lent
+            max_retry=32,
         )
     )

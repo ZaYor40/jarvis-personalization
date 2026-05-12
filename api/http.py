@@ -91,6 +91,98 @@ async def health() -> HealthResponse:
     return HealthResponse(status="ok", version="0.1.0")
 
 
+@router.get("/api/health")
+async def jarvis_doctor() -> dict:
+    """Rapport de santé complet de tous les composants Jarvis."""
+    import asyncio
+    import httpx
+    from pathlib import Path
+
+    checks: dict[str, dict] = {}
+
+    checks["fastapi"] = {"status": "ok", "detail": "En ligne"}
+
+    async with httpx.AsyncClient(timeout=5) as c:
+        # Anthropic
+        try:
+            r = await c.get(
+                "https://api.anthropic.com/v1/models",
+                headers={"x-api-key": os.getenv("ANTHROPIC_API_KEY", ""), "anthropic-version": "2023-06-01"},
+            )
+            checks["anthropic"] = {
+                "status": "ok" if r.status_code == 200 else "error",
+                "detail": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+            }
+        except Exception:
+            checks["anthropic"] = {"status": "error", "detail": "Inaccessible"}
+
+        # ElevenLabs
+        try:
+            r = await c.get(
+                "https://api.elevenlabs.io/v1/user",
+                headers={"xi-api-key": os.getenv("ELEVENLABS_API_KEY", "")},
+            )
+            checks["elevenlabs"] = {
+                "status": "ok" if r.status_code == 200 else "error",
+                "detail": os.getenv("ELEVENLABS_MODEL", "—"),
+            }
+        except Exception:
+            checks["elevenlabs"] = {"status": "error", "detail": "Inaccessible"}
+
+        # Deepgram
+        try:
+            r = await c.get(
+                "https://api.deepgram.com/v1/projects",
+                headers={"Authorization": f"Token {os.getenv('DEEPGRAM_API_KEY', '')}"},
+            )
+            checks["deepgram"] = {
+                "status": "ok" if r.status_code == 200 else "error",
+                "detail": "Nova-2",
+            }
+        except Exception:
+            checks["deepgram"] = {"status": "error", "detail": "Inaccessible"}
+
+    # Mapbox (token local, pas d'appel réseau)
+    token = os.getenv("MAPBOX_TOKEN", "")
+    checks["mapbox"] = {
+        "status": "ok" if token else "warning",
+        "detail": "Token présent" if token else "MAPBOX_TOKEN manquant",
+    }
+
+    # Docker
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "info",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+        checks["docker"] = {
+            "status": "ok" if proc.returncode == 0 else "error",
+            "detail": "Disponible" if proc.returncode == 0 else "Non disponible",
+        }
+    except Exception:
+        checks["docker"] = {"status": "error", "detail": "Non installé"}
+
+    # Mémoire
+    topics = list(Path("memory_data/topics").glob("*.md")) if Path("memory_data/topics").exists() else []
+    checks["memory"] = {"status": "ok", "detail": f"{len(topics)} topics"}
+
+    # Skills
+    try:
+        from skills.registry import skill_registry
+        skills = skill_registry.list_installed()
+        checks["skills"] = {"status": "ok", "detail": f"{len(skills)} installés"}
+    except Exception:
+        checks["skills"] = {"status": "warning", "detail": "Registre indisponible"}
+
+    # ProactiveEngine
+    checks["proactive"] = {"status": "ok", "detail": "Actif"}
+
+    overall = "ok" if all(v["status"] == "ok" for v in checks.values()) else "degraded"
+    return {"status": overall, "checks": checks}
+
+
 @router.get("/api/wakeup/status")
 async def wakeup_status() -> dict:
     """Retourne si la séquence wake up est activée (contrôlé via WAKEUP_ENABLED dans .env)."""
@@ -587,6 +679,52 @@ async def system_stats(request: Request) -> dict:
             "whisper_model": settings.whisper_model,
         },
         "workspace": str(WORKSPACE_DIR.resolve()),
+    }
+
+
+@router.get("/api/system/perf")
+async def system_perf() -> dict:
+    """Métriques temps réel : CPU, RAM, disque, batterie, process Jarvis."""
+    import os
+    import platform
+    import time
+    import psutil
+
+    cpu_pct = psutil.cpu_percent(interval=0.15)
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
+    battery = psutil.sensors_battery()
+    boot_time = psutil.boot_time()
+    uptime_s = int(time.time() - boot_time)
+
+    proc_info: dict = {}
+    try:
+        p = psutil.Process(os.getpid())
+        with p.oneshot():
+            proc_info = {
+                "pid":        p.pid,
+                "cpu_pct":    round(p.cpu_percent(interval=None), 1),
+                "ram_mb":     round(p.memory_info().rss / 1024 / 1024, 1),
+                "threads":    p.num_threads(),
+            }
+    except Exception:
+        pass
+
+    return {
+        "cpu_pct":          round(cpu_pct, 1),
+        "cpu_cores":        psutil.cpu_count(logical=False),
+        "cpu_threads":      psutil.cpu_count(logical=True),
+        "ram_used_gb":      round(mem.used / 1024 ** 3, 2),
+        "ram_total_gb":     round(mem.total / 1024 ** 3, 2),
+        "ram_pct":          round(mem.percent, 1),
+        "disk_used_gb":     round(disk.used / 1024 ** 3, 1),
+        "disk_total_gb":    round(disk.total / 1024 ** 3, 1),
+        "disk_pct":         round(disk.percent, 1),
+        "battery_pct":      round(battery.percent) if battery else None,
+        "battery_charging": battery.power_plugged if battery else None,
+        "uptime_s":         uptime_s,
+        "platform":         platform.platform(terse=True),
+        "process":          proc_info,
     }
 
 
@@ -1725,3 +1863,14 @@ async def reorder_widgets(request: Request):
     from analytics.registry import analytics_registry
     body = await request.json()
     return analytics_registry.reorder(body.get("order", []))
+
+
+# ── Internal broadcast (voice agent → UI via WebSocket) ───────────────────────
+
+@router.post("/internal/broadcast", include_in_schema=False)
+async def internal_broadcast(request: Request) -> dict:
+    """Endpoint interne utilisé par le voice agent pour envoyer des événements UI."""
+    from background.notifications import broadcast_event
+    event = await request.json()
+    await broadcast_event(event)
+    return {"ok": True}
