@@ -8,7 +8,6 @@ from datetime import datetime
 import anthropic
 from openai import AsyncOpenAI
 from loguru import logger
-from mistralai.client import Mistral
 
 from config.settings import settings
 from core.tracking import UsageEntry, calculate_cost, tracker
@@ -234,10 +233,13 @@ class AnthropicProvider(LLMProvider):
 
 
 class MistralProvider(LLMProvider):
-    """Provider Mistral API via SDK officiel."""
+    """Provider Mistral via l'API OpenAI-compatible (pas de SDK mistralai quarantined)."""
 
     def __init__(self) -> None:
-        self._client = Mistral(api_key=settings.mistral_api_key)
+        self._client = AsyncOpenAI(
+            api_key=settings.mistral_api_key,
+            base_url="https://api.mistral.ai/v1",
+        )
         self._model = settings.mistral_model
 
     async def complete(
@@ -248,35 +250,38 @@ class MistralProvider(LLMProvider):
         stream: bool = False,
         context: str = "",
     ) -> str | AsyncIterator[str]:
-        # Mistral intègre le system message dans la liste messages
         full_messages = [{"role": "system", "content": system}, *messages]
 
         if stream:
             return self._stream(full_messages)
 
-        response = await self._client.chat.complete_async(
+        response = await self._client.chat.completions.create(
             model=self._model,
             messages=full_messages,
         )
-        text = response.choices[0].message.content
+        text = response.choices[0].message.content or ""
         logger.debug("Mistral complete", model=self._model)
         return text
 
     async def _stream(self, messages: list[dict]) -> AsyncIterator[str]:
-        stream = await self._client.chat.stream_async(
+        stream = await self._client.chat.completions.create(
             model=self._model,
             messages=messages,
+            stream=True,
         )
-        async for event in stream:
-            delta = event.data.choices[0].delta.content
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta.content
             if delta:
                 yield delta
 
     async def health_check(self) -> bool:
         try:
-            await self._client.chat.complete_async(
+            await self._client.chat.completions.create(
                 model=self._model,
                 messages=[{"role": "user", "content": "ping"}],
+                max_tokens=1,
             )
             return True
         except Exception as e:

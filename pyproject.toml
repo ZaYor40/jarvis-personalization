@@ -3,7 +3,7 @@ name = "jarvis-v3"
 version = "0.1.0"
 description = "Jarvis — assistant personnel intelligent vocal temps réel"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     # Web framework
     "fastapi>=0.115.0",
@@ -14,7 +14,6 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # LLM providers
     "anthropic>=0.40.0",
-    "mistralai>=1.2.0",
     "ollama>=0.4.0",
     # HTTP client (async only)
     "httpx>=0.28.0",
@@ -47,6 +46,7 @@ dependencies = [
     "hidapi>=0.15.0",
     "pyusb>=1.3.1",
     "libusb-package>=1.0.26.3",
+    "python-telegram-bot>=21.0",
 ]
 
 [project.optional-dependencies]
