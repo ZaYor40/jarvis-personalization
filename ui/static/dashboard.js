@@ -96,33 +96,19 @@
 
   /* ───────── Aperçu ───────── */
   async function renderApercu() {
-    const [inits, { active, ended }] = await Promise.all([loadInitiatives(), loadMissions()]);
+    const [inits, { active }, tasksRaw] = await Promise.all([
+      loadInitiatives(),
+      loadMissions(),
+      J.api.get("/api/tasks").catch(() => []),
+    ]);
     const urgents = inits.filter(i => i.priority === "high").slice(0, 3);
-    const activeMissions = active.slice(0, 2);
+    const tasks = (tasksRaw.tasks || tasksRaw || [])
+      .map(t => ({ id: t.id, label: t.title || t.label || t.text || "", done: !!(t.done || t.checked), src: t.source || "NOTION" }))
+      .filter(t => t.label);
 
     const wrap = el("div", { style: { display: "flex", flexDirection: "column", gap: "44px" } });
 
-    // KPI strip from Jarvis analytics
-    let jarvisKpis = null;
-    try { jarvisKpis = await J.api.get("/api/analytics/jarvis?days=30"); } catch (_) {}
-    if (jarvisKpis) {
-      const kpiStrip = el("div", { class: "kpi-strip" });
-      [
-        { lbl: "Requêtes 30j", val: jarvisKpis.total_calls  || 0 },
-        { lbl: "Coût 30j",     val: jarvisKpis.total_cost != null ? "$" + jarvisKpis.total_cost.toFixed(2) : "—" },
-        { lbl: "Tokens",       val: jarvisKpis.total_tokens || 0 },
-      ].forEach(k => {
-        const card = el("div", { class: "kpi-card" });
-        card.appendChild(el("div", { class: "kpi-lbl", text: k.lbl }));
-        const valRow = el("div", { class: "kpi-val" });
-        valRow.textContent = typeof k.val === "number" ? J.fmt.num(k.val) : k.val;
-        card.appendChild(valRow);
-        kpiStrip.appendChild(card);
-      });
-      wrap.appendChild(kpiStrip);
-    }
-
-    // À traiter
+    // À traiter (initiatives urgentes)
     if (urgents.length) {
       const list = el("div");
       urgents.forEach(i => list.appendChild(renderInitRow(i)));
@@ -134,17 +120,38 @@
       ));
     }
 
-    // Missions actives
-    if (activeMissions.length) {
-      const list = el("div");
-      activeMissions.forEach(m => list.appendChild(renderMissionRow(m)));
-      wrap.appendChild(ghostSec("Missions actives", activeMissions.length + " en cours", null, list));
+    // Missions — toujours affiché
+    const missionList = el("div");
+    if (active.length) {
+      active.slice(0, 3).forEach(m => missionList.appendChild(renderMissionRow(m)));
+    } else {
+      missionList.appendChild(el("div", { class: "j-empty", text: "Aucune mission en cours" }));
     }
+    wrap.appendChild(ghostSec(
+      "Missions",
+      active.length ? active.length + " en cours" : "—",
+      null,
+      missionList
+    ));
+
+    // Tâches
+    const taskList = el("div");
+    if (tasks.length) {
+      tasks.forEach(t => taskList.appendChild(buildTaskRow(t, taskList)));
+    } else {
+      taskList.appendChild(el("div", { class: "j-empty", text: "Aucune tâche" }));
+    }
+    wrap.appendChild(ghostSec(
+      "Tâches",
+      tasks.length ? tasks.filter(t => t.done).length + " / " + tasks.length + " terminées" : "—",
+      null,
+      taskList
+    ));
 
     const page = pageWrapper(
       "apercu",
       "Ce qui mérite ton attention",
-      '<span class="v">' + inits.length + '</span> initiatives · <span class="v">' + active.length + '</span> missions actives',
+      null,
       wrap
     );
     root.innerHTML = "";
@@ -508,6 +515,49 @@
     return row;
   }
 
+  /* ───────── Tâches — helper partagé ───────── */
+  function buildTaskRow(t, list) {
+    const row = el("div", { class: "task-row " + (t.done ? "done" : "") });
+    const chk = el("div", { class: "task-check" });
+    if (t.done) chk.textContent = "✓";
+    const txt = el("div", { style: { flex: "1", minWidth: "0" } });
+    txt.appendChild(el("div", { class: "task-label", text: t.label }));
+    txt.appendChild(el("div", { class: "task-src",   text: t.src }));
+
+    const del = el("div", { class: "task-del", text: "×" });
+    del.title = "Supprimer";
+    del.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      row.style.opacity = "0.4";
+      try {
+        await J.api.delete("/api/tasks/" + t.id);
+        row.remove();
+        if (list && !list.querySelectorAll(".task-row").length) {
+          const empty = el("div", { class: "j-empty", text: "Aucune tâche" });
+          const addBar = list.querySelector(".add-bar");
+          if (addBar) list.insertBefore(empty, addBar);
+          else list.appendChild(empty);
+        }
+      } catch (_) { row.style.opacity = ""; }
+    });
+
+    chk.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const newDone = !t.done;
+      chk.style.opacity = "0.5";
+      try {
+        await J.api.patch("/api/tasks/" + t.id, { done: newDone });
+        t.done = newDone;
+        row.classList.toggle("done", newDone);
+        chk.textContent = newDone ? "✓" : "";
+      } catch (_) {}
+      chk.style.opacity = "";
+    });
+
+    row.appendChild(chk); row.appendChild(txt); row.appendChild(del);
+    return row;
+  }
+
   /* ───────── Tâches ───────── */
   async function renderTaches() {
     let tasks = [];
@@ -523,51 +573,10 @@
 
     const list = el("div");
 
-    function buildTaskRow(t) {
-      const row = el("div", { class: "task-row " + (t.done ? "done" : "") });
-      const chk = el("div", { class: "task-check" });
-      if (t.done) chk.textContent = "✓";
-      const txt = el("div", { style: { flex: "1", minWidth: "0" } });
-      txt.appendChild(el("div", { class: "task-label", text: t.label }));
-      txt.appendChild(el("div", { class: "task-src",   text: t.src }));
-
-      const del = el("div", { class: "task-del", text: "×" });
-      del.title = "Supprimer";
-      del.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        row.style.opacity = "0.4";
-        try {
-          await J.api.delete("/api/tasks/" + t.id);
-          row.remove();
-          const remaining = list.querySelectorAll(".task-row").length;
-          if (!remaining) {
-            const empty = el("div", { class: "j-empty", text: "Aucune tâche" });
-            list.insertBefore(empty, list.querySelector(".add-bar"));
-          }
-        } catch (_) { row.style.opacity = ""; }
-      });
-
-      chk.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const newDone = !t.done;
-        chk.style.opacity = "0.5";
-        try {
-          await J.api.patch("/api/tasks/" + t.id, { done: newDone });
-          t.done = newDone;
-          row.classList.toggle("done", newDone);
-          chk.textContent = newDone ? "✓" : "";
-        } catch (_) {}
-        chk.style.opacity = "";
-      });
-
-      row.appendChild(chk); row.appendChild(txt); row.appendChild(del);
-      return row;
-    }
-
     if (!tasks.length) {
       list.appendChild(el("div", { class: "j-empty", text: "Aucune tâche" }));
     } else {
-      tasks.forEach(t => list.appendChild(buildTaskRow(t)));
+      tasks.forEach(t => list.appendChild(buildTaskRow(t, list)));
     }
 
     const addBar = el("div", { class: "add-bar" });
@@ -595,7 +604,7 @@
           const t = { id: created.id, label: created.text, done: false, src: "NOTION" };
           const empty = list.querySelector(".j-empty");
           if (empty) empty.remove();
-          list.insertBefore(buildTaskRow(t), addBar);
+          list.insertBefore(buildTaskRow(t, list), addBar);
         } catch (_) {}
       }
 
