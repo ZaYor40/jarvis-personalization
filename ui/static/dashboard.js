@@ -513,42 +513,101 @@
     let tasks = [];
     try {
       const raw = await J.api.get("/api/tasks");
-      tasks = (raw.tasks || raw || []).map((t, i) => ({
-        id: t.id || i,
+      tasks = (raw.tasks || raw || []).map(t => ({
+        id: t.id,
         label: t.title || t.label || t.text || "",
         done: !!(t.done || t.checked),
         src: t.source || "NOTION",
       })).filter(t => t.label);
     } catch (_) {}
 
-    const done = tasks.filter(t => t.done).length;
     const list = el("div");
+
+    function buildTaskRow(t) {
+      const row = el("div", { class: "task-row " + (t.done ? "done" : "") });
+      const chk = el("div", { class: "task-check" });
+      if (t.done) chk.textContent = "✓";
+      const txt = el("div", { style: { flex: "1", minWidth: "0" } });
+      txt.appendChild(el("div", { class: "task-label", text: t.label }));
+      txt.appendChild(el("div", { class: "task-src",   text: t.src }));
+
+      const del = el("div", { class: "task-del", text: "×" });
+      del.title = "Supprimer";
+      del.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        row.style.opacity = "0.4";
+        try {
+          await J.api.delete("/api/tasks/" + t.id);
+          row.remove();
+          const remaining = list.querySelectorAll(".task-row").length;
+          if (!remaining) {
+            const empty = el("div", { class: "j-empty", text: "Aucune tâche" });
+            list.insertBefore(empty, list.querySelector(".add-bar"));
+          }
+        } catch (_) { row.style.opacity = ""; }
+      });
+
+      chk.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const newDone = !t.done;
+        chk.style.opacity = "0.5";
+        try {
+          await J.api.patch("/api/tasks/" + t.id, { done: newDone });
+          t.done = newDone;
+          row.classList.toggle("done", newDone);
+          chk.textContent = newDone ? "✓" : "";
+        } catch (_) {}
+        chk.style.opacity = "";
+      });
+
+      row.appendChild(chk); row.appendChild(txt); row.appendChild(del);
+      return row;
+    }
 
     if (!tasks.length) {
       list.appendChild(el("div", { class: "j-empty", text: "Aucune tâche" }));
     } else {
-      tasks.forEach(t => {
-        const row = el("div", { class: "task-row " + (t.done ? "done" : "") });
-        const chk = el("div", { class: "task-check" });
-        if (t.done) chk.textContent = "✓";
-        const txt = el("div");
-        txt.appendChild(el("div", { class: "task-label", text: t.label }));
-        txt.appendChild(el("div", { class: "task-src",   text: t.src }));
-        row.appendChild(chk); row.appendChild(txt);
-        row.addEventListener("click", () => {
-          t.done = !t.done;
-          row.classList.toggle("done", t.done);
-          chk.textContent = t.done ? "✓" : "";
-        });
-        list.appendChild(row);
-      });
+      tasks.forEach(t => list.appendChild(buildTaskRow(t)));
     }
 
     const addBar = el("div", { class: "add-bar" });
     addBar.appendChild(el("span", { text: "+" }));
     addBar.appendChild(el("span", { text: "Nouvelle tâche" }));
+    addBar.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "Titre de la tâche…";
+      input.className = "task-new-input";
+      addBar.style.display = "none";
+      list.insertBefore(input, addBar);
+      input.focus();
+
+      let submitted = false;
+      async function submit() {
+        if (submitted) return;
+        submitted = true;
+        const text = input.value.trim();
+        input.remove();
+        addBar.style.display = "";
+        if (!text) return;
+        try {
+          const created = await J.api.post("/api/tasks", { text });
+          const t = { id: created.id, label: created.text, done: false, src: "NOTION" };
+          const empty = list.querySelector(".j-empty");
+          if (empty) empty.remove();
+          list.insertBefore(buildTaskRow(t), addBar);
+        } catch (_) {}
+      }
+
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+        if (e.key === "Escape") { submitted = true; input.remove(); addBar.style.display = ""; }
+      });
+      input.addEventListener("blur", submit);
+    });
     list.appendChild(addBar);
 
+    const done = tasks.filter(t => t.done).length;
     const wrap = el("div");
     wrap.appendChild(ghostSec("Tâches du jour", "Notion", null, list));
 

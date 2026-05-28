@@ -20,12 +20,22 @@ _NOTION_BASE = "https://api.notion.com/v1"
 # ── Models ────────────────────────────────────────────────────
 
 class Task(BaseModel):
+    id: str
     text: str
     done: bool
 
 
 class TasksResponse(BaseModel):
     tasks: list[Task]
+
+
+class TaskCreate(BaseModel):
+    text: str
+
+
+class TaskPatch(BaseModel):
+    done: bool | None = None
+    text: str | None = None
 
 
 class CalEvent(BaseModel):
@@ -38,6 +48,14 @@ class EventsResponse(BaseModel):
     events: list[CalEvent]
 
 
+def _notion_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {settings.notion_token}",
+        "Notion-Version": _NOTION_VERSION,
+        "Content-Type": "application/json",
+    }
+
+
 # ── Notion tasks ──────────────────────────────────────────────
 
 @router.get("/tasks", response_model=TasksResponse)
@@ -47,16 +65,11 @@ async def get_tasks() -> TasksResponse:
     if not token or not page_id:
         return TasksResponse(tasks=[])
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Notion-Version": _NOTION_VERSION,
-    }
-
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 f"{_NOTION_BASE}/blocks/{page_id}/children",
-                headers=headers,
+                headers=_notion_headers(),
             )
             resp.raise_for_status()
     except Exception as e:
@@ -87,9 +100,122 @@ async def get_tasks() -> TasksResponse:
                 rt.get("plain_text", "") for rt in todo.get("rich_text", [])
             ).strip()
             if text:
-                tasks.append(Task(text=text, done=bool(todo.get("checked", False))))
+                tasks.append(Task(
+                    id=block["id"],
+                    text=text,
+                    done=bool(todo.get("checked", False)),
+                ))
 
     return TasksResponse(tasks=tasks)
+
+
+async def _find_section_anchor(client: httpx.AsyncClient, page_id: str) -> str | None:
+    """Return the ID of the last to_do block in 'Tâches du jour', or the heading ID if no to_do exists yet."""
+    resp = await client.get(
+        f"{_NOTION_BASE}/blocks/{page_id}/children",
+        headers=_notion_headers(),
+    )
+    resp.raise_for_status()
+    blocks = resp.json().get("results", [])
+
+    heading_id: str | None = None
+    last_todo_id: str | None = None
+    in_section = False
+
+    for block in blocks:
+        btype = block.get("type", "")
+        if btype.startswith("heading_"):
+            heading_text = "".join(
+                rt.get("plain_text", "")
+                for rt in block.get(btype, {}).get("rich_text", [])
+            )
+            if "Tâches du jour" in heading_text or "tâches du jour" in heading_text.lower():
+                in_section = True
+                heading_id = block["id"]
+            elif in_section:
+                break
+            continue
+        if in_section and btype == "to_do":
+            last_todo_id = block["id"]
+
+    return last_todo_id or heading_id
+
+
+@router.post("/tasks", response_model=Task)
+async def create_task(body: TaskCreate) -> Task:
+    token = settings.notion_token
+    page_id = settings.notion_page_id
+    if not token or not page_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Notion non configuré")
+
+    new_block = {
+        "type": "to_do",
+        "to_do": {
+            "rich_text": [{"type": "text", "text": {"content": body.text}}],
+            "checked": False,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        anchor = await _find_section_anchor(client, page_id)
+        payload: dict = {"children": [new_block]}
+        if anchor:
+            payload["after"] = anchor
+
+        resp = await client.patch(
+            f"{_NOTION_BASE}/blocks/{page_id}/children",
+            headers=_notion_headers(),
+            json=payload,
+        )
+        resp.raise_for_status()
+
+    block = resp.json()["results"][0]
+    return Task(id=block["id"], text=body.text, done=False)
+
+
+@router.patch("/tasks/{block_id}", response_model=Task)
+async def update_task(block_id: str, body: TaskPatch) -> Task:
+    token = settings.notion_token
+    if not token:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Notion non configuré")
+
+    update: dict = {"to_do": {}}
+    if body.done is not None:
+        update["to_do"]["checked"] = body.done
+    if body.text is not None:
+        update["to_do"]["rich_text"] = [{"type": "text", "text": {"content": body.text}}]
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.patch(
+            f"{_NOTION_BASE}/blocks/{block_id}",
+            headers=_notion_headers(),
+            json=update,
+        )
+        resp.raise_for_status()
+
+    block = resp.json()
+    todo = block.get("to_do", {})
+    text = "".join(rt.get("plain_text", "") for rt in todo.get("rich_text", []))
+    return Task(id=block["id"], text=text, done=bool(todo.get("checked", False)))
+
+
+@router.delete("/tasks/{block_id}")
+async def delete_task(block_id: str) -> dict:
+    token = settings.notion_token
+    if not token:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Notion non configuré")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.delete(
+            f"{_NOTION_BASE}/blocks/{block_id}",
+            headers=_notion_headers(),
+        )
+        resp.raise_for_status()
+
+    return {"ok": True}
 
 
 # ── Google Calendar events ────────────────────────────────────
