@@ -691,30 +691,83 @@
 
   /* ───────── 05 À propos ───────── */
   async function renderApropos() {
-    let health = {};
-    try { health = await J.api.get("/api/health"); } catch (_) {}
-
-    const version = health.version || "—";
     const year = new Date().getFullYear();
 
-    const about = el("div", { class: "about-block" });
-    about.appendChild(el("div", { class: "about-version", text: "JARVIS · v" + version + " · " + year }));
-    about.appendChild(el("div", { class: "about-title",   text: "Jarvis" }));
-    about.appendChild(el("div", { class: "about-desc",
-      text: "Assistant personnel intelligent · vocal · proactif." }));
+    const wrap = el("div", { class: "about2" });
 
-    const links = el("div", { class: "about-links" });
+    // ── Header : nom + badge ──────────────────────────────────
+    const hdr = el("div", { class: "about2-hdr" });
+    const nameWrap = el("div", { class: "about2-name-wrap" });
+    nameWrap.appendChild(el("div", { class: "about2-name", text: "Jarvis" }));
+    const sub = el("div", { class: "about2-sub-row" });
+    sub.appendChild(el("span", { class: "about2-badge", text: "v4.0" }));
+    sub.appendChild(el("span", { class: "about2-tagline", text: "Assistant personnel intelligent · vocal · proactif" }));
+    nameWrap.appendChild(sub);
+    hdr.appendChild(nameWrap);
+    wrap.appendChild(hdr);
+
+    wrap.appendChild(el("div", { class: "about2-sep" }));
+
+    // ── Métadonnées ───────────────────────────────────────────
+    const meta = el("dl", { class: "about2-meta" });
     [
-      { label: "Health", href: "/health" },
-    ].forEach(l => {
-      const a = el("a", { class: "about-link", text: l.label });
-      a.href = l.href;
-      links.appendChild(a);
+      ["Auteur",  "Barth Houot"],
+      ["Licence", "Propriétaire · Tous droits réservés"],
+      ["Année",   String(year)],
+    ].forEach(([k, v]) => {
+      meta.appendChild(el("dt", { class: "about2-dt", text: k }));
+      meta.appendChild(el("dd", { class: "about2-dd", text: v }));
     });
-    about.appendChild(links);
+    wrap.appendChild(meta);
 
-    const wrap = el("div");
-    wrap.appendChild(ghostSec("À propos", "Jarvis · v" + version, null, about));
+    wrap.appendChild(el("div", { class: "about2-sep" }));
+
+    // ── Copyright ─────────────────────────────────────────────
+    wrap.appendChild(el("p", { class: "about2-copy",
+      text: `© ${year} Barth Houot — Tous droits réservés.` }));
+
+    // ── Bouton mise à jour ────────────────────────────────────
+    const updateBtn = el("button", { class: "about2-update-btn", text: "Vérifier les mises à jour" });
+    const updateStatus = el("div", { class: "about2-update-status" });
+
+    updateBtn.addEventListener("click", async () => {
+      updateBtn.disabled = true;
+      updateBtn.textContent = "Mise à jour en cours…";
+      updateStatus.textContent = "";
+      updateStatus.className = "about2-update-status";
+      try {
+        const res = await J.api.post("/admin/api/system/update", {});
+        if (res.already_up_to_date) {
+          updateStatus.textContent = "Jarvis est déjà à jour.";
+          updateStatus.className = "about2-update-status ok";
+          updateBtn.textContent = "À jour";
+        } else if (res.ok) {
+          updateStatus.textContent = "Mise à jour réussie. Redémarre Jarvis pour appliquer les changements.";
+          updateStatus.className = "about2-update-status ok";
+          updateBtn.textContent = "Redémarrer";
+          updateBtn.disabled = false;
+          updateBtn.addEventListener("click", () => {
+            J.api.post("/admin/api/system/restart", {}).catch(() => {});
+          }, { once: true });
+        } else {
+          updateStatus.textContent = "Erreur : " + (res.error || "Échec de la mise à jour.");
+          updateStatus.className = "about2-update-status err";
+          updateBtn.textContent = "Réessayer";
+          updateBtn.disabled = false;
+        }
+      } catch (_) {
+        updateStatus.textContent = "Impossible de contacter le serveur.";
+        updateStatus.className = "about2-update-status err";
+        updateBtn.textContent = "Réessayer";
+        updateBtn.disabled = false;
+      }
+    });
+
+    const updateWrap = el("div", { class: "about2-update-wrap" });
+    updateWrap.appendChild(updateBtn);
+    updateWrap.appendChild(updateStatus);
+    wrap.appendChild(updateWrap);
+
     const page = pageWrapper("apropos", "À propos de Jarvis", null, wrap);
     root.innerHTML = ""; root.appendChild(page);
   }

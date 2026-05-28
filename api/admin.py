@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
+_PROJECT_ROOT = Path(__file__).parent.parent
 
 router = APIRouter(prefix="/admin/api")
 _ui_router = APIRouter()
@@ -210,6 +213,55 @@ async def get_tasks(request: Request) -> dict:
         for r in worker.history()
     ]
     return {"scheduler": scheduler.status(), "history": history}
+
+
+# ── Mise à jour ───────────────────────────────────────────────
+
+async def _run(cmd: str) -> tuple[int, str]:
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=str(_PROJECT_ROOT),
+    )
+    out, err = await proc.communicate()
+    return proc.returncode, (out + err).decode().strip()
+
+
+@router.post("/system/update")
+async def system_update() -> dict:
+    """git pull + uv sync sans toucher aux données locales (.env, memory, skills, config)."""
+    steps: list[dict] = []
+
+    # 1. Stash les éventuelles modifs locales non committées
+    code, detail = await _run("git stash")
+    stashed = code == 0 and "No local changes" not in detail
+    steps.append({"step": "stash", "ok": True, "detail": detail})
+
+    # 2. Pull
+    code, detail = await _run("git pull origin main --ff-only")
+    if code != 0:
+        if stashed:
+            await _run("git stash pop")
+        return {"ok": False, "error": detail, "steps": steps}
+    already_up_to_date = "Already up to date" in detail
+    steps.append({"step": "pull", "ok": True, "detail": detail})
+
+    # 3. Restaurer le stash si besoin
+    if stashed:
+        code, detail = await _run("git stash pop")
+        steps.append({"step": "restore", "ok": code == 0, "detail": detail})
+
+    # 4. Sync dépendances (uv)
+    code, detail = await _run("uv sync --quiet")
+    steps.append({"step": "deps", "ok": code == 0, "detail": detail or "ok"})
+
+    return {
+        "ok": True,
+        "already_up_to_date": already_up_to_date,
+        "restart_required": not already_up_to_date,
+        "steps": steps,
+    }
 
 
 # ── Notifications ─────────────────────────────────────────────
