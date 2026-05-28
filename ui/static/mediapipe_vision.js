@@ -99,9 +99,9 @@ function _drawYoloObjects(ctx, cw, ch, now) {
 let _pinchActive   = false;
 let _pinchRefY     = 0;
 let _pinchLastSent = 0;
-const _PINCH_DIST    = 0.055; // distance normalisée pouce-index
-const _PINCH_STEP    = 0.06;  // déplacement Y par palier
-const _PINCH_COOL_MS = 300;   // ms entre deux envois volume
+const _PINCH_DIST    = 0.09;  // distance normalisée pouce-index
+const _PINCH_STEP    = 0.035; // déplacement Y par palier
+const _PINCH_COOL_MS = 280;   // ms entre deux envois volume
 
 // ── Helpers DOM ───────────────────────────────────────────────────────────────
 const _$ = id => document.getElementById(id);
@@ -383,9 +383,17 @@ async function mpInit() {
 
 function _waitForLib() {
   if (window._MediaPipeVision) return Promise.resolve(window._MediaPipeVision);
-  return new Promise(resolve => {
-    window.addEventListener('mediapipe-loaded', () => resolve(window._MediaPipeVision), { once: true });
+  if (window._mpLibPromise)    return window._mpLibPromise;
+
+  window._mpLibPromise = import(_MP_CDN + '/vision_bundle.mjs').then(mod => {
+    window._MediaPipeVision = {
+      FilesetResolver:   mod.FilesetResolver,
+      FaceDetector:      mod.FaceDetector,
+      GestureRecognizer: mod.GestureRecognizer,
+    };
+    return window._MediaPipeVision;
   });
+  return window._mpLibPromise;
 }
 
 function mpStart() {
