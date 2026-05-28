@@ -164,6 +164,31 @@
   border-bottom: 1px solid rgba(220, 232, 255, 0.05);
 }
 
+.hcw-hd-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hcw-new-session {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  color: rgba(220, 232, 255, 0.28);
+  padding: 0;
+  transition: color 0.14s ease, background 0.14s ease;
+}
+.hcw-new-session:hover {
+  color: rgba(220, 232, 255, 0.75);
+  background: rgba(220, 232, 255, 0.07);
+}
+
 .hcw-eyebrow {
   font-family: var(--mono);
   font-size: 8px;

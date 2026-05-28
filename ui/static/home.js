@@ -628,6 +628,15 @@
     }
   }
 
+  document.getElementById("hcw-new-session")?.addEventListener("click", () => {
+    localStorage.removeItem("jarvis_voice_session");
+    const msgsEl  = document.getElementById("hcw-chat-msgs");
+    const countEl = document.getElementById("hcw-chat-count");
+    if (msgsEl)  msgsEl.innerHTML = '<div class="hcw-empty">Nouvelle conversation</div>';
+    if (countEl) countEl.textContent = "—";
+    document.getElementById("hcw-input")?.focus();
+  });
+
   document.getElementById("hcw-send")?.addEventListener("click", sendChatMessage);
 
   document.getElementById("hcw-input")?.addEventListener("keydown", (e) => {

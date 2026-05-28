@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Syne:wght@500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/_shared.css" />
 <link rel="stylesheet" href="/home.css" />
-<link rel="stylesheet" href="/globe.css" />
+<!-- globe.css chargé dynamiquement si le skill globe-view est installé -->
 </head>
 <body data-mode="home">
 
@@ -145,7 +145,15 @@
   <div class="hc-widget hc-widget--chat" id="hc-widget-chat">
     <div class="hcw-hd">
       <span class="hcw-eyebrow">Conversation</span>
-      <span class="hcw-meta" id="hcw-chat-count">&#8212;</span>
+      <div class="hcw-hd-right">
+        <span class="hcw-meta" id="hcw-chat-count">&#8212;</span>
+        <button class="hcw-new-session" id="hcw-new-session" title="Nouvelle session">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
     </div>
     <div class="hcw-body hcw-messages" id="hcw-chat-msgs">
       <div class="hcw-empty">Aucun message</div>
@@ -179,7 +187,27 @@
 <script src="/orb.js"></script>
 <script src="/voice.js"></script>
 <script src="/mediapipe_vision.js"></script>
-<script src="/globe.js"></script>
 <script src="/home.js"></script>
+<script>
+(async function loadViewSkills() {
+  try {
+    const r = await fetch('/api/skills/view-scripts');
+    if (!r.ok) return;
+    const { styles = [], scripts = [] } = await r.json();
+    styles.forEach(href => {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet'; l.href = href;
+      document.head.appendChild(l);
+    });
+    for (const src of scripts) {
+      await new Promise((ok, err) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = ok; s.onerror = err;
+        document.body.appendChild(s);
+      });
+    }
+  } catch (e) { console.warn('[Jarvis] view skills load error:', e); }
+})();
+</script>
 </body>
 </html>
