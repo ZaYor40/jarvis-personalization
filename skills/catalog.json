@@ -51,6 +51,17 @@
       "path": "skills/fusion360",
       "requires_tools": [],
       "requires_env": ["FUSION_ENABLED"]
+    },
+    {
+      "name": "globe-view",
+      "version": "1.0.0",
+      "author": "BarthH95",
+      "description": "Vue globe terrestre temps réel — navigation vocale, vols en direct, météo, navires.",
+      "tags": ["view", "globe", "map", "geo", "realtime"],
+      "path": "views/globe",
+      "static_files": ["globe.js", "globe.css"],
+      "requires_tools": [],
+      "requires_env": []
     }
   ]
 }

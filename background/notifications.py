@@ -90,6 +90,36 @@ async def broadcast_event(event: dict) -> None:
         _proactive_queue_instance.broadcast_event(event)
 
 
+def get_broadcast_fn():
+    """Retourne la fonction de broadcast adaptée au contexte (main ou voice agent)."""
+    if _proactive_queue_instance is not None:
+        return _proactive_queue_instance.broadcast_event
+    # Fallback process séparé (ex. voice_agent) : HTTP POST vers le serveur FastAPI
+    import json as _json
+    import threading
+    import urllib.request
+
+    def _http_broadcast(event: dict) -> None:
+        from config.settings import settings
+
+        def _post() -> None:
+            url = f"http://localhost:{settings.port}/internal/broadcast"
+            data = _json.dumps(event).encode()
+            req = urllib.request.Request(
+                url, data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                urllib.request.urlopen(req, timeout=2)
+            except Exception:
+                pass
+
+        threading.Thread(target=_post, daemon=True).start()
+
+    return _http_broadcast
+
+
 async def broadcast_audio(audio_bytes: bytes) -> None:
     if _proactive_queue_instance and audio_bytes:
         import base64

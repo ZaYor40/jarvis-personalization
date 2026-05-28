@@ -373,6 +373,24 @@ async def uninstall_skill(skill_name: str, request: Request) -> dict:
     return result
 
 
+@router.get("/api/skills/view-scripts")
+async def get_view_scripts() -> dict:
+    """Retourne les chemins JS/CSS des skills de type vue installés."""
+    base = Path("ui/static/skills")
+    scripts, styles = [], []
+    if base.exists():
+        for skill_static in sorted(base.iterdir()):
+            if not skill_static.is_dir():
+                continue
+            name = skill_static.name
+            for f in sorted(skill_static.iterdir()):
+                if f.suffix == ".js":
+                    scripts.append(f"/skills/{name}/{f.name}")
+                elif f.suffix == ".css":
+                    styles.append(f"/skills/{name}/{f.name}")
+    return {"scripts": scripts, "styles": styles}
+
+
 @router.post("/api/skills/reload")
 async def reload_skills(request: Request) -> dict:
     """Recharge les skills et leurs outils sans redémarrer Jarvis."""

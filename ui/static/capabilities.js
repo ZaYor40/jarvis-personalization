@@ -181,6 +181,79 @@
     panel.appendChild(body);
   }
 
+  /* ─── Vue panel ─── */
+  function buildViewPanel(panel, v) {
+    const glyphText = (v.label || v.name || "?").slice(0, 3).toUpperCase();
+
+    const hdr = el("div", { class: "panel-header" });
+    const left = el("div", { class: "panel-header-left" });
+    const glyph = el("div", { class: "panel-glyph skill", text: glyphText });
+    const info = el("div");
+    info.appendChild(el("div", { class: "panel-name", text: v.label || v.name }));
+    info.appendChild(el("div", { class: "panel-type-badge", text: "VUE" }));
+    left.appendChild(glyph); left.appendChild(info);
+    hdr.appendChild(left); hdr.appendChild(makeCloseBtn());
+    panel.appendChild(hdr);
+
+    const body = el("div", { class: "panel-body" });
+    if (v.description) body.appendChild(el("div", { class: "panel-desc", text: v.description }));
+
+    // Statut actif
+    const registered = window.top?.Jarvis?.views?.list() || [];
+    const isActive = registered.some(rv => v.name.includes(rv.id));
+    const stSec = el("div", { class: "panel-section" });
+    stSec.appendChild(el("div", { class: "panel-section-title", text: "Statut" }));
+    const stRow = el("div", { class: "panel-check-row" });
+    stRow.appendChild(el("span", { class: "panel-check-label", text: "État" }));
+    stRow.appendChild(el("span", {
+      class: "panel-check-status " + (isActive ? "ok" : "ko"),
+      text: isActive ? "Active" : "Installée (rechargement requis)",
+    }));
+    stSec.appendChild(stRow);
+    if (v.version) {
+      const vRow = el("div", { class: "panel-check-row" });
+      vRow.appendChild(el("span", { class: "panel-check-label", text: "Version" }));
+      vRow.appendChild(el("span", { class: "panel-check-status ok", text: v.version }));
+      stSec.appendChild(vRow);
+    }
+    body.appendChild(stSec);
+
+    // Capacités
+    if (v.capabilities?.length) {
+      const capSec = el("div", { class: "panel-section" });
+      capSec.appendChild(el("div", { class: "panel-section-title", text: "Capacités" }));
+      v.capabilities.forEach(c => {
+        const row = el("div", { class: "panel-check-row" });
+        row.appendChild(el("span", { class: "panel-check-label", text: c }));
+        capSec.appendChild(row);
+      });
+      body.appendChild(capSec);
+    }
+
+    // Désinstaller
+    const actSec = el("div", { class: "panel-section" });
+    const uninstBtn = el("button", {
+      class: "panel-save-btn",
+      text: "Désinstaller",
+      style: { background: "rgba(255,80,80,0.08)", borderColor: "rgba(255,80,80,0.25)", color: "rgba(255,120,120,0.85)" },
+    });
+    uninstBtn.addEventListener("click", async () => {
+      uninstBtn.textContent = "…"; uninstBtn.disabled = true;
+      try {
+        await J.api.delete("/api/skills/uninstall/" + v.name);
+        J.notify({ kind: "success", text: (v.label || v.name) + " désinstallé" });
+        closePanel();
+        renderVues();
+      } catch (err) {
+        J.notify({ kind: "error", text: err.message });
+        uninstBtn.textContent = "Désinstaller"; uninstBtn.disabled = false;
+      }
+    });
+    actSec.appendChild(uninstBtn);
+    body.appendChild(actSec);
+    panel.appendChild(body);
+  }
+
   /* ─── Routine panel ─── */
   function buildRoutinePanel(panel, p) {
     const cfg = CONFIGS[p.name] || {};
@@ -502,34 +575,40 @@
   /* ─────────────────────────────────────────
      04 Ambiances
   ───────────────────────────────────────── */
-  function renderVues() {
-    // Récupère les vues enregistrées depuis le shell parent (home.js), ou fallback statique
-    const registered = window.top?.Jarvis?.views?.list() || [];
-    const FALLBACK = [
-      { id: "globe", name: "Globe", desc: "Globe terrestre temps réel — vols, navires, météo. Contrôle vocal.", glyph: "GLB", tags: ["geo", "realtime"] },
-    ];
-    const views = registered.length ? registered : FALLBACK;
+  async function renderVues() {
+    let installedViews = [];
+    try {
+      const r = await J.api.get("/api/skills/installed");
+      installedViews = (r.skills || []).filter(s =>
+        (s.tags || []).includes("view") || s.type === "view"
+      );
+    } catch (_) {}
 
-    const grid = el("div", { class: "ambiance-grid" });
-    views.forEach(v => {
-      const card = el("div", { class: "ambiance-card" });
-      card.appendChild(el("div", { class: "ambiance-glyph", text: (v.glyph || v.name.slice(0, 3)).toUpperCase() }));
-      card.appendChild(el("div", { class: "ambiance-name", text: v.name }));
-      card.appendChild(el("div", { class: "ambiance-desc", text: v.desc || "" }));
-      if (v.tags?.length) {
-        const tags = el("div", { style: { display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "6px" } });
-        v.tags.forEach(t => tags.appendChild(el("span", { class: "badge badge--solid", text: t })));
-        card.appendChild(tags);
-      }
-      card.addEventListener("click", () => {
-        window.top?.Jarvis?.views?.activate(v.id);
-        window.top?.Jarvis?.navigate("/");
-      });
+    const registered = window.top?.Jarvis?.views?.list() || [];
+
+    const grid = el("div", { class: "skills-grid" });
+    installedViews.forEach(v => {
+      const card = el("div", { class: "skill-card" });
+      const glyphText = (v.label || v.name || "?").slice(0, 3).toUpperCase();
+      card.appendChild(el("div", { class: "skill-glyph", text: glyphText }));
+      card.appendChild(el("div", { class: "skill-name", text: v.label || v.name }));
+      if (v.description) card.appendChild(el("div", { class: "skill-desc", text: v.description }));
+      const isActive = registered.some(rv => v.name.includes(rv.id));
+      card.appendChild(el("div", {
+        class: "skill-installed-badge",
+        text: isActive ? "● Active" : "Installée",
+      }));
+      card.addEventListener("click", () => openPanel(buildViewPanel, v));
       grid.appendChild(card);
     });
 
+    if (!installedViews.length) {
+      const empty = el("div", { class: "empty-hint", text: "Aucune vue installée — rendez-vous dans le Store." });
+      grid.appendChild(empty);
+    }
+
     const wrap = el("div");
-    wrap.appendChild(ghostSec("Vues disponibles", views.length + " vue" + (views.length > 1 ? "s" : ""), null, grid));
+    wrap.appendChild(ghostSec("Vues installées", installedViews.length + " vue" + (installedViews.length !== 1 ? "s" : ""), null, grid));
     const page = pageWrapper("vues", "Vues & affichages", null, wrap);
     root.innerHTML = ""; root.appendChild(page);
   }

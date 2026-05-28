@@ -86,7 +86,7 @@ class SkillInstaller:
                 if r.status_code == 200:
                     (skill_dir / "skill.yaml").write_text(r.text)
 
-            # Inject missing env vars from downloaded skill.yaml
+            # Inject missing env vars + download static files from skill.yaml
             yaml_path = skill_dir / "skill.yaml"
             if yaml_path.exists():
                 import yaml
@@ -95,6 +95,19 @@ class SkillInstaller:
                 requires_env = meta.get("requires_env", [])
                 if requires_env:
                     self._inject_env_vars(requires_env, skill_name)
+
+                static_files = meta.get("static_files", [])
+                if static_files:
+                    static_dst = Path("ui/static/skills") / skill_name
+                    static_dst.mkdir(parents=True, exist_ok=True)
+                    async with httpx.AsyncClient(timeout=15) as client:
+                        for fname in static_files:
+                            r = await client.get(f"{SKILLS_REPO_RAW}/{path}/static/{fname}")
+                            if r.status_code == 200:
+                                (static_dst / fname).write_bytes(r.content)
+                                logger.debug(f"Fichier statique installé : {fname}")
+                            else:
+                                logger.warning(f"Fichier statique manquant : {fname} (HTTP {r.status_code})")
 
             skill_registry.reload()
             logger.info(f"Skill installé : {skill_name}")
@@ -121,6 +134,11 @@ class SkillInstaller:
 
         try:
             shutil.rmtree(skill_dir)
+            # Supprimer les fichiers statiques s'il y en a
+            static_dst = Path("ui/static/skills") / skill_name
+            if static_dst.exists():
+                shutil.rmtree(static_dst)
+                logger.debug(f"Fichiers statiques supprimés pour {skill_name}")
             skill_registry.reload()
             logger.info(f"Skill désinstallé : {skill_name}")
             return {

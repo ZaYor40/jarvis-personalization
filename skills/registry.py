@@ -99,6 +99,7 @@ class SkillRegistry:
         return [
             {
                 "name": s.name,
+                "label": s.label,
                 "version": s.version,
                 "author": s.author,
                 "description": s.description,

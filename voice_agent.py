@@ -156,9 +156,7 @@ def _build_voice_tools() -> list:
         ("gmail",   lambda: __import__("tools.gmail",   fromlist=["GmailListTool"]).GmailListTool(
             credentials_path=_google_creds, token_path=_gmail_token
         )),
-        ("show_view", lambda: __import__("tools.show_view", fromlist=["ShowViewTool"]).ShowViewTool(
-            broadcast_event=_voice_broadcast
-        )),
+        # show_view fourni par le skill globe-view
         ("preset", lambda: __import__("tools.preset", fromlist=["ExecutePresetTool"]).ExecutePresetTool()),
     ]
 
