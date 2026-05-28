@@ -1147,6 +1147,7 @@ _RESTART_KEYS = {
 _SETTINGS_FIELD_MAP: dict[str, str] = {
     "TTS_PROVIDER":               "tts_provider",
     "ELEVENLABS_MODEL":           "elevenlabs_model",
+    "ELEVENLABS_VOICE_ID":        "elevenlabs_voice_id",
     "WHISPER_MODEL":              "whisper_model",
     "LLM_PROVIDER":               "llm_provider",
     "ANTHROPIC_MODEL":            "anthropic_model",
@@ -1161,9 +1162,13 @@ _SETTINGS_FIELD_MAP: dict[str, str] = {
     "VISION_WEBCAM_INDEX":        "vision_webcam_index",
     "VISION_YOLO_CONFIDENCE":     "vision_yolo_confidence",
     "LOG_LEVEL":                  "log_level",
+    "HOME_CITY":                  "home_city",
     "BRIEFING_HOUR":              "briefing_hour",
     "CALENDAR_REMINDER_MINUTES":  "calendar_reminder_minutes",
+    "USER_FIRSTNAME":             "user_firstname",
     "QUEBEC_MODE":                "quebec_mode",
+    "WAKEUP_ENABLED":             "wakeup_enabled",
+    "CLAP_DETECTION_ENABLED":     "clap_detection_enabled",
     "MUSIC_PROVIDER":             "music_provider",
     "DEEZER_APP_ID":              "deezer_app_id",
     "DEEZER_APP_SECRET":          "deezer_app_secret",
@@ -1222,51 +1227,72 @@ async def get_settings_endpoint() -> dict:
     def _env_val(key: str) -> str:
         return env.get(key, os.getenv(key, ""))
 
+    def _ev(key: str, field: str) -> Any:
+        """Read from .env first (always fresh), fall back to in-memory settings."""
+        raw = env.get(key)
+        if raw is None:
+            return getattr(_s, field)
+        field_info = type(_s).model_fields.get(field)
+        ann = field_info.annotation if field_info else None
+        if ann is bool:
+            return raw.lower() in ("true", "1", "yes", "on")
+        if ann is int:
+            try:
+                return int(raw)
+            except (ValueError, TypeError):
+                return getattr(_s, field)
+        if ann is float:
+            try:
+                return float(raw)
+            except (ValueError, TypeError):
+                return getattr(_s, field)
+        return raw
+
     api_keys_masked = {k: _mask(_env_val(k)) for k in sorted(_SENSITIVE_KEYS)}
 
     return {
         "audio": {
-            "tts_provider":      _s.tts_provider,
-            "elevenlabs_model":  _s.elevenlabs_model,
-            "whisper_model":     _s.whisper_model,
+            "tts_provider":      _ev("TTS_PROVIDER",      "tts_provider"),
+            "elevenlabs_model":  _ev("ELEVENLABS_MODEL",  "elevenlabs_model"),
+            "whisper_model":     _ev("WHISPER_MODEL",     "whisper_model"),
         },
         "llm": {
-            "llm_provider":          _s.llm_provider,
-            "anthropic_model":       _s.anthropic_model,
-            "voice_anthropic_model": _s.voice_anthropic_model,
-            "vision_model":          _s.vision_model,
+            "llm_provider":          _ev("LLM_PROVIDER",          "llm_provider"),
+            "anthropic_model":       _ev("ANTHROPIC_MODEL",       "anthropic_model"),
+            "voice_anthropic_model": _ev("VOICE_ANTHROPIC_MODEL", "voice_anthropic_model"),
+            "vision_model":          _ev("VISION_MODEL",          "vision_model"),
         },
         "api_keys": api_keys_masked,
         "docker": {
-            "docker_enabled":         _s.docker_enabled,
-            "docker_base_image":      _s.docker_base_image,
-            "docker_memory_limit":    _s.docker_memory_limit,
-            "docker_cpu_limit":       _s.docker_cpu_limit,
-            "docker_timeout_seconds": _s.docker_timeout_seconds,
+            "docker_enabled":         _ev("DOCKER_ENABLED",         "docker_enabled"),
+            "docker_base_image":      _ev("DOCKER_BASE_IMAGE",      "docker_base_image"),
+            "docker_memory_limit":    _ev("DOCKER_MEMORY_LIMIT",    "docker_memory_limit"),
+            "docker_cpu_limit":       _ev("DOCKER_CPU_LIMIT",       "docker_cpu_limit"),
+            "docker_timeout_seconds": _ev("DOCKER_TIMEOUT_SECONDS", "docker_timeout_seconds"),
         },
         "proactive": {
-            "home_city":                 _s.home_city,
-            "briefing_hour":             _s.briefing_hour,
-            "calendar_reminder_minutes": _s.calendar_reminder_minutes,
+            "home_city":                 _ev("HOME_CITY",                 "home_city"),
+            "briefing_hour":             _ev("BRIEFING_HOUR",             "briefing_hour"),
+            "calendar_reminder_minutes": _ev("CALENDAR_REMINDER_MINUTES", "calendar_reminder_minutes"),
         },
         "vision": {
-            "vision_object_detection": _s.vision_object_detection,
-            "vision_webcam_index":     _s.vision_webcam_index,
-            "vision_yolo_confidence":  _s.vision_yolo_confidence,
+            "vision_object_detection": _ev("VISION_OBJECT_DETECTION", "vision_object_detection"),
+            "vision_webcam_index":     _ev("VISION_WEBCAM_INDEX",     "vision_webcam_index"),
+            "vision_yolo_confidence":  _ev("VISION_YOLO_CONFIDENCE",  "vision_yolo_confidence"),
         },
         "memory": {
-            "memory_dir": _s.memory_dir,
+            "memory_dir": _ev("MEMORY_DIR", "memory_dir"),
         },
         "jarvis": {
-            "user_firstname":        _s.user_firstname,
-            "quebec_mode":           _s.quebec_mode,
-            "wakeup_enabled":        _s.wakeup_enabled,
-            "clap_detection_enabled": _s.clap_detection_enabled,
-            "log_level":             _s.log_level,
-            "environment":           _s.environment,
+            "user_firstname":         _ev("USER_FIRSTNAME",         "user_firstname"),
+            "quebec_mode":            _ev("QUEBEC_MODE",            "quebec_mode"),
+            "wakeup_enabled":         _ev("WAKEUP_ENABLED",         "wakeup_enabled"),
+            "clap_detection_enabled": _ev("CLAP_DETECTION_ENABLED", "clap_detection_enabled"),
+            "log_level":              _ev("LOG_LEVEL",              "log_level"),
+            "environment":            _ev("ENVIRONMENT",            "environment"),
         },
         "music": {
-            "music_provider": _s.music_provider,
+            "music_provider": _ev("MUSIC_PROVIDER", "music_provider"),
         },
         "approvals": __import__('dataclasses').asdict(__import__('config.approvals', fromlist=['approval_config']).approval_config),
     }
