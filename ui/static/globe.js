@@ -11,7 +11,8 @@
   let _interacting = false;
   let _resumeTimer = null;
 
-  let _pendingFlyTo = null; // queued fly_to before map is ready
+  let _pendingFlyTo = null;
+  let _hideTimer = null;
 
   let _fetchTimer = null;
   let _flightsCache = [];
@@ -344,6 +345,7 @@
 
   async function showGlobe() {
     if (_visible) return;
+    if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
     _visible = true;
     const orb = _orbElement();
     const gc  = document.getElementById('globe-container');
@@ -352,7 +354,7 @@
     if (orb) { orb.style.transition = 'opacity 350ms ease'; orb.style.opacity = '0'; orb.style.pointerEvents = 'none'; }
     if (gc)  { gc.style.display = 'block'; gc.getBoundingClientRect(); gc.style.opacity = '1'; }
     await _init();
-    if (_mapReady) { _map.resize(); _startData(); _startRotation(); }
+    if (_mapReady) { _autoRotate = true; _map.resize(); _startData(); _startRotation(); }
   }
 
   function hideGlobe() {
@@ -363,7 +365,10 @@
     document.getElementById('globe-toggle')?.classList.remove('active');
     document.body.classList.remove('globe-mode');
     if (orb) { orb.style.transition = 'opacity 400ms ease 150ms'; orb.style.opacity = '1'; orb.style.pointerEvents = ''; }
-    if (gc)  { gc.style.opacity = '0'; setTimeout(() => { gc.style.display = 'none'; }, 400); }
+    if (gc)  {
+      gc.style.opacity = '0';
+      _hideTimer = setTimeout(() => { _hideTimer = null; gc.style.display = 'none'; }, 400);
+    }
     _stopRotation();
     _stopData();
   }

@@ -3612,7 +3612,7 @@
       function _onEsc(e) { if (e.key === "Escape") window.closeKeypadDrawer(); }
       window.openKeypadDrawer = function () {
         var frame = document.getElementById("kp-drawer-frame");
-        if (!_loaded) { frame.src = "/keypad?embedded=1"; _loaded = true; }
+        if (!_loaded) { frame.src = "/macropad?embedded=1"; _loaded = true; }
         document.getElementById("kp-backdrop").classList.add("open");
         document.getElementById("kp-drawer").classList.add("open");
         document.addEventListener("keydown", _onEsc);

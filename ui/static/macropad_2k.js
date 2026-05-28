@@ -1,6 +1,6 @@
-/* keypad.js — Le Labo MacroPads, integrated inside Jarvis V4.
+/* macropad_2k.js — Macropad 2 touches Le Labo, integrated inside Jarvis V4.
  * Vanilla JS port of the original React/Tauri studio.
- * Uses Jarvis design system (mountSidebar, mountTopbar) + keypad.css.
+ * Uses Jarvis design system (mountSidebar, mountTopbar) + macropad_2k.css.
  */
 (function () {
   "use strict";
@@ -143,7 +143,7 @@
     return {
       version: 1,
       workspaceRoot: workspace || "",
-      device: { keypadProductId: "keypad_2k_v1", productName: "Keypad CH552" },
+      device: { keypadProductId: "macropad_2k_le_labo", productName: "Macropad 2 touches Le Labo" },
       keysOptions: { debounceMs: 5, layoutFrAzerty: true, softwareRapidTrigger: false, rapidTriggerResetMs: 2 },
       keys: {
         k1RightP1: { modifiers: [], hidCode: "KeyA", label: "A", mode: "hold", macroText: "", macroDelayMs: 180, macroTapEnter: true },
@@ -217,40 +217,40 @@
 
   /* ─────────────── API ─────────────── */
   const api = {
-    async status() { return await J.api.get("/api/keypad/status"); },
-    async getWorkspace() { return await J.api.get("/api/keypad/workspace"); },
-    async setWorkspace(path) { return await J.api.post("/api/keypad/workspace", { path }); },
+    async status() { return await J.api.get("/api/macropad/status"); },
+    async getWorkspace() { return await J.api.get("/api/macropad/workspace"); },
+    async setWorkspace(path) { return await J.api.post("/api/macropad/workspace", { path }); },
     async validateWorkspace(path) {
-      const u = "/api/keypad/workspace/validate?path=" + encodeURIComponent(path);
+      const u = "/api/macropad/workspace/validate?path=" + encodeURIComponent(path);
       return await J.api.get(u);
     },
     async getProfile(workspace) {
-      const u = "/api/keypad/profile" + (workspace ? "?workspace=" + encodeURIComponent(workspace) : "");
+      const u = "/api/macropad/profile" + (workspace ? "?workspace=" + encodeURIComponent(workspace) : "");
       return await J.api.get(u);
     },
     async putProfile(bundle, workspace) {
-      const r = await fetch("/api/keypad/profile", {
+      const r = await fetch("/api/macropad/profile", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bundle, workspace }),
       });
-      if (!r.ok) throw new Error("PUT /api/keypad/profile " + r.status);
+      if (!r.ok) throw new Error("PUT /api/macropad/profile " + r.status);
       return r.json();
     },
     async compile(workspace, blinkHz) {
-      return await J.api.post("/api/keypad/compile", { workspace, blinkHz: blinkHz == null ? null : blinkHz });
+      return await J.api.post("/api/macropad/compile", { workspace, blinkHz: blinkHz == null ? null : blinkHz });
     },
     async upload(workspace, opts) {
-      return await J.api.post("/api/keypad/upload", Object.assign({ workspace, preferPython: false, attempts: 1 }, opts || {}));
+      return await J.api.post("/api/macropad/upload", Object.assign({ workspace, preferPython: false, attempts: 1 }, opts || {}));
     },
-    async installedApps() { return await J.api.get("/api/keypad/installed-apps"); },
+    async installedApps() { return await J.api.get("/api/macropad/installed-apps"); },
     async createLauncher(appId, appName, slot) {
-      return await J.api.post("/api/keypad/launcher", { appId, appName, slot });
+      return await J.api.post("/api/macropad/launcher", { appId, appName, slot });
     },
-    async openDeviceManager() { return await J.api.post("/api/keypad/open-device-manager", {}); },
-    async arduinoCliStatus() { return await J.api.get("/api/keypad/arduino-cli"); },
-    async arduinoCliInstall() { return await J.api.post("/api/keypad/arduino-cli/install", {}); },
+    async openDeviceManager() { return await J.api.post("/api/macropad/open-device-manager", {}); },
+    async arduinoCliStatus() { return await J.api.get("/api/macropad/arduino-cli"); },
+    async arduinoCliInstall() { return await J.api.post("/api/macropad/arduino-cli/install", {}); },
   };
 
   /* ─────────────── SVG icons (lucide-equivalents, inlined) ─────────────── */
@@ -1120,7 +1120,7 @@
     })) });
     KEYPAD_PRODUCT_OPTIONS.forEach((o) => sel.appendChild(el("option", { value: o.id, selected: o.id === profile.device.keypadProductId, text: o.label })));
     const hint = (KEYPAD_PRODUCT_OPTIONS.find((o) => o.id === profile.device.keypadProductId) || {}).hint || "";
-    grid.appendChild(card({ title: "Modèle de keypad" }, [
+    grid.appendChild(card({ title: "Modèle du macropad" }, [
       sel,
       el("p", { class: "kp-card-sub", text: hint }),
     ]));
@@ -1164,7 +1164,7 @@
       variant: "primary", icon: "upload", onClick: () => runFirmware("upload"),
       disabled: !state.workspaceValid || state.fwBusy != null,
     }, state.fwBusy === "upload" ? "Envoi…" : "Envoyer");
-    root.appendChild(pageHead("Mise à jour", "Compilez le firmware puis envoyez-le sur le keypad.", [compileBtn, uploadBtn]));
+    root.appendChild(pageHead("Mise à jour", "Compilez le firmware puis envoyez-le sur le macropad.", [compileBtn, uploadBtn]));
 
     if (!state.arduinoCli.installed) {
       const banner = el("div", { class: "kp-banner" }, [
@@ -1264,7 +1264,7 @@
   /* ── About page ── */
   function renderAboutPage() {
     const root = el("div");
-    root.appendChild(pageHead("À propos", "Le Labo MacroPads — outil communautaire de personnalisation."));
+    root.appendChild(pageHead("À propos", "Macropad 2 touches Le Labo — outil communautaire de personnalisation."));
     const grid = el("div", { class: "kp-grid--wide kp-grid" });
 
     const info = el("div", { class: "kp-stack" });
@@ -1474,7 +1474,7 @@
       J.mountSidebar({
         sections: [
           {
-            label: "Keypad Studio",
+            label: "Macropad 2 touches Le Labo",
             items: [
               { id: "keys",     label: "Touches" },
               { id: "light",    label: "Éclairage" },
@@ -1505,7 +1505,7 @@
         },
       });
 
-      J.mountTopbar({ pageTitle: "Keypad Studio", crumb: "/ keypad" });
+      J.mountTopbar({ pageTitle: "Macropad 2 touches Le Labo", crumb: "/ macropad" });
       J.mountBottomNav && J.mountBottomNav({ active: "system" });
     }
 

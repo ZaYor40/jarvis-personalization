@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from keypad.paths import (
+from macropad_2k.paths import (
     arduino_cli_dir,
     firmware_root,
     keypad_root,

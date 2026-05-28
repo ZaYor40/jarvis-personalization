@@ -1375,7 +1375,7 @@ async def get_devices() -> list:
     })
 
     try:
-        from keypad.usb import usb_status
+        from macropad_2k.usb import usb_status
 
         st = usb_status()
         hid = bool(st.get("hidPresent"))
@@ -1384,7 +1384,7 @@ async def get_devices() -> list:
             mp_status = "Connected"
             mp_col = "green"
             a_pair = ("Mode", "HID")
-            b_pair = ("Firmware", "Keypad Studio")
+            b_pair = ("Firmware", "Macropad 2 touches Le Labo")
         elif boot:
             mp_status = "Nearby"
             mp_col = "accent"
@@ -1394,10 +1394,10 @@ async def get_devices() -> list:
             mp_status = "Nearby"
             mp_col = "muted"
             a_pair = ("Mode", "—")
-            b_pair = ("Studio", "Ajouter via Keypad")
+            b_pair = ("Studio", "Configurer le Macropad")
         devices.insert(1, {
-            "name": "Macropad 2K",
-            "id": "macropad · Le Labo",
+            "name": "Macropad 2 touches Le Labo",
+            "id": "macropad 2 touches · Le Labo",
             "status": mp_status,
             "col": mp_col,
             "a": list(a_pair),

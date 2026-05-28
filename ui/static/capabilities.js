@@ -595,6 +595,107 @@
   ───────────────────────────────────────── */
 
   /* ── Three.js device scenes ──────────────────────────────────────── */
+  /* ─── Macropad 2 touches Le Labo panel ─── */
+  async function buildMacropadPanel(panel) {
+    const hdr  = el("div", { class: "panel-header" });
+    const left = el("div", { class: "panel-header-left" });
+    const glyph = el("div", { class: "panel-glyph skill", text: "MAC" });
+    const info  = el("div");
+    info.appendChild(el("div", { class: "panel-name",       text: "Macropad 2 touches Le Labo" }));
+    info.appendChild(el("div", { class: "panel-type-badge", text: "MACROPAD" }));
+    left.appendChild(glyph); left.appendChild(info);
+    hdr.appendChild(left); hdr.appendChild(makeCloseBtn());
+    panel.appendChild(hdr);
+
+    const body = el("div", { class: "panel-body" });
+    body.appendChild(el("div", { class: "panel-desc",
+      text: "Macropad 2 touches sur puce CH552. Configure les raccourcis, l'éclairage et flash le firmware directement depuis Jarvis." }));
+
+    /* ── Statut USB ── */
+    const stSec = el("div", { class: "panel-section" });
+    stSec.appendChild(el("div", { class: "panel-section-title", text: "Connexion" }));
+    const hidRow  = el("div", { class: "panel-check-row" });
+    const bootRow = el("div", { class: "panel-check-row" });
+    hidRow.appendChild(el("span",  { class: "panel-check-label", text: "Mode HID" }));
+    bootRow.appendChild(el("span", { class: "panel-check-label", text: "Bootloader" }));
+    const hidSt  = el("span", { class: "panel-check-status ko", text: "—" });
+    const bootSt = el("span", { class: "panel-check-status ko", text: "—" });
+    hidRow.appendChild(hidSt); bootRow.appendChild(bootSt);
+    stSec.appendChild(hidRow); stSec.appendChild(bootRow);
+    body.appendChild(stSec);
+
+    J.api.get("/api/macropad/status").then(st => {
+      if (st.hidPresent)         { hidSt.textContent  = "Connecté";  hidSt.className  = "panel-check-status ok"; }
+      else                       { hidSt.textContent  = "Absent";    hidSt.className  = "panel-check-status ko"; }
+      if (st.bootloaderPresent)  { bootSt.textContent = "Prêt";      bootSt.className = "panel-check-status ok"; }
+      else                       { bootSt.textContent = "Absent";    bootSt.className = "panel-check-status ko"; }
+    }).catch(() => { hidSt.textContent = "Erreur"; bootSt.textContent = "Erreur"; });
+
+    /* ── Profil actif + touches ── */
+    const profSec = el("div", { class: "panel-section" });
+    profSec.appendChild(el("div", { class: "panel-section-title", text: "Profil actif" }));
+    const k1Row = el("div", { class: "panel-check-row" });
+    const k2Row = el("div", { class: "panel-check-row" });
+    k1Row.appendChild(el("span", { class: "panel-check-label", text: "Touche K1 (droite)" }));
+    k2Row.appendChild(el("span", { class: "panel-check-label", text: "Touche K2 (gauche)" }));
+    const k1Val = el("span", { class: "panel-check-status", style: "color:var(--fg-2)", text: "—" });
+    const k2Val = el("span", { class: "panel-check-status", style: "color:var(--fg-2)", text: "—" });
+    k1Row.appendChild(k1Val); k2Row.appendChild(k2Val);
+    const profName = el("div", { style: "font-family:var(--mono);font-size:10px;color:var(--fg-3);margin-bottom:10px", text: "Chargement…" });
+    profSec.appendChild(profName);
+    profSec.appendChild(k1Row); profSec.appendChild(k2Row);
+    body.appendChild(profSec);
+
+    J.api.get("/api/macropad/profile").then(({ bundle }) => {
+      if (!bundle) return;
+      const active = (bundle.profiles || []).find(p => p.id === bundle.activeProfileId) || bundle.profiles[0];
+      if (!active) return;
+      profName.textContent = "Profil : " + (active.name || active.id);
+      const keys = active.data && active.data.keys;
+      if (keys) {
+        k1Val.textContent = keys.k1RightP1 ? (keys.k1RightP1.label || keys.k1RightP1.hidCode || "—") : "—";
+        k2Val.textContent = keys.k2LeftP2  ? (keys.k2LeftP2.label  || keys.k2LeftP2.hidCode  || "—") : "—";
+      }
+    }).catch(() => { profName.textContent = "Profil non disponible"; });
+
+    /* ── Actions ── */
+    const actSec = el("div", { class: "panel-section" });
+    actSec.appendChild(el("div", { class: "panel-section-title", text: "Actions" }));
+
+    const compileBtn = el("button", { class: "panel-run-btn", text: "⚙ Compiler le firmware" });
+    compileBtn.style.marginBottom = "8px";
+    compileBtn.addEventListener("click", async () => {
+      compileBtn.textContent = "…"; compileBtn.disabled = true;
+      try {
+        const r = await J.api.post("/api/macropad/compile", { workspace: null });
+        J.notify({ kind: r.ok ? "success" : "error", text: r.ok ? "Compilation réussie" : r.output });
+      } catch (e) { J.notify({ kind: "error", text: e.message }); }
+      compileBtn.textContent = "⚙ Compiler le firmware"; compileBtn.disabled = false;
+    });
+
+    const flashBtn = el("button", { class: "panel-run-btn", text: "⚡ Flasher le firmware" });
+    flashBtn.addEventListener("click", async () => {
+      flashBtn.textContent = "…"; flashBtn.disabled = true;
+      try {
+        const r = await J.api.post("/api/macropad/upload", { workspace: null });
+        J.notify({ kind: r.ok ? "success" : "error", text: r.ok ? "Flash réussi" : r.output });
+      } catch (e) { J.notify({ kind: "error", text: e.message }); }
+      flashBtn.textContent = "⚡ Flasher le firmware"; flashBtn.disabled = false;
+    });
+
+    actSec.appendChild(compileBtn);
+    actSec.appendChild(flashBtn);
+
+    const editorBtn = el("a", { class: "panel-run-btn",
+      text: "✎ Ouvrir l'éditeur complet",
+      href: "/macropad", target: "_blank",
+      style: "display:block;text-align:center;text-decoration:none;margin-top:8px" });
+    actSec.appendChild(editorBtn);
+
+    body.appendChild(actSec);
+    panel.appendChild(body);
+  }
+
   const _scenes = [];
 
   function _killScenes() {
@@ -882,6 +983,10 @@
       const card = el("div", { class: "dv-card-v2" + (col === "muted" ? " dv-card--dim" : " dv-card--glow-" + col) });
 
       card.appendChild(buildDevice3D(d));
+      if (d.type === "macropad") {
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => openPanel(buildMacropadPanel));
+      }
 
       const body = el("div", { class: "dv-body-v2" });
 

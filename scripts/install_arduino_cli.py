@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from keypad.arduino_cli import (
+from macropad_2k.arduino_cli import (
     DEFAULT_VERSION,
     ensure_arduino_cli,
     ensure_ch55x_core,

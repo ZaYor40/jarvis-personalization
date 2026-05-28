@@ -21,8 +21,8 @@ class KeyChord(BaseModel):
 
 
 class DeviceSettings(BaseModel):
-    keypadProductId: str = "keypad_2k_v1"
-    productName: str = "Keypad CH552"
+    keypadProductId: str = "macropad_2k_le_labo"
+    productName: str = "Macropad 2 touches Le Labo"
 
 
 class KeysOptions(BaseModel):

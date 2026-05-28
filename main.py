@@ -29,8 +29,8 @@ from api.deezer import router as deezer_router
 from api.local_music import router as local_music_router
 from api.music import router as music_router
 from api.widgets import router as widgets_router
-from api.keypad import _ui_router as keypad_ui_router
-from api.keypad import router as keypad_router
+from api.macropad_2k import _ui_router as macropad_ui_router
+from api.macropad_2k import router as macropad_router
 from api.google_oauth import router as google_oauth_router
 from background.notifications import NotificationQueue, ProactiveQueue
 from proactive.engine import ProactiveEngine
@@ -287,8 +287,8 @@ app.include_router(deezer_router)
 app.include_router(local_music_router)
 app.include_router(music_router)
 app.include_router(globe_router)
-app.include_router(keypad_router)
-app.include_router(keypad_ui_router)
+app.include_router(macropad_router)
+app.include_router(macropad_ui_router)
 app.include_router(google_oauth_router)
 
 @app.get("/static/mapbox-style.json")
@@ -306,6 +306,6 @@ if __name__ == "__main__":
         port=settings.port,
         reload=settings.environment == "development",
         reload_dirs=["api", "agent", "audio", "background", "config", "core",
-                     "keypad", "llm", "memory", "prompts", "skills", "tools", "ui"],
+                     "macropad_2k", "llm", "memory", "prompts", "skills", "tools", "ui"],
         log_level="warning",
     )

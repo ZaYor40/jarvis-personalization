@@ -9,40 +9,40 @@ from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from keypad.arduino_cli import find_arduino_cli, install_arduino_cli
-from keypad.flasher import compile_firmware, upload_firmware
-from keypad.launcher import (
+from macropad_2k.arduino_cli import find_arduino_cli, install_arduino_cli
+from macropad_2k.flasher import compile_firmware, upload_firmware
+from macropad_2k.launcher import (
     create_app_launcher,
     is_windows,
     list_installed_apps,
     open_device_manager,
 )
-from keypad.models import (
+from macropad_2k.models import (
     KeypadUsbStatus,
     WorkspaceProfileBundle,
     get_active_profile,
 )
-from keypad.paths import (
+from macropad_2k.paths import (
     arduino_cli_executable,
     firmware_root,
     is_valid_workspace,
 )
-from keypad.profile_store import (
+from macropad_2k.profile_store import (
     load_bundle,
     load_default_workspace,
     migrate_to_bundle,
     persist_bundle,
     save_default_workspace,
 )
-from keypad.usb import usb_status
+from macropad_2k.usb import usb_status
 
-router = APIRouter(prefix="/api/keypad", tags=["keypad"])
+router = APIRouter(prefix="/api/macropad", tags=["macropad"])
 _ui_router = APIRouter()
 
 
-@_ui_router.get("/keypad", include_in_schema=False)
+@_ui_router.get("/macropad", include_in_schema=False)
 async def keypad_ui() -> FileResponse:
-    return FileResponse("ui/static/keypad.html")
+    return FileResponse("ui/static/macropad_2k.html")
 
 
 class WorkspaceBody(BaseModel):

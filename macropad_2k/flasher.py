@@ -10,17 +10,17 @@ from pathlib import Path
 
 from loguru import logger
 
-from keypad.arduino_cli import (
+from macropad_2k.arduino_cli import (
     BOARD_INDEX,
     FQBN,
     ensure_arduino_cli,
     ensure_ch55x_core,
     run_cli,
 )
-from keypad.firmware_gen import generate
-from keypad.ihex import ihex_to_bin_file
-from keypad.models import KeypadProfile
-from keypad.paths import (
+from macropad_2k.firmware_gen import generate
+from macropad_2k.ihex import ihex_to_bin_file
+from macropad_2k.models import KeypadProfile
+from macropad_2k.paths import (
     build_dir,
     output_dir,
     sketch_dir,
