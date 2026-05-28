@@ -1,8 +1,9 @@
 <div align="center">
 
-![Jarvis OS](Cover_Jarvis_Github.png)
-
 # Jarvis OS
+
+[![Jarvis OS](https://img.shields.io/badge/jarvis--OS-main-0A0E16?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Grominet95/jarvis-OS)
+[![Jarvis Skills](https://img.shields.io/badge/jarvis--skills-plugins-1a1f2e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Grominet95/jarvis-skills)
 
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -11,6 +12,8 @@
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
 
 Assistant personnel IA, texte & voix temps réel, self-hosted, stack open source.
+
+![Jarvis OS](Cover_Jarvis_Github.png)
 
 </div>
 
