@@ -25,6 +25,33 @@ def _jaccard(a: str, b: str) -> float:
 
 from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
 
+
+def _shares_keyword(a: str, b: str, min_len: int = 7) -> bool:
+    """True if both titles share at least one meaningful word of length ≥ min_len."""
+    wa = {w for w in re.findall(r"\w+", a.lower()) if len(w) >= min_len}
+    wb = {w for w in re.findall(r"\w+", b.lower()) if len(w) >= min_len}
+    return bool(wa & wb)
+
+
+def _similar(a: str, b: str) -> bool:
+    return (
+        _title_key(a) == _title_key(b)
+        or _jaccard(a, b) >= 0.35
+        or _shares_keyword(a, b)
+    )
+
+
+def _dedup_initiatives(initiatives: list) -> list:
+    """Keep the oldest initiative when two titles are semantically similar."""
+    kept: list = []
+    for candidate in initiatives:
+        for existing in kept:
+            if _similar(candidate.title, existing.title):
+                break
+        else:
+            kept.append(candidate)
+    return kept
+
 INITIATIVES_DIR = Path("memory_data/initiatives")
 
 
@@ -33,23 +60,29 @@ class InitiativeStore:
     def __init__(self) -> None:
         INITIATIVES_DIR.mkdir(parents=True, exist_ok=True)
 
+    def _all_pending_titles(self) -> list[str]:
+        """Collect titles of all pending initiatives across the last 7 days."""
+        titles = []
+        for f in sorted(INITIATIVES_DIR.glob("*.jsonl"))[-7:]:
+            for line in f.read_text().splitlines():
+                if not line:
+                    continue
+                try:
+                    d = json.loads(line)
+                    if d.get("status") == "pending":
+                        titles.append(d.get("title", ""))
+                except Exception:
+                    pass
+        return titles
+
     def save(self, initiative: Initiative) -> None:
         today = datetime.now().strftime("%Y-%m-%d")
         log_file = INITIATIVES_DIR / f"{today}.jsonl"
 
-        # Dédup cross-cycle : exact match + Jaccard > 60% sur les pending du jour
-        if log_file.exists():
-            key = _title_key(initiative.title)
-            for line in log_file.read_text().splitlines():
-                if not line:
-                    continue
-                try:
-                    existing = json.loads(line)
-                    etitle = existing.get("title", "")
-                    if _title_key(etitle) == key or _jaccard(initiative.title, etitle) > 0.60:
-                        return
-                except Exception:
-                    pass
+        # Dédup cross-cycle sur les 7 derniers jours
+        for etitle in self._all_pending_titles():
+            if _similar(initiative.title, etitle):
+                return
 
         with log_file.open("a", encoding="utf-8") as f:
             f.write(json.dumps({
@@ -68,7 +101,7 @@ class InitiativeStore:
             }) + "\n")
 
     def load_pending(self) -> list[Initiative]:
-        """Charge toutes les initiatives en attente du jour."""
+        """Charge toutes les initiatives en attente du jour, dédupliquées."""
         today = datetime.now().strftime("%Y-%m-%d")
         log_file = INITIATIVES_DIR / f"{today}.jsonl"
 
@@ -99,7 +132,7 @@ class InitiativeStore:
             except Exception:
                 pass
 
-        return initiatives
+        return _dedup_initiatives(initiatives)
 
     def get_by_id(self, initiative_id: str) -> "Initiative | None":
         for i in self.load_pending():
