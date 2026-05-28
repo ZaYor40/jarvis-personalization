@@ -918,13 +918,134 @@
       sessions.slice(0, 20).forEach(s => {
         const row = el("div", { class: "session-row" });
         row.appendChild(el("div", { class: "sess-id t-mono", text: (s.id || "").slice(0, 6).toUpperCase() }));
+
         const preview = el("div");
-        preview.appendChild(el("div", { class: "sess-preview", text: s.title || s.preview || "—" }));
+        const titleEl = el("div", { class: "sess-preview", text: s.title || s.preview || "—" });
+        preview.appendChild(titleEl);
         preview.appendChild(el("div", { style: { fontFamily: "var(--mono)", fontSize: "9.5px", color: "var(--fg-3)", marginTop: "3px" },
           text: (s.message_count || 0) + " messages" }));
         row.appendChild(preview);
         row.appendChild(el("div", { class: "sess-date", text: s.date || "" }));
+
+        const viewBtn   = el("button", { class: "m-btn", text: "Voir" });
+        const renameBtn = el("button", { class: "m-btn", text: "Renommer" });
+        const delBtn    = el("button", { class: "m-btn m-btn--danger", text: "✕" });
+        delBtn.title = "Supprimer ce fil";
+        const acts = el("div", { class: "mem-btn-row" });
+        acts.appendChild(viewBtn);
+        acts.appendChild(renameBtn);
+        acts.appendChild(delBtn);
+        row.appendChild(acts);
         list.appendChild(row);
+
+        /* inline conversation viewer */
+        const viewer   = el("div", { class: "sess-viewer" });
+        const msgList  = el("div", { class: "sess-msg-list" });
+        const closeViewBtn = el("button", { class: "m-btn", text: "Fermer" });
+        viewer.appendChild(msgList);
+        viewer.appendChild(closeViewBtn);
+        list.appendChild(viewer);
+
+        viewBtn.addEventListener("click", async () => {
+          if (viewer.classList.contains("open")) {
+            viewer.classList.remove("open");
+            viewBtn.textContent = "Voir";
+            return;
+          }
+          editor.classList.remove("open");
+          renameBtn.textContent = "Renommer";
+          viewBtn.textContent = "…"; viewBtn.disabled = true;
+          try {
+            const msgs = await J.api.get("/api/sessions/" + encodeURIComponent(s.id) + "/messages?limit=100");
+            msgList.innerHTML = "";
+            if (!msgs.length) {
+              msgList.appendChild(el("div", { class: "sess-msg-empty", text: "Aucun message." }));
+            } else {
+              msgs.forEach(m => {
+                const bubble = el("div", { class: "sess-bubble sess-bubble--" + (m.role === "user" ? "user" : "assistant") });
+                const label  = el("div", { class: "sess-bubble-role", text: m.role === "user" ? "Toi" : "Jarvis" });
+                const body   = el("div", { class: "sess-bubble-body", text: m.content || "" });
+                bubble.appendChild(label);
+                bubble.appendChild(body);
+                msgList.appendChild(bubble);
+              });
+            }
+            viewer.classList.add("open");
+            setTimeout(() => viewer.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+          } catch (e) {
+            J.notify({ kind: "error", text: e.message });
+          }
+          viewBtn.textContent = "Voir"; viewBtn.disabled = false;
+        });
+
+        closeViewBtn.addEventListener("click", () => {
+          viewer.classList.remove("open");
+          viewBtn.textContent = "Voir";
+        });
+
+        /* inline rename editor */
+        const editor  = el("div", { class: "sess-rename-editor" });
+        const inp     = el("input", { class: "sess-rename-input", type: "text" });
+        inp.value       = s.title || s.preview || "";
+        inp.placeholder = "Nouveau titre…";
+        editor.appendChild(inp);
+        const saveBtn  = el("button", { class: "m-btn m-btn--save", text: "Sauvegarder" });
+        const closeBtn = el("button", { class: "m-btn",              text: "Annuler" });
+        const btnRow   = el("div",    { class: "mem-btn-row" });
+        btnRow.appendChild(saveBtn);
+        btnRow.appendChild(closeBtn);
+        editor.appendChild(btnRow);
+        list.appendChild(editor);
+
+        renameBtn.addEventListener("click", () => {
+          const open = editor.classList.contains("open");
+          if (!open) { viewer.classList.remove("open"); viewBtn.textContent = "Voir"; }
+          editor.classList.toggle("open", !open);
+          renameBtn.textContent = open ? "Renommer" : "Annuler";
+          if (!open) { inp.focus(); inp.select(); }
+        });
+
+        closeBtn.addEventListener("click", () => {
+          editor.classList.remove("open");
+          renameBtn.textContent = "Renommer";
+        });
+
+        inp.addEventListener("keydown", e => {
+          if (e.key === "Enter")  saveBtn.click();
+          if (e.key === "Escape") closeBtn.click();
+        });
+
+        saveBtn.addEventListener("click", async () => {
+          const newTitle = inp.value.trim();
+          if (!newTitle) return;
+          const orig = saveBtn.textContent;
+          saveBtn.textContent = "…"; saveBtn.disabled = true;
+          try {
+            await J.api.put("/api/sessions/" + encodeURIComponent(s.id) + "/title", { title: newTitle });
+            titleEl.textContent = newTitle;
+            editor.classList.remove("open");
+            renameBtn.textContent = "Renommer";
+            J.notify({ kind: "success", text: "Fil renommé" });
+          } catch (e) {
+            J.notify({ kind: "error", text: e.message });
+            saveBtn.textContent = "✗ Erreur";
+          }
+          setTimeout(() => { saveBtn.textContent = orig; saveBtn.disabled = false; }, 1800);
+        });
+
+        delBtn.addEventListener("click", async () => {
+          if (!confirm("Supprimer ce fil définitivement ?")) return;
+          delBtn.disabled = true;
+          try {
+            await J.api.delete("/api/sessions/" + encodeURIComponent(s.id));
+            row.remove();
+            editor.remove();
+            J.notify({ kind: "success", text: "Fil supprimé" });
+          } catch (e) {
+            J.notify({ kind: "error", text: e.message });
+            delBtn.disabled = false;
+          }
+        });
       });
     }
 
