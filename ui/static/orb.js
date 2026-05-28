@@ -88,11 +88,10 @@
       c.width = 256; c.height = 256;
       const ctx = c.getContext("2d");
       const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-      g.addColorStop(0,    "rgba(220, 238, 255, 0.90)");
-      g.addColorStop(0.08, "rgba(160, 210, 255, 0.55)");
-      g.addColorStop(0.25, "rgba(74,  158, 255, 0.22)");
-      g.addColorStop(0.55, "rgba(74,  158, 255, 0.06)");
-      g.addColorStop(1,    "rgba(74,  158, 255, 0)");
+      g.addColorStop(0,    "rgba(74, 158, 255, 0.38)");
+      g.addColorStop(0.20, "rgba(74, 158, 255, 0.15)");
+      g.addColorStop(0.55, "rgba(74, 158, 255, 0.04)");
+      g.addColorStop(1,    "rgba(74, 158, 255, 0)");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 256, 256);
       return new THREE.CanvasTexture(c);
@@ -395,9 +394,9 @@
 
       // ── Core glow ─────────────────────────────────────────────────
       const glowPulse = 1 + Math.sin(t * 0.9) * 0.06;
-      const glowSize  = currentRadius * 1.55 * glowPulse;
+      const glowSize  = currentRadius * 0.90 * glowPulse;
       glowSprite.scale.set(glowSize, glowSize, 1);
-      glowMat.opacity = Math.min(1, currentGlow * glowPulse + beatMod * beatAmp * 2.2);
+      glowMat.opacity = Math.min(0.45, currentGlow * 0.65 * glowPulse + beatMod * beatAmp * 0.9);
       glowSprite.position.z = cloudZ;
 
       // ── Breath Z — amplitudes très faibles, pas de zoom visible ─────
