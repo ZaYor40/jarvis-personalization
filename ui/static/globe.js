@@ -427,4 +427,25 @@
     mapZoomIn() { if (_map) _map.flyTo({ zoom: _map.getZoom() + 3, duration: 1000 }); },
   };
 
+  // ── Jarvis.views registration ────────────────────────────────────
+  if (window.Jarvis?.views) {
+    Jarvis.views.register('globe', {
+      meta: {
+        name: 'Globe',
+        desc: 'Globe terrestre temps réel — vols, navires, météo. Navigation vocale.',
+        glyph: 'GLB',
+        tags: ['geo', 'realtime', 'map'],
+      },
+      show()  { showGlobe(); },
+      hide()  { hideGlobe(); },
+      command(cmd, params) {
+        if (cmd === 'fly_to')        window.Globe.handleFlyTo(params);
+        if (cmd === 'zoom_out')      window.Globe.mapZoomOut();
+        if (cmd === 'zoom_in')       window.Globe.mapZoomIn();
+        if (cmd === 'globe_view')    window.Globe.transitionToGlobe();
+        if (cmd === 'toggle_panels') { /* handled by index.html for now */ }
+      },
+    });
+  }
+
 })();

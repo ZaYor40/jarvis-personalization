@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Syne:wght@500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/_shared.css" />
 <link rel="stylesheet" href="/home.css" />
+<link rel="stylesheet" href="/globe.css" />
 </head>
 <body data-mode="home">
 
@@ -19,63 +20,56 @@
   <!-- Top bar -->
   <div class="home-top">
     <div class="home-controls" id="home-controls">
-      <div class="hc-state">
-        <span class="status-dot blue" id="status-dot"></span>
-        <span id="status-label">AU REPOS</span>
-      </div>
-      <div class="hc-btns">
 
-        <!-- Microphone -->
-        <button class="hc-btn" id="hc-mic" data-key="mic" title="Micro — activer la voix">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="7" y="1" width="6" height="9" rx="3"/>
-            <path d="M4 9c0 3.3 2.7 6 6 6s6-2.7 6-6"/>
-            <line x1="10" y1="15" x2="10" y2="18"/>
+      <span id="status-dot" style="display:none"></span>
+      <span id="status-label" style="display:none"></span>
+
+      <div class="hc-pill">
+
+        <button class="hc-btn" id="hc-mic" data-key="mic" title="Microphone">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="7.5" y="2" width="5" height="8" rx="2.5"/>
+            <path d="M4.5 10a5.5 5.5 0 0 0 11 0"/>
+            <line x1="10" y1="15.5" x2="10" y2="18"/>
             <line x1="7" y1="18" x2="13" y2="18"/>
           </svg>
         </button>
-
-        <!-- Écran -->
-        <button class="hc-btn" id="hc-screen" data-key="screen" title="Écran — autoriser la capture">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-            <rect x="1" y="2" width="18" height="12" rx="2"/>
-            <line x1="7" y1="17" x2="13" y2="17"/>
-            <line x1="10" y1="14" x2="10" y2="17"/>
+        <button class="hc-btn" id="hc-screen" data-key="screen" title="Capture d'&#233;cran">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="16" height="10.5" rx="2"/>
+            <path d="M8 17.5h4"/>
+            <line x1="10" y1="13.5" x2="10" y2="17.5"/>
+          </svg>
+        </button>
+        <button class="hc-btn" id="hc-cam" data-key="cam" title="Cam&#233;ra">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1.5 9c0-.8.7-1.5 1.5-1.5h2L6.5 5.5h7l1.5 2H17c.8 0 1.5.7 1.5 1.5v7.5c0 .8-.7 1.5-1.5 1.5H3c-.8 0-1.5-.7-1.5-1.5V9z"/>
+            <circle cx="10" cy="12" r="2.8"/>
+          </svg>
+        </button>
+        <button class="hc-btn" id="hc-files" data-key="files" title="Acc&#232;s fichiers">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 17.5H17Q18.5 17.5 18.5 16V10.5Q18.5 9 17 9H9L7.5 7H3Q1.5 7 1.5 8.5V16Q1.5 17.5 3 17.5z"/>
           </svg>
         </button>
 
-        <!-- Caméra -->
-        <button class="hc-btn" id="hc-cam" data-key="cam" title="Caméra — vision + gestes">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 7h2l1.5-3h11L17 7h2c.5 0 1 .5 1 1v9c0 .5-.5 1-1 1H1c-.5 0-1-.5-1-1V8c0-.5.5-1 1-1z"/>
-            <circle cx="10" cy="12" r="3"/>
+        <div class="hc-sep"></div>
+
+        <button class="hc-btn" id="hc-music" data-key="music" title="Musique">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7.5 14.5V5L17.5 2.5v9.5"/>
+            <circle cx="5.5" cy="14.5" r="2"/>
+            <circle cx="15.5" cy="12" r="2"/>
           </svg>
         </button>
-
-        <!-- Fichiers -->
-        <button class="hc-btn" id="hc-files" data-key="files" title="Fichiers — accès lecture">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 4.5C3 3.7 3.7 3 4.5 3H8l2 2.5h5.5C16.3 5.5 17 6.2 17 7v9c0 .8-.7 1.5-1.5 1.5h-11C3.7 17.5 3 16.8 3 16V4.5z"/>
-          </svg>
-        </button>
-
-        <!-- Musique -->
-        <button class="hc-btn" id="hc-music" data-key="music" title="Musique — widget lecteur">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 17V7.5L16 5v9.5"/>
-            <circle cx="3.5" cy="17" r="2"/>
-            <circle cx="14.5" cy="14.5" r="2"/>
-          </svg>
-        </button>
-
-        <!-- Chat -->
-        <button class="hc-btn" id="hc-chat" data-key="chat" title="Chat — conversation en cours">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 2h16v11H9.5L6 17.5V13H2V2z"/>
+        <button class="hc-btn" id="hc-chat" data-key="chat" title="Chat">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 4.5A2 2 0 0 1 4 2.5h12A2 2 0 0 1 18 4.5V12a2 2 0 0 1-2 2H9.5L7 16.5V14H4a2 2 0 0 1-2-2V4.5z"/>
           </svg>
         </button>
 
       </div>
+
     </div>
     <div class="home-signature">
       <div class="brand">JARVIS</div>
@@ -91,7 +85,7 @@
     <canvas id="orb-canvas"></canvas>
   </div>
 
-  <!-- Overlay caméra (MediaPipe vision) -->
+  <!-- Overlay camera (MediaPipe vision) -->
   <div class="cam-overlay" id="cam-overlay">
     <div class="cam-inner" id="cam-drag-handle">
       <div class="cam-topbar">
@@ -104,27 +98,28 @@
         <canvas id="cam-canvas"></canvas>
       </div>
     </div>
+    <div class="hcw-resize-handle" id="cam-resize-handle"></div>
   </div>
 
   <!-- Widget : Musique -->
   <div class="hc-widget hc-widget--music" id="hc-widget-music">
     <div class="hcw-hd">
-      <span class="hcw-eyebrow">En écoute</span>
-      <span class="hcw-meta" id="hcw-music-source">—</span>
+      <span class="hcw-eyebrow">En &#233;coute</span>
+      <span class="hcw-meta" id="hcw-music-source">&#8212;</span>
     </div>
     <div class="hcw-body">
       <div class="hcw-music-top">
         <img class="hcw-album-art" id="hcw-album-art" alt=""/>
         <div class="hcw-music-info">
           <div class="hcw-track-name" id="hcw-music-track">Aucune lecture</div>
-          <div class="hcw-track-artist" id="hcw-music-artist">—</div>
+          <div class="hcw-track-artist" id="hcw-music-artist">&#8212;</div>
         </div>
       </div>
       <div class="hcw-progress-wrap">
         <div class="hcw-progress-fill" id="hcw-progress-fill"></div>
       </div>
       <div class="hcw-controls">
-        <button class="hcw-ctl" id="hcw-prev" title="Précédent">
+        <button class="hcw-ctl" id="hcw-prev" title="Pr&#233;c&#233;dent">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
             <line x1="2" y1="1.5" x2="2" y2="10.5"/>
             <path d="M10 1.5L4 6L10 10.5V1.5Z"/>
@@ -143,25 +138,27 @@
         </button>
       </div>
     </div>
+    <div class="hcw-resize-handle" id="music-resize-handle"></div>
   </div>
 
   <!-- Widget : Chat -->
   <div class="hc-widget hc-widget--chat" id="hc-widget-chat">
     <div class="hcw-hd">
       <span class="hcw-eyebrow">Conversation</span>
-      <span class="hcw-meta" id="hcw-chat-count">—</span>
+      <span class="hcw-meta" id="hcw-chat-count">&#8212;</span>
     </div>
     <div class="hcw-body hcw-messages" id="hcw-chat-msgs">
       <div class="hcw-empty">Aucun message</div>
     </div>
     <div class="hcw-input-row" id="hcw-input-row">
-      <input class="hcw-input" id="hcw-input" type="text" placeholder="Écrire à Jarvis…" autocomplete="off" />
+      <input class="hcw-input" id="hcw-input" type="text" placeholder="&#201;crire &#224; Jarvis&#8230;" autocomplete="off" />
       <button class="hcw-send" id="hcw-send" title="Envoyer">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 7H2M7 2l5 5-5 5"/>
         </svg>
       </button>
     </div>
+    <div class="hcw-resize-handle" id="chat-resize-handle"></div>
   </div>
 
   <!-- Canal passif (dernier message Jarvis) -->
@@ -169,16 +166,20 @@
     <div class="msg" id="channel-msg"></div>
     <div class="meta">
       <span id="channel-time"></span>
-      <a id="channel-cta" href="/dashboard">OUVRIR →</a>
+      <a id="channel-cta" href="/dashboard">OUVRIR &#8594;</a>
     </div>
   </div>
 </div>
+
+<!-- View layer — vues plein-écran enregistrées via Jarvis.views -->
+<div id="globe-container"></div>
 
 <script src="/three.min.js"></script>
 <script src="/_shared.js"></script>
 <script src="/orb.js"></script>
 <script src="/voice.js"></script>
 <script src="/mediapipe_vision.js"></script>
+<script src="/globe.js"></script>
 <script src="/home.js"></script>
 </body>
 </html>

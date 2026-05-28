@@ -74,6 +74,41 @@
     },
   };
 
+  /* ───────── View registry ───────── */
+  Jarvis.views = {
+    _registry: {},
+    _active: null,
+
+    register(id, { meta, show, hide, command }) {
+      this._registry[id] = { meta: meta || {}, show, hide, command };
+    },
+
+    list() {
+      return Object.entries(this._registry).map(([id, v]) => ({ id, ...v.meta }));
+    },
+
+    activate(id, params) {
+      const view = this._registry[id];
+      if (!view) return;
+      if (this._active && this._active !== id) this.deactivate(this._active);
+      this._active = id;
+      view.show(params || {});
+    },
+
+    deactivate(id) {
+      const target = id || this._active;
+      if (!target) return;
+      const view = this._registry[target];
+      if (view) view.hide();
+      if (this._active === target) this._active = null;
+    },
+
+    dispatch(id, cmd, params) {
+      const view = this._registry[id];
+      if (view?.command) view.command(cmd, params || {});
+    },
+  };
+
   /* ───────── API wrapper ───────── */
   Jarvis.api = {
     base: window.JARVIS_API_BASE || "",

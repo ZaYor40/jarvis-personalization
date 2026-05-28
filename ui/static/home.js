@@ -146,12 +146,11 @@
       const vc = window._voiceClient;
       if (!vc) return;
       if (next) {
-        // Greeting vocal avant d'ouvrir le micro (comme l'ancien repo)
         await playGreeting();
         try {
           await vc._start();
         } catch (err) {
-          console.error("[Mic] Erreur démarrage :", err);
+          console.error("[Mic] Erreur demarrage :", err);
           _ctrlState.mic = false;
           setOrbState("offline");
           setTimeout(() => setOrbState("idle"), 2000);
@@ -160,29 +159,35 @@
         vc._stop();
         setOrbState("idle");
       }
-      return; // VoiceClient._setState gère la classe .active sur le bouton
+      return;
     }
 
     if (key === "cam") {
-      setCtrl("cam", next);
       if (next) {
+        setCtrl("cam", true);  // marque actif immédiatement pour que le 2e clic puisse désactiver
         const ok = await startCamera();
-        if (!ok) setCtrl("cam", false);
+        if (!ok) {
+          setCtrl("cam", false);
+          return;
+        }
+        J.api.patch("/api/permissions/camera", { enabled: true }).catch(() => {});
       } else {
         stopCamera();
+        setCtrl("cam", false);
+        J.api.patch("/api/permissions/camera", { enabled: false }).catch(() => {});
       }
       return;
     }
 
     if (key === "screen") {
       setCtrl("screen", next);
-      J.api.post("/api/permissions/screen", { enabled: next }).catch(() => {});
+      J.api.patch("/api/permissions/screen", { enabled: next }).catch(() => {});
       return;
     }
 
     if (key === "files") {
       setCtrl("files", next);
-      J.api.post("/api/permissions/files", { enabled: next }).catch(() => {});
+      J.api.patch("/api/permissions/files", { enabled: next }).catch(() => {});
       return;
     }
 
@@ -199,6 +204,16 @@
       return;
     }
   }
+
+  // Charge l'etat initial des permissions depuis le serveur
+  (async function loadPermissions() {
+    try {
+      const perms = await J.api.get("/api/permissions");
+      if (perms.screen   != null) setCtrl("screen", perms.screen);
+      if (perms.camera   != null) setCtrl("cam",    perms.camera);
+      if (perms.files    != null) setCtrl("files",  perms.files);
+    } catch (_) {}
+  })();
 
   CTRL_DEFS.forEach(c => {
     const btn = document.getElementById(c.id);
@@ -286,8 +301,6 @@
     document.getElementById("cam-overlay")?.classList.remove("is-open");
   }
 
-  // Rendre l'overlay caméra draggable
-  makeDraggable(document.getElementById("cam-overlay"), document.getElementById("cam-drag-handle"));
 
   // ── Widget Musique ─────────────────────────────────────────────────
   let _musicPollTimer = null;
@@ -492,8 +505,6 @@
     J.api.post("/api/music/next").then(fetchMusicStatus).catch(() => {});
   });
 
-  // Rendre le widget musique draggable
-  makeDraggable(document.getElementById("hc-widget-music"));
 
   // ── Widget Chat ────────────────────────────────────────────────────
   async function loadChatWidget() {
@@ -626,8 +637,6 @@
     }
   });
 
-  // Rendre le widget chat draggable
-  makeDraggable(document.getElementById("hc-widget-chat"));
 
   // ── WebSocket — sync état orbe + canal passif ──────────────────────
   function connectWS() {
@@ -647,6 +656,18 @@
         showChannel(data.text);
         if (_ctrlState.chat) loadChatWidget();
       }
+
+      // ── View routing ──────────────────────────────────────────────
+      if (data.type === "show_view")    J.views.activate(data.view_id, data.params);
+      if (data.type === "hide_view")    J.views.deactivate(data.view_id);
+      if (data.type === "view_command") J.views.dispatch(data.view_id, data.command, data.params);
+
+      // Backward compat (map_control legacy events)
+      if (data.type === "map_fly_to")    { J.views.activate("globe"); J.views.dispatch("globe", "fly_to", data); }
+      if (data.type === "map_zoom_out")  J.views.dispatch("globe", "zoom_out", {});
+      if (data.type === "map_zoom_in")   J.views.dispatch("globe", "zoom_in", {});
+      if (data.type === "map_globe_view"){ J.views.activate("globe"); J.views.dispatch("globe", "globe_view", {}); }
+      if (data.type === "toggle_panels") J.views.dispatch("globe", "toggle_panels", {});
     };
 
     _ws.onclose = () => setTimeout(connectWS, 3000);
@@ -745,12 +766,11 @@
   function makeDraggable(el, handle) {
     if (!el) return;
     const grip = handle || el;
-    let ox = 0, oy = 0, ex = 0, ey = 0;
 
     grip.addEventListener("mousedown", (e) => {
-      if (e.target.closest("button, input, textarea")) return;
+      if (e.target.closest("button, input, textarea, .hcw-resize-handle")) return;
       e.preventDefault();
-      ex = e.clientX; ey = e.clientY;
+      let ex = e.clientX, ey = e.clientY;
       el.classList.add("dragging");
 
       function onMove(e) {
@@ -758,7 +778,6 @@
         const dy = e.clientY - ey;
         ex = e.clientX; ey = e.clientY;
         const rect = el.getBoundingClientRect();
-        // Repositionnement en left/top (annule right/bottom)
         el.style.left   = (rect.left + dx) + "px";
         el.style.top    = (rect.top  + dy) + "px";
         el.style.right  = "auto";
@@ -775,4 +794,58 @@
       document.addEventListener("mouseup",   onUp);
     });
   }
+
+  // ── Helper redimensionnement pour widgets ──────────────────────────
+  function makeResizable(el, handleEl, minW, minH) {
+    if (!el || !handleEl) return;
+    minW = minW || 180;
+    minH = minH || 80;
+
+    handleEl.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Ancrer en top/left au moment du resize
+      const rect = el.getBoundingClientRect();
+      el.style.left   = rect.left   + "px";
+      el.style.top    = rect.top    + "px";
+      el.style.right  = "auto";
+      el.style.bottom = "auto";
+      el.style.width  = rect.width  + "px";
+      el.style.height = rect.height + "px";
+
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = rect.width;
+      const startH = rect.height;
+
+      function onMove(e) {
+        const w = Math.max(minW, startW + (e.clientX - startX));
+        const h = Math.max(minH, startH + (e.clientY - startY));
+        el.style.width  = w + "px";
+        el.style.height = h + "px";
+        // Enleve max-height sur le corps messages si present
+        const msgs = el.querySelector(".hcw-messages");
+        if (msgs) msgs.style.maxHeight = "none";
+      }
+
+      function onUp() {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup",   onUp);
+      }
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup",   onUp);
+    });
+  }
+
+  // Attacher drag + resize aux widgets
+  makeDraggable(document.getElementById("cam-overlay"), document.getElementById("cam-drag-handle"));
+  makeResizable(document.getElementById("cam-overlay"), document.getElementById("cam-resize-handle"), 180, 120);
+
+  makeDraggable(document.getElementById("hc-widget-music"));
+  makeResizable(document.getElementById("hc-widget-music"), document.getElementById("music-resize-handle"), 180, 100);
+
+  makeDraggable(document.getElementById("hc-widget-chat"));
+  makeResizable(document.getElementById("hc-widget-chat"), document.getElementById("chat-resize-handle"), 220, 160);
 })();

@@ -1,5 +1,5 @@
 /* capabilities.js — Atelier (Capacités) v2
- * 9 sous-pages : Intégrations · Skills · Routines · Ambiances · Store · Écosystème · Appareils · Fils · Mémoire
+ * 9 sous-pages : Intégrations · Skills · Routines · Vues · Store · Écosystème · Appareils · Fils · Mémoire
  */
 (function () {
   "use strict";
@@ -9,7 +9,7 @@
     { id: "integrations", label: "Intégrations" },
     { id: "skills",       label: "Skills" },
     { id: "routines",     label: "Routines" },
-    { id: "ambiances",    label: "Ambiances" },
+    { id: "vues",         label: "Vues" },
     { id: "store",        label: "Store" },
     { id: "ecosysteme",   label: "Écosystème" },
     { id: "appareils",    label: "Appareils" },
@@ -502,25 +502,35 @@
   /* ─────────────────────────────────────────
      04 Ambiances
   ───────────────────────────────────────── */
-  function renderAmbiances() {
-    const AMBIANCES = [
-      { id: "sphere",        name: "Sphère",        desc: "Orbe Three.js en temps réel, réactif à la voix et aux événements Jarvis." },
-      { id: "constellation", name: "Constellation", desc: "Réseau de particules canvas, génératif, évolue selon l'activité." },
-      { id: "murmure",       name: "Murmure",       desc: "Onde audio réactive à l'ambiance sonore de la pièce." },
-      { id: "atelier",       name: "Atelier",       desc: "Fond neutre, focus total. Zéro distraction." },
+  function renderVues() {
+    // Récupère les vues enregistrées depuis le shell parent (home.js), ou fallback statique
+    const registered = window.top?.Jarvis?.views?.list() || [];
+    const FALLBACK = [
+      { id: "globe", name: "Globe", desc: "Globe terrestre temps réel — vols, navires, météo. Contrôle vocal.", glyph: "GLB", tags: ["geo", "realtime"] },
     ];
+    const views = registered.length ? registered : FALLBACK;
+
     const grid = el("div", { class: "ambiance-grid" });
-    AMBIANCES.forEach(a => {
+    views.forEach(v => {
       const card = el("div", { class: "ambiance-card" });
-      card.appendChild(el("div", { class: "ambiance-glyph", text: a.name.slice(0, 3).toUpperCase() }));
-      card.appendChild(el("div", { class: "ambiance-name", text: a.name }));
-      card.appendChild(el("div", { class: "ambiance-desc", text: a.desc }));
-      card.addEventListener("click", () => openPanel(buildAmbiancePanel, a));
+      card.appendChild(el("div", { class: "ambiance-glyph", text: (v.glyph || v.name.slice(0, 3)).toUpperCase() }));
+      card.appendChild(el("div", { class: "ambiance-name", text: v.name }));
+      card.appendChild(el("div", { class: "ambiance-desc", text: v.desc || "" }));
+      if (v.tags?.length) {
+        const tags = el("div", { style: { display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "6px" } });
+        v.tags.forEach(t => tags.appendChild(el("span", { class: "badge badge--solid", text: t })));
+        card.appendChild(tags);
+      }
+      card.addEventListener("click", () => {
+        window.top?.Jarvis?.views?.activate(v.id);
+        window.top?.Jarvis?.navigate("/");
+      });
       grid.appendChild(card);
     });
+
     const wrap = el("div");
-    wrap.appendChild(ghostSec("Thèmes & ambiances", "4 disponibles", null, grid));
-    const page = pageWrapper("ambiances", "Tes ambiances", null, wrap);
+    wrap.appendChild(ghostSec("Vues disponibles", views.length + " vue" + (views.length > 1 ? "s" : ""), null, grid));
+    const page = pageWrapper("vues", "Vues & affichages", null, wrap);
     root.innerHTML = ""; root.appendChild(page);
   }
 
@@ -1193,7 +1203,7 @@
     integrations: renderIntegrations,
     skills:       renderSkills,
     routines:     renderRoutines,
-    ambiances:    renderAmbiances,
+    vues:         renderVues,
     store:        renderStore,
     ecosysteme:   renderEcosysteme,
     appareils:    renderAppareils,
