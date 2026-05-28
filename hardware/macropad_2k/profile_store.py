@@ -7,15 +7,15 @@ from typing import Any
 
 from loguru import logger
 
-from macropad_2k.firmware_gen import generate_from_bundle
-from macropad_2k.models import (
+from hardware.macropad_2k.firmware_gen import generate_from_bundle
+from hardware.macropad_2k.models import (
     KeypadProfile,
     ProfileSlot,
     WorkspaceProfileBundle,
     default_bundle,
     default_profile,
 )
-from macropad_2k.paths import (
+from hardware.macropad_2k.paths import (
     is_valid_workspace,
     profile_path,
     workspace_state_path,
@@ -108,7 +108,7 @@ def load_default_workspace() -> Path | None:
         if isinstance(path, str) and is_valid_workspace(path):
             return Path(path)
 
-    from macropad_2k.paths import firmware_root
+    from hardware.macropad_2k.paths import firmware_root
 
     fw = firmware_root()
     if is_valid_workspace(fw):

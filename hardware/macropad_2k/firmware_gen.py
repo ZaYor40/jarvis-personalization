@@ -5,8 +5,8 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-from macropad_2k.models import KeyChord, KeypadProfile, WorkspaceProfileBundle, get_active_profile
-from macropad_2k.paths import generated_dir, sketch_dir, usb_hid_dir
+from hardware.macropad_2k.models import KeyChord, KeypadProfile, WorkspaceProfileBundle, get_active_profile
+from hardware.macropad_2k.paths import generated_dir, sketch_dir, usb_hid_dir
 
 MANUFACTURER_USB = "Techalchemy SI"
 USB_SERIAL_FIXED = "TCY-CH552-KB"

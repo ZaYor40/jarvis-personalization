@@ -14,7 +14,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from macropad_2k.paths import arduino_cli_dir, arduino_cli_executable
+from hardware.macropad_2k.paths import arduino_cli_dir, arduino_cli_executable
 
 DEFAULT_VERSION = "1.4.1"
 

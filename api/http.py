@@ -1393,7 +1393,7 @@ async def get_devices() -> list:
     })
 
     try:
-        from macropad_2k.usb import usb_status
+        from hardware.macropad_2k.usb import usb_status
 
         st = usb_status()
         hid = bool(st.get("hidPresent"))
