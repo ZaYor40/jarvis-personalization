@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
+import numpy as np
+import pytest
+
 from memory.index import MemoryIndex
+from memory.search import VectorIndex, _chunk_text
 from memory.sessions import SessionStore
 from memory.topics import TopicStore
+from tools.memory import MemoryLoadTopicTool, MemorySearchTool
 
 # ── SessionStore ──────────────────────────────────────────────
 
@@ -150,3 +156,197 @@ def test_session_manager_restore_from_jsonl(tmp_path: Path) -> None:
 
     assert len(session.messages) == 2
     assert session.messages[0]["content"] == "Je travaille sur l'iPod DAP"
+
+
+# ── Couche 2 : injection de la liste seule + memory_load_topic ────────
+
+def test_agent_build_system_lists_topics_only(tmp_path: Path) -> None:
+    """_build_system() doit injecter la LISTE des topics, pas leur contenu."""
+    from core.agent import Agent
+
+    topics_dir = tmp_path / "topics"
+    store = TopicStore(topics_dir)
+    store.write("user_prefs.md", "# Préférences\nSecret: PCM5102A_iPod")
+    store.write("spotify.md", "# Spotify\nID: SECRET_TOKEN_42")
+
+    (tmp_path / "MEMORY.md").write_text("# Index\n")
+    memory_index = MemoryIndex(tmp_path)
+
+    class _DummyLLM:
+        supports_tools = False
+
+    agent = Agent(llm=_DummyLLM(), memory_index=memory_index, topic_store=store)
+    system = agent._build_system()
+
+    assert "user_prefs.md" in system
+    assert "spotify.md" in system
+    # Le contenu détaillé ne doit PAS être présent
+    assert "PCM5102A_iPod" not in system
+    assert "SECRET_TOKEN_42" not in system
+
+
+async def test_memory_load_topic_reads_existing(tmp_path: Path) -> None:
+    topics_dir = tmp_path / "topics"
+    store = TopicStore(topics_dir)
+    store.write("user_prefs.md", "# Préférences\nMode sombre activé.")
+
+    tool = MemoryLoadTopicTool(topics_dir=topics_dir)
+    result = await tool.execute(filename="user_prefs.md")
+
+    assert not result.is_error
+    assert "Mode sombre activé." in result.content
+
+
+async def test_memory_load_topic_rejects_invalid_name(tmp_path: Path) -> None:
+    tool = MemoryLoadTopicTool(topics_dir=tmp_path / "topics")
+    for bad in ["../secret.md", "etc/passwd", "no_extension", "evil\\path.md"]:
+        result = await tool.execute(filename=bad)
+        assert result.is_error, f"Nom invalide accepté : {bad}"
+
+
+async def test_memory_load_topic_unknown_file(tmp_path: Path) -> None:
+    topics_dir = tmp_path / "topics"
+    TopicStore(topics_dir)  # crée le dossier
+    tool = MemoryLoadTopicTool(topics_dir=topics_dir)
+    result = await tool.execute(filename="inexistant.md")
+    assert result.is_error
+    assert "introuvable" in result.content.lower()
+
+
+# ── Couche 3 : VectorIndex avec embedding déterministe mocké ─────────
+
+
+class _FakeEmbedder:
+    """Embedder déterministe : projette des mots-clés sur des dimensions fixes.
+
+    Évite le téléchargement du modèle fastembed en CI. La proximité cosinus
+    reproduit le comportement attendu : un texte qui partage des mots-clés
+    avec une requête obtient un meilleur score.
+    """
+
+    _VOCAB = {
+        "ipod": 0,
+        "dac": 1,
+        "pcm5102a": 2,
+        "spotify": 3,
+        "musique": 4,
+        "préférences": 5,
+        "mode": 6,
+        "sombre": 7,
+        "calendrier": 8,
+        "réunion": 9,
+    }
+    _DIM = 32
+
+    def embed(self, texts: list[str]) -> list[np.ndarray]:
+        out: list[np.ndarray] = []
+        for text in texts:
+            vec = np.zeros(self._DIM, dtype=np.float32)
+            lowered = text.lower()
+            for word, idx in self._VOCAB.items():
+                if word in lowered:
+                    vec[idx] += 1.0
+            # Composante secondaire stable pour différencier les textes proches
+            h = int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
+            vec[10 + (h % (self._DIM - 10))] += 0.05
+            out.append(vec)
+        return out
+
+
+@pytest.fixture
+def fake_vector_index(tmp_path: Path) -> VectorIndex:
+    index = VectorIndex(index_dir=tmp_path / "idx")
+    index._model = _FakeEmbedder()
+    return index
+
+
+async def test_vector_index_add_and_search(fake_vector_index: VectorIndex) -> None:
+    await fake_vector_index.add(
+        doc_id="topic:user_prefs.md",
+        text="Préférences mode sombre activé",
+        metadata={"source": "topic", "filename": "user_prefs.md"},
+    )
+    await fake_vector_index.add(
+        doc_id="topic:music.md",
+        text="iPod DAC PCM5102A pour musique haute qualité",
+        metadata={"source": "topic", "filename": "music.md"},
+    )
+
+    results = await fake_vector_index.search(query="DAC PCM5102A iPod", k=2)
+
+    assert len(results) > 0
+    assert results[0]["doc_id"] == "topic:music.md"
+    assert results[0]["score"] > results[-1]["score"]
+
+
+async def test_vector_index_persist_and_load_roundtrip(
+    tmp_path: Path,
+    fake_vector_index: VectorIndex,
+) -> None:
+    await fake_vector_index.add(
+        doc_id="topic:a.md",
+        text="iPod DAC PCM5102A musique",
+        metadata={"filename": "a.md"},
+    )
+    await fake_vector_index.persist()
+
+    # Nouvelle instance — doit recharger depuis disque
+    reloaded = VectorIndex(index_dir=fake_vector_index._dir)
+    reloaded._model = _FakeEmbedder()
+    assert not reloaded.is_empty()
+
+    results = await reloaded.search(query="iPod DAC", k=1)
+    assert len(results) == 1
+    assert results[0]["doc_id"] == "topic:a.md"
+    assert results[0]["metadata"]["filename"] == "a.md"
+
+
+async def test_vector_index_reindex_from_topics(
+    tmp_path: Path,
+    fake_vector_index: VectorIndex,
+) -> None:
+    topics_dir = tmp_path / "topics"
+    store = TopicStore(topics_dir)
+    store.write("music.md", "iPod DAC PCM5102A musique")
+    store.write("ui.md", "Préférences mode sombre")
+
+    count = await fake_vector_index.reindex(topic_store=store, transcripts_dir=None)
+    assert count == 2
+
+    results = await fake_vector_index.search(query="DAC PCM5102A", k=1)
+    assert results[0]["metadata"]["filename"] == "music.md"
+
+
+async def test_memory_search_tool_formats_results(
+    fake_vector_index: VectorIndex,
+) -> None:
+    await fake_vector_index.add(
+        doc_id="topic:music.md",
+        text="iPod DAC PCM5102A musique",
+        metadata={"filename": "music.md"},
+    )
+    tool = MemorySearchTool(vector_index=fake_vector_index)
+    result = await tool.execute(query="iPod DAC", k=3)
+
+    assert not result.is_error
+    assert "music.md" in result.content
+    assert "score=" in result.content
+
+
+async def test_memory_search_tool_empty_query(
+    fake_vector_index: VectorIndex,
+) -> None:
+    tool = MemorySearchTool(vector_index=fake_vector_index)
+    result = await tool.execute(query="   ", k=3)
+    assert result.is_error
+
+
+def test_chunk_text_handles_short_and_long(tmp_path: Path) -> None:
+    short = "Un texte court."
+    assert _chunk_text(short) == [short]
+
+    long_text = " ".join([f"mot{i}" for i in range(1200)])
+    chunks = _chunk_text(long_text, chunk_size=500, overlap=50)
+    assert len(chunks) >= 2
+    # Premier chunk : 500 mots
+    assert len(chunks[0].split()) == 500
