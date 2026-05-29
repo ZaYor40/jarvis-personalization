@@ -9,7 +9,11 @@ class LLMProvider(ABC):
 
     @property
     def supports_tools(self) -> bool:
-        """True si le provider supporte la boucle tool use (Anthropic uniquement pour l'instant)."""
+        """True si le provider supporte la boucle tool use.
+
+        Providers actifs : Anthropic, Mistral, Gemini.
+        Providers chat-only (False) : Ollama, OpenAI (non implémenté).
+        """
         return False
 
     @abstractmethod

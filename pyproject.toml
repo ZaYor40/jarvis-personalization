@@ -14,6 +14,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # LLM providers
     "anthropic>=0.40.0",
+    "google-genai>=1.0.0",
     "ollama>=0.4.0",
     # HTTP client (async only)
     "httpx>=0.28.0",
