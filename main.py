@@ -48,6 +48,7 @@ from llm.factory import create_background_llm, get_llm_provider
 from memory.auto_dream import AutoDream
 from memory.consolidation import ConsolidationAgent
 from memory.index import MemoryIndex
+from memory.search import VectorIndex
 from memory.sessions import SessionStore
 from memory.topics import TopicStore
 from skills.registry import skill_registry
@@ -57,7 +58,7 @@ from tools.calendar import CalendarCreateTool, CalendarListTool
 from tools.cli import CLIRunnerTool, ExecuteCLITool
 from tools.gmail import GmailListTool
 from tools.filesystem import FindFilesTool, ReadFileTool
-from tools.memory import MemoryTopicWriteTool
+from tools.memory import MemoryLoadTopicTool, MemorySearchTool, MemoryTopicWriteTool
 from tools.notion import NotionTasksTool
 from tools.registry import ToolRegistry
 from tools.preset import ExecutePresetTool
@@ -86,6 +87,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     memory_index = MemoryIndex(memory_dir)
     topic_store = TopicStore(memory_dir / "topics")
     user_prefs_path = memory_dir / "user_prefs.md"
+
+    vector_index = VectorIndex(index_dir=memory_dir / "vector_index")
+    if vector_index.is_empty():
+        # Construction initiale en arrière-plan — ne bloque pas le démarrage
+        asyncio.create_task(
+            vector_index.reindex(
+                topic_store=topic_store,
+                transcripts_dir=memory_dir / "sessions",
+            ),
+            name="vector-index-reindex",
+        )
 
     llm = get_llm_provider()
     background_llm = create_background_llm()
@@ -121,7 +133,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             token_path=_calendar_token,
         ),
         NotionTasksTool(),
-        MemoryTopicWriteTool(),
+        MemoryTopicWriteTool(vector_index=vector_index),
+        MemoryLoadTopicTool(),
+        MemorySearchTool(vector_index=vector_index),
         SpotifyTool(),
         GmailListTool(
             credentials_path=_google_creds,
