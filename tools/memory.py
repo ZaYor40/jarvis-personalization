@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from config.settings import settings
 from memory.topics import TopicStore
 from tools.base import Tool, ToolResult
+
+if TYPE_CHECKING:
+    from memory.search import VectorIndex
 
 
 def _is_invalid_filename(filename: str) -> bool:
@@ -44,8 +48,13 @@ class MemoryTopicWriteTool(Tool):
         "required": ["filename", "content"],
     }
 
-    def __init__(self, topics_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        topics_dir: Path | None = None,
+        vector_index: VectorIndex | None = None,
+    ) -> None:
         self._dir = topics_dir or (Path(settings.memory_dir) / "topics")
+        self._vector_index = vector_index
 
     async def execute(self, filename: str, content: str) -> ToolResult:
         if _is_invalid_filename(filename):
@@ -58,6 +67,13 @@ class MemoryTopicWriteTool(Tool):
                 is_error=True,
             )
         path.write_text(content, encoding="utf-8")
+        if self._vector_index is not None:
+            await self._vector_index.add(
+                doc_id=f"topic:{filename}",
+                text=content,
+                metadata={"source": "topic", "filename": filename},
+            )
+            await self._vector_index.persist()
         return ToolResult(content=f"Mémoire '{filename}' mise à jour ({len(content)} caractères).")
 
 
@@ -97,3 +113,51 @@ class MemoryLoadTopicTool(Tool):
             )
         content = self._store.load(filename)
         return ToolResult(content=f"# {filename}\n\n{content}")
+
+
+class MemorySearchTool(Tool):
+    """Recherche sémantique dans la mémoire (topics + transcripts) via embeddings."""
+
+    name = "memory_search"
+    description = (
+        "Recherche sémantique dans toute la mémoire (fichiers thématiques + transcripts). "
+        "Renvoie les passages les plus pertinents pour la requête, avec leur source. "
+        "Utiliser pour retrouver une information mémorisée avant éventuellement d'appeler "
+        "`memory_load_topic` pour le détail complet d'un fichier."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Question ou mots-clés en langage naturel.",
+            },
+            "k": {
+                "type": "integer",
+                "description": "Nombre de résultats à renvoyer (défaut : 5).",
+            },
+        },
+        "required": ["query"],
+    }
+
+    def __init__(self, vector_index: VectorIndex) -> None:
+        self._index = vector_index
+
+    async def execute(self, query: str, k: int = 5) -> ToolResult:
+        if not query.strip():
+            return ToolResult(content="Requête vide.", is_error=True)
+        try:
+            k_int = max(1, min(20, int(k)))
+        except (TypeError, ValueError):
+            k_int = 5
+        results = await self._index.search(query=query, k=k_int)
+        if not results:
+            return ToolResult(content="Aucun résultat pertinent trouvé en mémoire.")
+        lines: list[str] = []
+        for i, r in enumerate(results, start=1):
+            meta = r.get("metadata", {})
+            source = meta.get("filename") or meta.get("source") or r.get("doc_id", "?")
+            score = r.get("score", 0.0)
+            text = r.get("text", "").strip()
+            lines.append(f"[{i}] {source} (score={score:.3f})\n{text}")
+        return ToolResult(content="\n\n---\n\n".join(lines))
