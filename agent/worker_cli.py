@@ -23,42 +23,62 @@ WORKER_CLI_WHITELIST: list[str] = [
     "pandoc", "pdftotext",
     "stat", "diff", "du", "sort", "uniq", "cut", "tr", "sed", "awk",
     "test", "true", "false",
-    "sh -c", "bash -c",
 ]
 
-# Ces patterns sont bloqués quoi qu'il arrive
+# Patterns bloqués inconditionnellement dans chaque segment de commande
 _BLOCKED_RE = re.compile(
-    r"rm\s+-[a-z]*r|rm\s+-[a-z]*f|"
-    r">\s*/dev/|"
-    r"\bsudo\b|"
-    r"chmod\s+777|"
-    r"curl\s+-X\s+POST|"
-    r"curl\s+-X\s+DELETE|"
-    r"git\s+push|"
-    r"git\s+commit|"
-    r":\(\)\s*\{",      # fork bomb
+    r"rm\s+-[a-z]*r"                          # suppression récursive
+    r"|rm\s+-[a-z]*f"                         # suppression forcée
+    r"|>>?\s*/[a-zA-Z]"                       # redirection vers chemin absolu
+    r"|\bsudo\b"
+    r"|chmod\s+777"
+    r"|curl\s+-X\s+POST"
+    r"|curl\s+-X\s+DELETE"
+    r"|git\s+push"
+    r"|git\s+commit"
+    r"|:\(\)\s*\{"                            # fork bomb
+    r"|\bos\.system\s*\("                     # appel système Python
+    r"|\bsubprocess\b"                        # module subprocess Python
+    r"|\beval\s*\("                           # évaluation dynamique
+    r"|\bexec\s*\("                           # exécution dynamique
+    r"|base64\s+(?:-d|--decode)"              # décodage base64 (obfuscation)
+    r"|\|\s*(?:sh|bash|python3?|zsh|ksh)\b",  # pipe vers interpréteur shell
     re.IGNORECASE,
 )
+
+# Découpe les chaînes de commandes séparées par && ou ;
+_SEP_RE = re.compile(r"\s*(?:&&|;)\s*")
+
+# Détecte un flag -c ou un guillemet dans une commande python/python3
+_PYTHON_INLINE_RE = re.compile(r"\s+-c\b|['\"`]")
 
 
 class WorkerCLITool:
 
-    def __init__(self, workspace_path: str, docker_executor=None) -> None:
+    def __init__(
+        self,
+        workspace_path: str,
+        docker_executor: object | None = None,
+    ) -> None:
         self._workspace = Path(workspace_path).resolve()
         self._docker    = docker_executor  # None = V1 direct, DockerExecutor = V2
 
-    def _check(self, command: str) -> dict | None:
-        """Retourne un dict d'erreur si la commande est bloquée, None sinon."""
-        if _BLOCKED_RE.search(command):
-            logger.error("WorkerCLI blocked", command=command[:80])
+    def _check_segment(self, segment: str) -> dict | None:
+        """Valide un segment de commande individuel ; retourne un dict d'erreur ou None."""
+        stripped = segment.strip()
+        if not stripped:
+            return None
+
+        if _BLOCKED_RE.search(stripped):
+            logger.error("WorkerCLI blocked", command=stripped[:80])
             return {
                 "success": False, "stdout": "",
-                "stderr": f"Commande bloquée par la politique de sécurité : {command[:60]}",
+                "stderr": f"Commande bloquée par la politique de sécurité : {stripped[:60]}",
                 "returncode": -1,
             }
-        stripped = command.strip()
+
         if not any(stripped.startswith(w) for w in WORKER_CLI_WHITELIST):
-            logger.warning("WorkerCLI not whitelisted", command=command[:80])
+            logger.warning("WorkerCLI not whitelisted", command=stripped[:80])
             return {
                 "success": False, "stdout": "",
                 "stderr": (
@@ -67,21 +87,60 @@ class WorkerCLITool:
                 ),
                 "returncode": -1,
             }
+
+        # python/python3 : seule l'exécution de fichiers .py est autorisée
+        if re.match(r"python3?\s", stripped) and _PYTHON_INLINE_RE.search(stripped):
+            logger.error("WorkerCLI python inline bloqué", command=stripped[:80])
+            return {
+                "success": False, "stdout": "",
+                "stderr": (
+                    "Exécution Python en ligne (-c / guillemets) interdite. "
+                    "Utilisez un fichier .py : python3 script.py"
+                ),
+                "returncode": -1,
+            }
+
         return None
 
-    async def execute(self, command: str, timeout: int = 60) -> dict:
-        """Exécute une commande. Route vers Docker (V2) ou direct (V1)."""
+    def _check(self, command: str) -> dict | None:
+        """Valide la commande complète segment par segment (sépare && et ;)."""
+        for segment in _SEP_RE.split(command):
+            err = self._check_segment(segment)
+            if err:
+                return err
+        return None
+
+    async def execute(self, command: str, timeout: int = 60) -> dict:  # noqa: ASYNC109
+        """Exécute une commande. Route vers Docker (V2) ou direct (V1) si opt-in explicite."""
         err = self._check(command)
         if err:
             return err
 
         from config.settings import settings
+
         if self._docker and settings.docker_enabled:
             return await self._docker.execute(command, timeout)
+
+        if not settings.allow_unsandboxed_exec:
+            logger.error(
+                "WorkerCLI: exécution directe refusée "
+                "(docker_enabled=False, allow_unsandboxed_exec=False)"
+            )
+            return {
+                "success": False, "stdout": "",
+                "stderr": (
+                    "Exécution refusée : aucun sandbox actif. "
+                    "Activez Docker (DOCKER_ENABLED=true, recommandé) "
+                    "ou autorisez explicitement l'exécution hôte "
+                    "(ALLOW_UNSANDBOXED_EXEC=true, déconseillé)."
+                ),
+                "returncode": -1,
+            }
+
         return await self._run_direct(command, timeout)
 
-    async def _run_direct(self, command: str, timeout: int) -> dict:
-        """Exécution directe V1 — dans le workspace sur l'hôte."""
+    async def _run_direct(self, command: str, timeout: int) -> dict:  # noqa: ASYNC109
+        """Exécution directe V1 — sur l'hôte dans le workspace (opt-in explicite requis)."""
         try:
             proc = await asyncio.create_subprocess_shell(
                 command,
@@ -97,7 +156,7 @@ class WorkerCLITool:
                 "stderr": stderr.decode("utf-8", errors="replace")[:2000],
                 "returncode": proc.returncode,
             }
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {
                 "success": False, "stdout": "",
                 "stderr": f"Timeout après {timeout}s",

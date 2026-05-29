@@ -126,7 +126,9 @@ class Settings(BaseSettings):
 
     # ── Audio / STT / TTS ─────────────────────────────────────
     openai_api_key: str = Field(
-        default="", description="Clé API OpenAI (LLM principal si api_backend=openai, TTS, Vision).")
+        default="",
+        description="Clé API OpenAI (LLM principal si api_backend=openai, TTS, Vision).",
+    )
     stt_provider: Literal["deepgram", "whisper"] = Field(
         default="deepgram",
         description="Backend STT : 'deepgram' (cloud, rapide) ou 'whisper' (local, hors-ligne).",
@@ -316,7 +318,9 @@ class Settings(BaseSettings):
     # ── Mode Québécois ────────────────────────────────────────
     quebec_mode: bool = Field(
         default=False,
-        description="Active le mode Québécois : voix québécoise + dialecte québécois dans le prompt.",
+        description=(
+            "Active le mode Québécois : voix québécoise + dialecte québécois dans le prompt."
+        ),
     )
     quebec_voice_id: str = Field(
         default="RBhYSNMNu6b2CGZ9Fn1M",
