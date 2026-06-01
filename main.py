@@ -9,7 +9,8 @@ from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI  # ── [AUTH] ──
+from fastapi.middleware.cors import CORSMiddleware  # ── [AUTH] ──
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
@@ -23,6 +24,8 @@ from api.globe import router as globe_router
 from api.google_oauth import router as google_oauth_router
 from api.http import _log_sink
 from api.http import router as http_router
+from api.http_budget import router as budget_router
+from api.http_routines import router as routines_router
 from api.local_music import router as local_music_router
 from api.macropad_2k import _ui_router as macropad_ui_router
 from api.macropad_2k import router as macropad_router
@@ -39,6 +42,7 @@ from channels.telegram_bot import TelegramChannel, get_telegram_channel
 from config.settings import settings
 from core.agent import Agent
 from core.approval_checker import ApprovalChecker
+from core.auth import verify_api_token  # ── [AUTH] ──
 from core.gateway import Gateway
 from core.session import SessionManager
 from llm.api import AnthropicProvider
@@ -430,6 +434,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── [AUTH] ───────────────────────────────────────────────────
+# CORS : origines explicites si configurées, localhost par défaut en mode local.
+# allow_credentials=True exige des origines nommées (jamais "*" + credentials).
+_cors_origins: list[str] = settings.cors_allow_origins or (
+    ["http://localhost:8000", "http://127.0.0.1:8000"]
+    if not settings.api_auth_enabled
+    else []
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=bool(_cors_origins),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# Dépendance globale appliquée à toutes les routes FastAPI.
+# Les fichiers statiques (StaticFiles ASGI mount) et les WebSockets sont
+# gérés séparément dans verify_api_token ; voir core/auth.py pour le périmètre.
+app.router.dependencies.append(Depends(verify_api_token))
+# ── [/AUTH] ──────────────────────────────────────────────────
+
 app.include_router(http_router)
 app.include_router(ws_router)
 app.include_router(voice_router)
@@ -445,6 +470,11 @@ app.include_router(globe_router)
 app.include_router(macropad_router)
 app.include_router(macropad_ui_router)
 app.include_router(google_oauth_router)
+
+# ── [SURFACE] ────────────────────────────────────────────────────────────────
+app.include_router(budget_router)
+app.include_router(routines_router)
+# ── [/SURFACE] ───────────────────────────────────────────────────────────────
 
 
 @app.get("/static/mapbox-style.json")
