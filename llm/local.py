@@ -92,7 +92,9 @@ class OllamaProvider(LLMProvider):
         if stream:
             return self._stream(payload)
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        # read=300 pour absorber le cold-start du modèle (chargement GPU/CPU ~100s+)
+        _timeout = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=5.0)
+        async with httpx.AsyncClient(timeout=_timeout) as client:
             response = await client.post(f"{self._base_url}/api/chat", json=payload)
             response.raise_for_status()
             data = response.json()
@@ -101,7 +103,8 @@ class OllamaProvider(LLMProvider):
             return _strip_think(text)
 
     async def _stream(self, payload: dict) -> AsyncIterator[str]:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        _timeout = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=5.0)
+        async with httpx.AsyncClient(timeout=_timeout) as client:
             async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
                 resp.raise_for_status()
                 in_think = False
