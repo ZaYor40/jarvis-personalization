@@ -1,11 +1,32 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
+
+# ── Fixture : active la permission fichiers pour ce module ────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _enable_files_permission() -> Generator[None, None, None]:
+    """Active files=True avant chaque test, restaure False après.
+
+    Les outils filesystem refusent si files=False (défaut sécurité).
+    Les tests qui vérifient un REFUS de PATH doivent passer avec files=True
+    pour obtenir le bon message d'erreur (chemin hors racine, pas permissions).
+    """
+    from core.permissions import permissions
+
+    permissions.set("files", True)
+    yield
+    permissions.set("files", False)
+
 
 # ── ToolResult / base ─────────────────────────────────────────
+
 
 def test_tool_result_defaults() -> None:
     from tools.base import ToolResult
@@ -32,6 +53,7 @@ def test_tool_to_claude_schema() -> None:
 
 
 # ── ToolRegistry ──────────────────────────────────────────────
+
 
 async def test_registry_dispatch() -> None:
     from tools.base import Tool, ToolResult
@@ -94,6 +116,7 @@ async def test_registry_call_str_error() -> None:
 
 # ── WeatherTool ───────────────────────────────────────────────
 
+
 async def test_weather_tool_success() -> None:
     from tools.weather import WeatherTool
 
@@ -131,6 +154,7 @@ async def test_weather_tool_http_error() -> None:
 
 
 # ── ReadFileTool ──────────────────────────────────────────────
+
 
 async def test_read_file_success(tmp_path: Path) -> None:
     from tools.filesystem import ReadFileTool
@@ -181,6 +205,7 @@ async def test_read_file_too_large(tmp_path: Path) -> None:
 
 # ── FindFilesTool ─────────────────────────────────────────────
 
+
 async def test_find_files_success(tmp_path: Path) -> None:
     from tools.filesystem import FindFilesTool
 
@@ -218,13 +243,12 @@ async def test_find_files_access_denied(tmp_path: Path) -> None:
 
 # ── CLIRunnerTool ─────────────────────────────────────────────
 
+
 async def test_cli_runner_success(tmp_path: Path) -> None:
     from tools.cli import CLIRunnerTool
 
     yaml_path = tmp_path / "tools.yaml"
-    yaml_path.write_text(
-        'echo_test:\n  command: ["echo", "hello jarvis"]\n  description: "Test"\n'
-    )
+    yaml_path.write_text('echo_test:\n  command: ["echo", "hello jarvis"]\n  description: "Test"\n')
     tool = CLIRunnerTool(whitelist_path=yaml_path)
     result = await tool.execute(alias="echo_test")
 
