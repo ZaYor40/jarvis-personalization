@@ -300,20 +300,42 @@ async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
             new_bg_llm = create_background_llm()
             gw = getattr(request.app.state, "gateway", None)
             if gw is not None:
-                # Chat principal + voice gateway
+                # Chat principal + voice gateway — agents primaires
                 object.__setattr__(gw._agent, "_llm", new_llm)
                 vgw = getattr(request.app.state, "voice_gateway", None)
                 if vgw is not None:
                     object.__setattr__(vgw._agent, "_llm", new_llm)
 
-                # LLMs background (consolidation, auto_dream…)
+                # CrossSessionRecall (partagé entre gateway et voice_gateway)
+                recall = getattr(gw, "_recall", None)
+                if recall is not None and hasattr(recall, "_llm"):
+                    object.__setattr__(recall, "_llm", new_bg_llm)
+
+                # LLMs background (consolidation, auto_dream, user_model)
                 for attr in ("consolidation", "auto_dream", "user_model"):
                     obj = getattr(request.app.state, attr, None)
                     if obj is not None and hasattr(obj, "_llm"):
                         object.__setattr__(obj, "_llm", new_bg_llm)
 
+                # BackgroundWorker
+                worker = getattr(request.app.state, "worker", None)
+                if worker is not None and hasattr(worker, "_llm"):
+                    object.__setattr__(worker, "_llm", new_llm)
+
+                # InitiativeGenerator (dans ProactiveEngine)
+                pe = getattr(request.app.state, "proactive_engine", None)
+                if pe is not None:
+                    gen = getattr(pe, "_generator", None)
+                    if gen is not None and hasattr(gen, "_llm"):
+                        object.__setattr__(gen, "_llm", new_llm)
+
+                # SkillSynthesizer
+                synth = getattr(request.app.state, "skill_synthesizer", None)
+                if synth is not None and hasattr(synth, "_llm"):
+                    object.__setattr__(synth, "_llm", new_llm)
+
                 logger.info(
-                    "LLM provider hot-swapped (main + voice + background)",
+                    "LLM provider hot-swapped (main + voice + recall + background + worker + proactive + skills)",
                     provider=_s.llm_provider,
                     model=getattr(new_llm, "_model", "?"),
                 )
@@ -326,6 +348,49 @@ async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
             needs_restart = True
 
     return {"ok": True, "key": body.key, "needs_restart": needs_restart}
+
+
+# ── LLM Status ────────────────────────────────────────────────────────────────
+
+
+@router.get("/api/config/llm-status")
+async def get_llm_status(request: Request) -> dict:
+    """Provider LLM actif réel (pas le réglage .env — l'instance vivante dans le gateway).
+
+    Utile pour vérifier d'un coup d'œil quel cerveau répond sans redémarrer.
+    """
+
+    def _describe(obj: object) -> dict[str, str]:
+        cls = type(obj).__name__
+        model = (
+            getattr(obj, "_model", None)
+            or getattr(obj, "model", None)
+            or getattr(obj, "ollama_model", None)
+            or "?"
+        )
+        return {"provider": cls, "model": str(model)}
+
+    gw = getattr(request.app.state, "gateway", None)
+    vgw = getattr(request.app.state, "voice_gateway", None)
+    worker = getattr(request.app.state, "worker", None)
+
+    from config.settings import settings as _s
+
+    result: dict[str, object] = {
+        "setting": _s.llm_provider,
+        "gateway": _describe(gw._agent._llm) if gw else None,
+        "voice_gateway": _describe(vgw._agent._llm) if vgw else None,
+        "worker": _describe(worker._llm) if worker else None,
+    }
+
+    recall = getattr(gw, "_recall", None) if gw else None
+    result["recall"] = _describe(recall._llm) if recall else None
+
+    pe = getattr(request.app.state, "proactive_engine", None)
+    gen = getattr(pe, "_generator", None) if pe else None
+    result["initiative_generator"] = _describe(gen._llm) if gen else None
+
+    return result
 
 
 # ── Ollama ────────────────────────────────────────────────────────────────────

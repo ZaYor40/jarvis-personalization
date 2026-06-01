@@ -250,6 +250,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from tools.skills import SkillCreateTool, SkillImproveTool, SkillListTool
 
     _synthesizer = SkillSynthesizer(llm=llm)
+    app.state.skill_synthesizer = _synthesizer
     tool_registry.register(
         SkillCreateTool(synthesizer=_synthesizer),
         SkillImproveTool(synthesizer=_synthesizer),
