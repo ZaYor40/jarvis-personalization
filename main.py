@@ -200,6 +200,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _budget_guard = None
     # ── [/BUDGET] ────────────────────────────────────────────────────────────
 
+    # ── [SKILLS] ─────────────────────────────────────────────────────────────
+    from skills.synthesizer import SkillSynthesizer
+    from tools.skills import SkillCreateTool, SkillImproveTool, SkillListTool
+
+    _synthesizer = SkillSynthesizer(llm=llm)
+    tool_registry.register(
+        SkillCreateTool(synthesizer=_synthesizer),
+        SkillImproveTool(synthesizer=_synthesizer),
+        SkillListTool(),
+    )
+    logger.info("Skills tools enregistrés (skill_create, skill_improve, skill_list)")
+    # ── [/SKILLS] ────────────────────────────────────────────────────────────
+
     orchestrator = ProjectOrchestrator(
         broadcast_event=proactive_queue.broadcast_event,
         budget_guard=_budget_guard,
