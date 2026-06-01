@@ -10,13 +10,19 @@ from agent.project_manager import ProjectManager
 from agent.project_store import ProjectStore
 from agent.schemas import LogEntry, Project
 from agent.worker_agent import WorkerAgent
+from core.budget import BudgetGuard
 
 
 class ProjectOrchestrator:
     """Gère le cycle de vie complet des projets agents."""
 
-    def __init__(self, broadcast_event: Callable[[dict], None]) -> None:
+    def __init__(
+        self,
+        broadcast_event: Callable[[dict], None],
+        budget_guard: BudgetGuard | None = None,
+    ) -> None:
         self._broadcast         = broadcast_event
+        self._budget            = budget_guard
         self._store             = ProjectStore()
         self._manager           = ProjectManager()
         self._workers: dict[str, WorkerAgent] = {}
@@ -33,6 +39,7 @@ class ProjectOrchestrator:
             store=self._store,
             broadcast_event=self._broadcast,
             approval_callback=self._request_approval,
+            budget_guard=self._budget,
         )
         self._workers[project.id] = worker
 
@@ -73,7 +80,7 @@ class ProjectOrchestrator:
         if not project:
             return None
 
-        # Remettre les étapes "running" ou "failed" en pending
+        # Remettre les étapes "running", "failed" (et "pending" déjà ok) en pending
         reset = False
         for step in project.steps:
             if step.status in (StepStatus.RUNNING, StepStatus.FAILED):
@@ -93,6 +100,7 @@ class ProjectOrchestrator:
             store=self._store,
             broadcast_event=self._broadcast,
             approval_callback=self._request_approval,
+            budget_guard=self._budget,
         )
         self._workers[project_id] = worker
 
@@ -106,6 +114,51 @@ class ProjectOrchestrator:
             name=f"retry-{project_id}",
         )
         logger.info("Project retried", id=project_id)
+        return project
+
+    # ── Reprise après pause budget ────────────────────────────────────────────
+
+    async def resume_project(self, project_id: str) -> Project | None:
+        """Reprend un projet en pause budgétaire sans réinitialiser les étapes déjà DONE.
+
+        Contrairement à retry_project, cette méthode ne touche pas aux étapes DONE/SKIPPED
+        et ne réinitialise que le statut global du projet.
+        """
+        from agent.schemas import ProjectStatus
+
+        if w := self._workers.get(project_id):
+            w.kill()
+
+        project = self._store.load_project(project_id)
+        if not project:
+            return None
+
+        if not self._store.is_resumable(project):
+            logger.warning("Projet non reprennable", id=project_id, status=project.status)
+            return None
+
+        project.status = ProjectStatus.RUNNING
+        self._store.save_project(project)
+
+        worker = WorkerAgent(
+            project=project,
+            store=self._store,
+            broadcast_event=self._broadcast,
+            approval_callback=self._request_approval,
+            budget_guard=self._budget,
+        )
+        self._workers[project_id] = worker
+
+        self._broadcast({
+            "type":    "project_update",
+            "project": self._project_summary(project),
+        })
+
+        asyncio.create_task(
+            asyncio.wait_for(worker.run(), timeout=project.timeout_minutes * 60),
+            name=f"resume-{project_id}",
+        )
+        logger.info("Project resumed from budget pause", id=project_id)
         return project
 
     # ── Approval system ───────────────────────────────────────────────────────

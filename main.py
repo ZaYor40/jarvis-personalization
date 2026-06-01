@@ -183,7 +183,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from core.gateway import set_tool_registry
     set_proactive_queue(proactive_queue)
     set_tool_registry(tool_registry)
-    orchestrator = ProjectOrchestrator(broadcast_event=proactive_queue.broadcast_event)
+    # ── [BUDGET] ─────────────────────────────────────────────────────────────
+    from core.budget import BudgetGuard, set_budget_guard
+    if settings.budget_enabled:
+        _budget_guard: BudgetGuard | None = BudgetGuard(
+            notify_callback=proactive_queue.broadcast_event
+        )
+        set_budget_guard(_budget_guard)
+        logger.info(
+            "BudgetGuard activé",
+            monthly_usd=settings.budget_monthly_usd,
+            per_project_usd=settings.budget_per_project_usd,
+            warn_pct=settings.budget_warn_pct,
+        )
+    else:
+        _budget_guard = None
+    # ── [/BUDGET] ────────────────────────────────────────────────────────────
+
+    orchestrator = ProjectOrchestrator(
+        broadcast_event=proactive_queue.broadcast_event,
+        budget_guard=_budget_guard,
+    )
     worker = BackgroundWorker(llm=llm, notifications=notifications, tool_registry=tool_registry)
     worker_task = asyncio.create_task(worker.run_loop(), name="background-worker")
 
@@ -215,6 +235,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         interval_minutes=30,
     )
     asyncio.create_task(proactive_engine.start(), name="proactive-engine")
+
+    # ── [ROUTINES] ────────────────────────────────────────────────────────────
+    from background.routines import ROUTINES_ENABLED, Routine, RoutineStore  # noqa: F401
+
+    if ROUTINES_ENABLED:
+        _routine_store = RoutineStore()
+        # Étendre _default_routines ici ou via l'API pour ajouter des routines.
+        _default_routines: list[Routine] = []
+        scheduler.start_routines(
+            _default_routines,
+            _routine_store,
+            wake_engine=lambda: asyncio.create_task(
+                proactive_engine.run_now(), name="routine-wake-engine"
+            ),
+        )
+        app.state.routine_store = _routine_store
+        logger.info("Routines moteur démarré", store=str(_routine_store._path))
+    # ── [/ROUTINES] ───────────────────────────────────────────────────────────
 
     # Le worker LiveKit (vocal) tourne dans un process séparé via `voice_agent.py dev`
     # lancé par `jarvis start`. main.py ne s'occupe que du backend FastAPI / texte.

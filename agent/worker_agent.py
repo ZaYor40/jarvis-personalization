@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ from agent.project_store import ProjectStore
 from agent.quality_checker import QualityChecker
 from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
 from agent.worker_cli import WorkerCLITool
+from core.budget import BudgetGuard
 
 _WORKER_SYSTEM = """\
 Tu es un agent autonome expert qui exécute une étape précise d'un projet dans un workspace isolé.
@@ -153,6 +155,10 @@ _WORKER_TOOLS: list[dict] = [
 ]
 
 
+class _BudgetExceeded(Exception):
+    """Levée quand le budget est épuisé — met le projet en pause au lieu de le tuer."""
+
+
 class WorkerAgent:
 
     def __init__(
@@ -161,11 +167,14 @@ class WorkerAgent:
         store: ProjectStore,
         broadcast_event: Callable[[dict], None],
         approval_callback: Callable[[str, str, str], Awaitable[bool]],
+        budget_guard: BudgetGuard | None = None,
     ) -> None:
         self._project   = project
         self._store     = store
         self._broadcast = broadcast_event
         self._approval_cb = approval_callback
+        self._budget    = budget_guard
+        self._worker_id = uuid.uuid4().hex[:8]  # identifiant unique pour les claims
         self._file_tool       = SandboxedFileTool(project.workspace_path)
         self._cli_tool        = WorkerCLITool(project.workspace_path)
         self._docker          = None
@@ -254,6 +263,11 @@ class WorkerAgent:
     # ── Step execution ─────────────────────────────────────────────────────────
 
     async def _execute_step(self, step: Step) -> None:
+        # Claim atomique — évite la double-exécution si plusieurs workers tournent
+        if not self._store.claim_step(self._project.id, step.id, self._worker_id):
+            await self._log("warning", f"Étape déjà réclamée par un autre worker : {step.title}", step_id=step.id)
+            return
+
         step.status     = StepStatus.RUNNING
         step.started_at = datetime.now()
         self._store.save_project(self._project)
@@ -288,7 +302,19 @@ class WorkerAgent:
             if not is_fusion:  # quality check inutile pour Fusion (pas de fichiers)
                 await self._post_step_check(step)
             await self._log("info", f"✓ {step.title}", step_id=step.id, data={"output": result[:300]})
-        except asyncio.TimeoutError:
+        except _BudgetExceeded:
+            # Hard-stop budget : on met le projet en pause (reprise possible)
+            await self._log("warning", f"Budget épuisé — pause du projet : {step.title}", step_id=step.id)
+            self._store.pause_for_budget(self._project, step.id)
+            self._push_update()
+            self._broadcast({
+                "type":       "budget_hard_stop",
+                "project_id": self._project.id,
+                "step_id":    step.id,
+                "message":    "Budget atteint — projet mis en pause. Reprise possible après recharge.",
+            })
+            return  # on sort proprement sans marquer le step FAILED
+        except TimeoutError:
             step.status = StepStatus.FAILED
             step.error  = "Timeout (5 min) dépassé."
             await self._log("error", f"Timeout : {step.title}", step_id=step.id)
@@ -303,8 +329,19 @@ class WorkerAgent:
     # ── LLM tool-loop ─────────────────────────────────────────────────────────
 
     async def _run_step_llm(self, step: Step) -> str:
-        from llm.api import AnthropicProvider
         from config.settings import settings
+        from llm.api import AnthropicProvider
+
+        # Vérification budget avant l'appel LLM (estimation conservatrice : 0.02 USD / step)
+        _est_usd = 0.02
+        if self._budget is not None:
+            global_ok  = await self._budget.reserve("global", _est_usd)
+            project_ok = await self._budget.reserve(f"project:{self._project.id}", _est_usd)
+            if not global_ok or not project_ok:
+                raise _BudgetExceeded(
+                    f"Budget dépassé (global={'ok' if global_ok else 'stop'}, "
+                    f"project={'ok' if project_ok else 'stop'})"
+                )
 
         # Haiku pour le worker : 20x moins cher que Sonnet, largement suffisant
         llm = AnthropicProvider(
