@@ -81,12 +81,24 @@ class TelegramChannel(ChannelAdapter):
         self._app.add_handler(CommandHandler("initiatives", self._cmd_initiatives))
         self._app.add_handler(CommandHandler("help", self._cmd_help))
         self._app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._on_message))
+        self._app.add_error_handler(self._on_error)
 
         await self._app.initialize()
         await self._app.start()
         await self._app.updater.start_polling(drop_pending_updates=True)
         self._started = True
         logger.info("Canal Telegram démarré")
+
+    async def _on_error(self, update: object, context: object) -> None:
+        """Dégrade les NetworkError hors-ligne en DEBUG pour éviter le spam de logs."""
+        exc = getattr(context, "error", None)
+        if exc is None:
+            return
+        exc_name = type(exc).__name__
+        if "NetworkError" in exc_name or "ConnectError" in exc_name or "TimedOut" in exc_name:
+            logger.debug("Telegram hors-ligne — retry automatique ({})", exc_name)
+        else:
+            logger.error("Telegram error: {}", exc)
 
     async def stop(self) -> None:
         if self._app:
