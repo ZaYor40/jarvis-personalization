@@ -305,7 +305,10 @@ async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
                     provider=_s.llm_provider,
                     model=getattr(new_llm, "_model", "?"),
                 )
-            needs_restart = False
+                needs_restart = False
+            else:
+                logger.warning("LLM hot-swap skipped — gateway not in app.state")
+                needs_restart = True
         except Exception as exc:
             logger.warning("LLM hot-swap failed — redémarrage requis", error=str(exc))
             needs_restart = True

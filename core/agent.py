@@ -64,6 +64,15 @@ class Agent:
             )
         dynamic_parts: list[str] = ["=== CONTEXTE DYNAMIQUE ==="]
 
+        # Identité LLM — indispensable pour les modèles locaux qui ne savent pas ce qu'ils sont
+        if _s.llm_provider == "local":
+            llm_id = f"Ollama / {_s.ollama_model}"
+        else:
+            _model_map = {"anthropic": _s.anthropic_model, "mistral": _s.mistral_model,
+                          "openai": _s.openai_model}
+            llm_id = _model_map.get(_s.api_backend, _s.anthropic_model)
+        dynamic_parts.append(f"## Moteur LLM actif\n\nTu tournes sur **{llm_id}**.")
+
         # Date/heure toujours injectée — utile pour le calendrier et les calculs temporels
         now = datetime.now()
         dynamic_parts.append(f"## Date et heure\n\n{now.strftime('%Y-%m-%d %H:%M')}")
