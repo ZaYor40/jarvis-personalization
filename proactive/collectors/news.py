@@ -9,7 +9,9 @@ import asyncio
 from datetime import datetime
 
 import feedparser
+from loguru import logger
 
+from core.connectivity import is_offline_mode
 from proactive.collectors.base import CollectorBase
 from proactive.schemas import ContextItem, ItemType, Priority
 
@@ -53,6 +55,10 @@ class NewsCollector(CollectorBase):
     name = "news"
 
     async def _collect(self) -> list[ContextItem]:
+        if is_offline_mode():
+            logger.debug("NewsCollector ignoré — mode local")
+            return []
+
         loop = asyncio.get_event_loop()
         tasks = [loop.run_in_executor(None, self._fetch_feed, feed) for feed in RSS_FEEDS]
         results = await asyncio.gather(*tasks, return_exceptions=True)

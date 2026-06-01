@@ -161,6 +161,16 @@ class CrossSessionRecall:
             return None
 
         context = "\n\n---\n\n".join(excerpts)[: self.MAX_CONTEXT_CHARS]
+
+        # En mode local, le résumé LLM n'est pas requis :
+        # Ollama peut être utilisé mais on évite un appel supplémentaire sur
+        # le chemin critique. On retourne directement un extrait brut.
+        from core.connectivity import is_offline_mode
+
+        if is_offline_mode():
+            logger.debug("CrossSessionRecall LLM summary skipped — mode local")
+            return context[:500] or None
+
         prompt = (
             f"Résume les informations utiles de ces échanges passés pour la question : "
             f"'{query}'\n\nEXTRAITS :\n{context}\n\n"

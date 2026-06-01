@@ -6,6 +6,7 @@ import httpx
 from loguru import logger
 
 from config.settings import settings
+from core.connectivity import is_offline_mode
 from proactive.collectors.base import CollectorBase
 from proactive.schemas import ContextItem, ItemType, Priority
 
@@ -16,6 +17,10 @@ class WeatherCollector(CollectorBase):
     name = "weather"
 
     async def _collect(self) -> list[ContextItem]:
+        if is_offline_mode():
+            logger.debug("WeatherCollector ignoré — mode local")
+            return []
+
         lat = settings.proactive_lat
         lon = settings.proactive_lon
         city = settings.proactive_city

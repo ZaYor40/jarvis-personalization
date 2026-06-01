@@ -12,12 +12,17 @@ class CollectorBase(ABC):
 
     async def collect(self) -> list[ContextItem]:
         """Point d'entrée principal. Gère les erreurs proprement."""
+        from core.connectivity import is_offline_mode
+
         try:
             items = await self._collect()
             logger.debug(f"Collector {self.name}: {len(items)} items")
             return items
         except Exception as e:
-            logger.error(f"Collector {self.name} failed: {e}")
+            if is_offline_mode():
+                logger.debug(f"Collector {self.name} ignoré — mode local ({type(e).__name__})")
+            else:
+                logger.error(f"Collector {self.name} failed: {e}")
             return []
 
     @abstractmethod

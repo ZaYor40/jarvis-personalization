@@ -12,6 +12,7 @@ from fastapi import APIRouter
 from loguru import logger
 
 from config.settings import settings
+from core.connectivity import is_offline_mode
 
 router = APIRouter(prefix="/api/globe", tags=["globe"])
 
@@ -89,7 +90,10 @@ async def get_flights() -> dict[str, Any]:
             r.raise_for_status()
             data = r.json()
     except Exception as exc:
-        logger.warning(f"OpenSky fetch failed: {exc}")
+        if is_offline_mode():
+            logger.debug(f"OpenSky ignoré — mode local ({type(exc).__name__})")
+        else:
+            logger.warning(f"OpenSky fetch failed: {exc}")
         return _FLIGHTS_CACHE["data"] or {"flights": [], "total": 0}
 
     states = data.get("states") or []

@@ -12,6 +12,7 @@ from pathlib import Path
 import httpx
 from loguru import logger
 
+from core.connectivity import is_offline_mode
 from proactive.collectors.base import CollectorBase
 from proactive.schemas import ContextItem, ItemType, Priority
 
@@ -86,6 +87,10 @@ class EmailCollector(CollectorBase):
     name = "email"
 
     async def _collect(self) -> list[ContextItem]:
+        if is_offline_mode():
+            logger.debug("EmailCollector ignoré — mode local")
+            return []
+
         from config.settings import settings
 
         creds_path = Path(settings.google_credentials_path)
