@@ -188,6 +188,16 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
+    .status-badge {
+      font: 500 8px/1 'DM Mono', monospace; letter-spacing: 0.10em;
+      padding: 2px 6px; border-radius: 3px; flex-shrink: 0;
+    }
+    .status-badge.done     { background: rgba(54,211,153,0.10); color: var(--green); }
+    .status-badge.failed   { background: rgba(255,68,68,0.10); color: var(--red); }
+    .status-badge.dismissed{ background: rgba(74,158,255,0.06); color: var(--text-dim); }
+    .status-badge.in_progress { background: rgba(255,181,71,0.10); color: var(--orange); }
+    .status-badge.awaiting_confirm { background: rgba(155,89,182,0.12); color: var(--purple); }
+
     .expand-arr {
       font: 400 14px/1 'DM Mono', monospace; color: var(--text-dim);
       flex-shrink: 0; transition: transform 200ms, color 150ms;
@@ -274,8 +284,18 @@
       display: flex; justify-content: flex-end; gap: 6px; margin-top: 7px;
     }
 
+    /* Result banner */
+    .result-banner {
+      display: none; margin-top: 10px; padding: 8px 12px;
+      border-radius: 6px; font: 400 11px/1.5 'DM Mono', monospace;
+    }
+    .result-banner.show { display: block; }
+    .result-banner.ok  { background: rgba(54,211,153,0.06); border: 1px solid rgba(54,211,153,0.18); color: var(--green); }
+    .result-banner.err { background: rgba(255,68,68,0.06); border: 1px solid rgba(255,68,68,0.18); color: var(--red); }
+    .result-banner.warn{ background: rgba(155,89,182,0.06); border: 1px solid rgba(155,89,182,0.18); color: var(--purple); }
+
     /* Row action buttons */
-    .row-actions { display: flex; gap: 6px; margin-top: 12px; }
+    .row-actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
 
     .rbtn {
       padding: 6px 12px; border: 1px solid var(--border); border-radius: 5px;
@@ -283,6 +303,7 @@
       font: 500 9.5px/1 'DM Mono', monospace; letter-spacing: 0.06em;
       transition: color 150ms, border-color 150ms, background 150ms;
     }
+    .rbtn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
     .rbtn-sm { padding: 4px 9px; font-size: 9px; }
 
     .rbtn-ignore  { color: rgba(255,68,68,0.5); }
@@ -293,6 +314,12 @@
 
     .rbtn-validate { color: rgba(54,211,153,0.6); }
     .rbtn-validate:hover { color: var(--green); border-color: rgba(54,211,153,0.32); background: rgba(54,211,153,0.04); }
+
+    .rbtn-run { color: rgba(74,158,255,0.7); }
+    .rbtn-run:hover { color: var(--blue-bright); border-color: rgba(74,158,255,0.35); background: rgba(74,158,255,0.05); }
+
+    .rbtn-confirm { color: rgba(155,89,182,0.7); }
+    .rbtn-confirm:hover { color: var(--purple); border-color: rgba(155,89,182,0.35); background: rgba(155,89,182,0.05); }
 
     .rbtn-cancel { color: var(--text-dim); }
     .rbtn-cancel:hover { color: var(--text); border-color: rgba(74,158,255,0.20); }
@@ -315,6 +342,30 @@
     }
     #empty-state.show { display: flex; }
     #empty-state .e-ico { font-size: 22px; opacity: 0.25; margin-bottom: 4px; }
+
+    /* ══ HISTORY SECTION ═════════════════════════════════════════ */
+    #history-section { padding: 0 0 20px; }
+
+    .history-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 20px; border-bottom: 1px solid var(--sep);
+      opacity: 0.55;
+    }
+    .history-row:hover { opacity: 0.78; }
+
+    .h-title {
+      flex: 1; min-width: 0;
+      font: 400 12px/1 'DM Sans', sans-serif; color: var(--dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .h-cat {
+      font: 500 8px/1 'DM Mono', monospace; letter-spacing: 0.10em;
+      color: var(--text-dim); width: 56px; flex-shrink: 0;
+    }
+    .h-date {
+      font: 400 9px/1 'DM Mono', monospace;
+      color: var(--text-dim); flex-shrink: 0;
+    }
 
     /* ══ FOOTER ══════════════════════════════════════════════════ */
     #footer {
@@ -433,6 +484,7 @@
         <div class="e-ico">✓</div>
         <div>Aucune initiative en attente</div>
       </div>
+      <div id="history-section"></div>
     </div>
 
   </div>
@@ -475,6 +527,16 @@ const TYPE_LABEL = {
   info:           'INFO',
 };
 
+// Libellé du bouton d'action principal par type
+const TYPE_RUN_LABEL = {
+  draft_response: '✉ Préparer brouillon',
+  auto_task:      '⚙ Lancer la mission',
+  reminder:       '✓ Marquer traité',
+  suggestion:     '✓ Marquer traité',
+  alert:          '✓ Traité',
+  info:           '✓ Traité',
+};
+
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 const GROUP_LABELS = {
@@ -483,9 +545,12 @@ const GROUP_LABELS = {
   low:    'Informations',
 };
 
+const HISTORY_STATUS_DONE = new Set(['done', 'approved', 'rejected', 'dismissed', 'failed']);
+
 // ── State ─────────────────────────────────────────────────────
 
-let initiatives = [];
+let initiatives = [];   // pending uniquement
+let historyItems = [];  // done/dismissed/rejected
 let activeFilter = 'all';
 let expandedId   = null;
 
@@ -497,6 +562,16 @@ function esc(s) {
 
 function getCat(init) { return TYPE_CAT[init.type] || 'insights'; }
 
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = Math.round((now - d) / 60000);
+  if (diff < 60) return `${diff}min`;
+  if (diff < 1440) return `${Math.round(diff/60)}h`;
+  return `${Math.round(diff/1440)}j`;
+}
+
 // ── Render ────────────────────────────────────────────────────
 
 function renderList() {
@@ -505,7 +580,7 @@ function renderList() {
 
   container.querySelectorAll('.init-row, .group-sep').forEach(el => el.remove());
 
-  if (!initiatives.length) { empty.classList.add('show'); updateCounts(); return; }
+  if (!initiatives.length) { empty.classList.add('show'); updateCounts(); renderHistory(); return; }
   empty.classList.remove('show');
 
   const sorted = [...initiatives].sort((a,b) =>
@@ -519,6 +594,7 @@ function renderList() {
   });
 
   const filterCat = activeFilter === 'all' ? null : activeFilter;
+  const histEl    = document.getElementById('history-section');
 
   ['high','medium','low'].forEach(prio => {
     const grp = groups[prio];
@@ -527,11 +603,12 @@ function renderList() {
     const sep = document.createElement('div');
     sep.className = 'group-sep';
     sep.innerHTML = `<span class="group-sep-label">${GROUP_LABELS[prio]}</span><div class="group-sep-line"></div>`;
-    container.appendChild(sep);
+    container.insertBefore(sep, histEl);
 
-    grp.forEach(init => container.appendChild(buildRow(init, filterCat)));
+    grp.forEach(init => container.insertBefore(buildRow(init, filterCat), histEl));
   });
 
+  renderHistory();
   updateCounts();
 }
 
@@ -545,13 +622,16 @@ function buildRow(init, filterCat) {
   row.id        = `row-${init.id}`;
   row.dataset.cat = cat;
 
-  const hasDraft = Boolean(init.draft_content);
+  const hasDraft    = Boolean(init.draft_content);
+  const runLabel    = TYPE_RUN_LABEL[init.type] || '▶ Lancer';
+  const isAwaiting  = init.status === 'awaiting_confirm';
 
   row.innerHTML = `
     <div class="init-header" onclick="toggleRow('${init.id}')">
       <div class="p-dot ${init.priority}"></div>
       <div class="init-cat">${esc(label)}</div>
       <div class="init-title">${esc(init.title)}</div>
+      ${isAwaiting ? '<span class="status-badge awaiting_confirm">CONFIRM. REQUISE</span>' : ''}
       <div class="expand-arr">›</div>
     </div>
     <div class="init-detail" id="detail-${init.id}">
@@ -582,6 +662,8 @@ function buildRow(init, filterCat) {
           ` : ''}
         </div>
 
+        <div class="result-banner" id="rbanner-${init.id}"></div>
+
         <div class="rectify-zone" id="rzone-${init.id}">
           <div class="rectify-prompt">Qu'est-ce qui cloche ?</div>
           <textarea class="rectify-input" id="rinput-${init.id}" placeholder="Décris ce que tu veux changer…" rows="2"></textarea>
@@ -591,10 +673,8 @@ function buildRow(init, filterCat) {
           </div>
         </div>
 
-        <div class="row-actions">
-          <button class="rbtn rbtn-ignore"  onclick="doIgnore('${init.id}')">✗ Ignorer</button>
-          <button class="rbtn rbtn-rectify" id="rrect-${init.id}" onclick="toggleRectify('${init.id}')">⟳ Rectifier</button>
-          <button class="rbtn rbtn-validate" id="rval-${init.id}" onclick="doValidate('${init.id}')">✓ Valider</button>
+        <div class="row-actions" id="actions-${init.id}">
+          ${_buildActionBtns(init)}
         </div>
 
       </div>
@@ -602,6 +682,63 @@ function buildRow(init, filterCat) {
   `;
 
   return row;
+}
+
+function _buildActionBtns(init) {
+  const id = init.id;
+  const isAwaiting = init.status === 'awaiting_confirm';
+
+  const dismissBtn  = `<button class="rbtn rbtn-ignore"  onclick="doDismiss('${id}')">✗ Ignorer</button>`;
+  const rectifyBtn  = `<button class="rbtn rbtn-rectify" id="rrect-${id}" onclick="toggleRectify('${id}')">⟳ Rectifier</button>`;
+
+  if (isAwaiting) {
+    // Étape 2 : brouillon prêt, attente confirmation envoi
+    return `
+      ${dismissBtn}
+      <button class="rbtn rbtn-confirm" id="rconfirm-${id}" onclick="doConfirm('${id}')">📤 Confirmer l'envoi</button>
+    `;
+  }
+
+  const runLabel = TYPE_RUN_LABEL[init.type] || '▶ Lancer';
+  return `
+    ${dismissBtn}
+    ${['pending', 'draft_response', 'auto_task', 'reminder', 'suggestion', 'alert', 'info'].includes(init.status || 'pending') ? rectifyBtn : ''}
+    <button class="rbtn rbtn-run" id="rrun-${id}" onclick="doRun('${id}')">${runLabel}</button>
+  `;
+}
+
+// ── History ───────────────────────────────────────────────────
+
+function renderHistory() {
+  const section = document.getElementById('history-section');
+  section.innerHTML = '';
+
+  if (!historyItems.length) return;
+
+  const sep = document.createElement('div');
+  sep.className = 'group-sep';
+  sep.innerHTML = `<span class="group-sep-label">Historique récent</span><div class="group-sep-line"></div>`;
+  section.appendChild(sep);
+
+  const filterCat = activeFilter === 'all' ? null : activeFilter;
+  const shown = filterCat
+    ? historyItems.filter(i => getCat(i) === filterCat)
+    : historyItems;
+
+  shown.slice(0, 20).forEach(init => {
+    const row = document.createElement('div');
+    row.className = 'history-row';
+    const label = TYPE_LABEL[init.type] || init.type.toUpperCase();
+    const statusCls = init.status || 'done';
+    row.innerHTML = `
+      <div class="p-dot ${init.priority || 'low'}"></div>
+      <div class="h-cat">${esc(label)}</div>
+      <div class="h-title">${esc(init.title)}</div>
+      <span class="status-badge ${statusCls}">${esc(init.status || 'done').toUpperCase()}</span>
+      <div class="h-date">${fmtDate(init.created_at)}</div>
+    `;
+    section.appendChild(row);
+  });
 }
 
 // ── Filter ────────────────────────────────────────────────────
@@ -617,6 +754,8 @@ function setFilter(cat) {
   document.querySelectorAll('.init-row').forEach(row => {
     row.classList.toggle('dimmed', Boolean(filterCat) && row.dataset.cat !== filterCat);
   });
+
+  renderHistory();
 }
 
 // ── Counts ────────────────────────────────────────────────────
@@ -646,7 +785,6 @@ function toggleRow(id) {
     row.classList.remove('expanded');
     expandedId = null;
   } else {
-    // Collapse previous
     if (expandedId) {
       const pd = document.getElementById(`detail-${expandedId}`);
       const pr = document.getElementById(`row-${expandedId}`);
@@ -716,7 +854,7 @@ function closeRectify(id) {
 }
 
 async function submitRectify(id) {
-  const input  = document.getElementById(`rinput-${id}`);
+  const input   = document.getElementById(`rinput-${id}`);
   const sendBtn = document.getElementById(`rsend-${id}`);
   const correction = input?.value?.trim();
   if (!correction) return;
@@ -771,17 +909,126 @@ function _removeRow(id, dir) {
   });
 }
 
-function doIgnore(id) {
-  fetch(`/api/initiatives/${id}/reject`, { method: 'POST' }).catch(() => {});
+function _showBanner(id, cls, msg) {
+  const el = document.getElementById(`rbanner-${id}`);
+  if (!el) return;
+  el.className = `result-banner show ${cls}`;
+  el.textContent = msg;
+  setTimeout(() => _remeasure(id), 20);
+}
+
+function doDismiss(id) {
+  fetch(`/api/proactive/initiatives/${id}/dismiss`, { method: 'POST' }).catch(() => {});
   _removeRow(id, 'left');
 }
 
-async function doValidate(id) {
-  const btn = document.getElementById(`rval-${id}`);
+// Bouton principal : run step 1
+async function doRun(id) {
+  const btn = document.getElementById(`rrun-${id}`);
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
-  try { await fetch(`/api/initiatives/${id}/approve`, { method: 'POST' }); } catch {}
-  _removeRow(id, 'right');
+
+  try {
+    const r = await fetch(`/api/proactive/initiatives/${id}/run`, { method: 'POST' });
+    const data = await r.json();
+
+    if (data.status === 'draft_ready') {
+      // Mettre à jour l'initiative locale
+      const idx = initiatives.findIndex(i => i.id === id);
+      if (idx >= 0) {
+        initiatives[idx].status = 'awaiting_confirm';
+        initiatives[idx].draft_content = data.draft;
+      }
+      // Remplacer les boutons
+      const actionsEl = document.getElementById(`actions-${id}`);
+      if (actionsEl) {
+        actionsEl.innerHTML = `
+          <button class="rbtn rbtn-ignore" onclick="doDismiss('${id}')">✗ Ignorer</button>
+          <button class="rbtn rbtn-confirm" id="rconfirm-${id}" onclick="doConfirm('${id}')">📤 Confirmer l'envoi</button>
+        `;
+      }
+      // Afficher le brouillon
+      const dblock = document.getElementById(`dblock-${id}`);
+      if (dblock) { dblock.textContent = data.draft; dblock.classList.add('open'); }
+      const dtog = document.getElementById(`dtog-${id}`);
+      if (dtog) dtog.classList.add('open');
+      const dedit = document.getElementById(`dedit-${id}`);
+      if (dedit) dedit.style.display = 'inline-flex';
+      const dta = document.getElementById(`dta-${id}`);
+      if (dta) dta.value = data.draft;
+      // Badge sur le header
+      const header = document.querySelector(`#row-${id} .init-header`);
+      const existing = header?.querySelector('.status-badge');
+      if (header && !existing) {
+        const badge = document.createElement('span');
+        badge.className = 'status-badge awaiting_confirm';
+        badge.textContent = 'CONFIRM. REQUISE';
+        header.insertBefore(badge, header.querySelector('.expand-arr'));
+      }
+      _showBanner(id, 'warn', 'Brouillon prêt — relisez puis confirmez l\'envoi.');
+      setTimeout(() => _remeasure(id), 40);
+
+    } else if (data.status === 'mission_launched') {
+      _showBanner(id, 'ok', `Mission lancée — projet ${data.project_id || ''} (${data.steps || 0} étapes)`);
+      setTimeout(() => _removeRow(id, 'right'), 2200);
+
+    } else if (data.status === 'handled') {
+      _removeRow(id, 'right');
+
+    } else if (data.status === 'budget_exceeded') {
+      _showBanner(id, 'err', 'Budget insuffisant pour lancer cette mission.');
+      if (btn) { btn.disabled = false; btn.textContent = '⚙ Lancer la mission'; }
+
+    } else if (data.error) {
+      _showBanner(id, 'err', `Erreur : ${data.error}`);
+      if (btn) { btn.disabled = false; btn.textContent = TYPE_RUN_LABEL[initiatives.find(i=>i.id===id)?.type] || '▶ Lancer'; }
+
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = TYPE_RUN_LABEL[initiatives.find(i=>i.id===id)?.type] || '▶ Lancer'; }
+    }
+  } catch (e) {
+    _showBanner(id, 'err', 'Erreur réseau');
+    if (btn) { btn.disabled = false; btn.textContent = TYPE_RUN_LABEL[initiatives.find(i=>i.id===id)?.type] || '▶ Lancer'; }
+  }
 }
+
+// Bouton confirmation envoi mail (step 2)
+async function doConfirm(id) {
+  const btn = document.getElementById(`rconfirm-${id}`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+
+  // Récupérer le brouillon potentiellement modifié
+  const ta = document.getElementById(`dta-${id}`);
+  const draft_content = ta?.classList.contains('open') ? ta.value : null;
+
+  try {
+    const r = await fetch(`/api/proactive/initiatives/${id}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ draft_content }),
+    });
+    const data = await r.json();
+
+    if (data.status === 'sent') {
+      _showBanner(id, 'ok', `Mail envoyé (id: ${data.message_id || 'ok'})`);
+      setTimeout(() => _removeRow(id, 'right'), 2200);
+    } else if (data.status === 'draft_only') {
+      _showBanner(id, 'warn', `Outil d'envoi indisponible — copiez le brouillon ci-dessus.`);
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Confirmer l\'envoi'; }
+    } else if (data.status === 'blocked') {
+      _showBanner(id, 'err', `Envoi bloqué (approbation désactivée).`);
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Confirmer l\'envoi'; }
+    } else if (data.error) {
+      _showBanner(id, 'err', `Erreur : ${data.error}`);
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Confirmer l\'envoi'; }
+    }
+  } catch {
+    _showBanner(id, 'err', 'Erreur réseau');
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Confirmer l\'envoi'; }
+  }
+}
+
+// Conserver la compat avec l'ancien endpoint approve (non utilisé dans la nouvelle UI)
+function doIgnore(id) { doDismiss(id); }
 
 // ── Run now ───────────────────────────────────────────────────
 
@@ -789,14 +1036,13 @@ let _analyzeTimer = null;
 
 async function runNow() {
   const btn = document.getElementById('analyze-btn');
-  if (btn.disabled) return;  // déjà en cours
+  if (btn.disabled) return;
   btn.classList.add('spinning');
   btn.disabled = true;
   document.getElementById('last-analyzed').textContent = 'analyse en cours…';
 
   try { await fetch('/api/proactive/run', { method: 'POST' }); } catch {}
 
-  // Timeout de sécurité : 5 minutes max (news collector est lent)
   _analyzeTimer = setTimeout(() => _analysisDone(), 5 * 60 * 1000);
 }
 
@@ -848,8 +1094,13 @@ async function loadFooter() {
 
 async function loadInitiatives() {
   try {
-    const r = await fetch('/api/initiatives');
-    initiatives = await r.json();
+    // Charge tout sur 7 jours pour avoir l'historique
+    const r = await fetch('/api/proactive/initiatives?days=7');
+    const all = await r.json();
+
+    initiatives  = all.filter(i => !HISTORY_STATUS_DONE.has(i.status));
+    historyItems = all.filter(i => HISTORY_STATUS_DONE.has(i.status))
+                      .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
     renderList();
   } catch {
     document.getElementById('empty-state').classList.add('show');
@@ -865,8 +1116,8 @@ function connectWS() {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'proactive_update') {
-        _analysisDone();  // arrête le spinner, recharge la liste
-      } else if (msg.type === 'initiative_pending') {
+        _analysisDone();
+      } else if (msg.type === 'initiative_pending' || msg.type === 'initiatives_restored') {
         loadInitiatives();
       }
     } catch {}
