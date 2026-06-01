@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from loguru import logger
 from pydantic import BaseModel
 
 from core.permissions import permissions as _perm_store
@@ -49,12 +50,14 @@ _RESTART_KEYS = {
     "LIVEKIT_URL",
     "LIVEKIT_API_KEY",
     "LIVEKIT_API_SECRET",
-    "LLM_PROVIDER",
     "ANTHROPIC_MODEL",
     "VOICE_ANTHROPIC_MODEL",
     "TTS_PROVIDER",
     "ELEVENLABS_MODEL",
 }
+
+# Ces clés déclenchent un hot-swap du provider LLM sans redémarrage.
+_LLM_HOT_SWAP_KEYS = {"LLM_PROVIDER", "API_BACKEND", "OLLAMA_MODEL", "OLLAMA_BASE_URL"}
 
 _SETTINGS_FIELD_MAP: dict[str, str] = {
     "TTS_PROVIDER": "tts_provider",
@@ -261,7 +264,7 @@ class SettingUpdateBody(BaseModel):
 
 
 @router.post("/api/settings/update")
-async def update_setting(body: SettingUpdateBody) -> dict:
+async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
     from config.settings import settings as _s
 
     env_key = body.key.upper()
@@ -287,6 +290,26 @@ async def update_setting(body: SettingUpdateBody) -> dict:
             object.__setattr__(_s, field_name, body.value)
 
     needs_restart = env_key in _RESTART_KEYS
+
+    # Hot-swap LLM provider sans redémarrage (LLM_PROVIDER, API_BACKEND, OLLAMA_MODEL…)
+    if env_key in _LLM_HOT_SWAP_KEYS:
+        try:
+            from llm.factory import get_llm_provider
+
+            new_llm = get_llm_provider()
+            gw = getattr(request.app.state, "gateway", None)
+            if gw is not None:
+                object.__setattr__(gw._agent, "_llm", new_llm)
+                logger.info(
+                    "LLM provider hot-swapped",
+                    provider=_s.llm_provider,
+                    model=getattr(new_llm, "_model", "?"),
+                )
+            needs_restart = False
+        except Exception as exc:
+            logger.warning("LLM hot-swap failed — redémarrage requis", error=str(exc))
+            needs_restart = True
+
     return {"ok": True, "key": body.key, "needs_restart": needs_restart}
 
 

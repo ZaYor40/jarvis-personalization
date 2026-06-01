@@ -116,9 +116,13 @@
   async function saveSetting(key, value, btn) {
     if (btn) { btn.textContent = "…"; btn.disabled = true; }
     try {
-      await J.api.post("/api/settings/update", { key, value });
+      const resp = await J.api.post("/api/settings/update", { key, value });
       _settings = null; // invalidate cache
-      J.notify({ kind: "success", text: key + " · mis à jour" });
+      if (resp.needs_restart) {
+        J.notify({ kind: "error", text: key + " · redémarrage Jarvis requis" });
+      } else {
+        J.notify({ kind: "success", text: key + " · appliqué" });
+      }
     } catch (e) {
       J.notify({ kind: "error", text: e.message });
     }
