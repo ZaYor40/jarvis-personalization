@@ -88,6 +88,9 @@ class ProactiveEngine:
         self._running = True
         logger.info(f"ProactiveEngine started (interval: {self._interval // 60}min)")
 
+        # Restaure les initiatives pending avant d'attendre le premier cycle
+        await self._restore_pending()
+
         # Premier run dans 2 minutes — pas immédiatement au boot
         await asyncio.sleep(120)
 
@@ -97,6 +100,31 @@ class ProactiveEngine:
 
     def stop(self) -> None:
         self._running = False
+
+    async def _restore_pending(self) -> None:
+        """Recharge les initiatives pending existantes et les renvoie au Command Center."""
+        pending = self._store.load_pending_all(days=7)
+        if not pending:
+            return
+        for initiative in pending:
+            self._broadcast_event(
+                {
+                    "type": "initiative_pending",
+                    "initiative": {
+                        "id": initiative.id,
+                        "type": initiative.type,
+                        "title": initiative.title,
+                        "context": initiative.context,
+                        "reasoning": initiative.reasoning,
+                        "action": initiative.action,
+                        "priority": initiative.priority,
+                        "draft_content": initiative.draft_content,
+                        "created_at": initiative.created_at.isoformat(),
+                    },
+                }
+            )
+        self._broadcast_event({"type": "initiatives_restored", "count": len(pending)})
+        logger.info(f"ProactiveEngine: {len(pending)} initiatives pending restaurées")
 
     async def run_now(self) -> list[Initiative]:
         """Force un cycle immédiatement (debug ou bouton manuel)."""

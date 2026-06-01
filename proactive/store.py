@@ -57,11 +57,47 @@ class InitiativeStore:
     def __init__(self) -> None:
         INITIATIVES_DIR.mkdir(parents=True, exist_ok=True)
 
+    # ── Helpers privés ────────────────────────────────────────────────────────
+
+    def _days_files(self, days: int) -> list[Path]:
+        """Retourne les fichiers JSONL des N derniers jours, triés du plus ancien au plus récent."""
+        files = sorted(INITIATIVES_DIR.glob("*.jsonl"))
+        return files[-days:] if len(files) > days else files
+
+    def _parse_initiative(self, data: dict) -> Initiative:
+        return Initiative(
+            id=data["id"],
+            type=InitiativeType(data["type"]),
+            title=data["title"],
+            context=data["context"],
+            reasoning=data["reasoning"],
+            action=data["action"],
+            priority=Priority(data["priority"]),
+            execution_mode=ExecutionMode(data["execution_mode"]),
+            draft_content=data.get("draft_content"),
+            mission_description=data.get("mission_description"),
+            status=data.get("status", "pending"),
+            created_at=datetime.fromisoformat(data["created_at"]),
+        )
+
+    def _find_file_for_id(self, initiative_id: str, days: int = 7) -> Path | None:
+        """Retourne le fichier JSONL qui contient l'initiative, ou None."""
+        for f in reversed(self._days_files(days)):
+            for line in f.read_text(encoding="utf-8").splitlines():
+                if not line:
+                    continue
+                try:
+                    if json.loads(line).get("id") == initiative_id:
+                        return f
+                except Exception:
+                    pass
+        return None
+
     def _all_pending_titles(self) -> list[str]:
         """Collect titles of all pending initiatives across the last 7 days."""
         titles = []
-        for f in sorted(INITIATIVES_DIR.glob("*.jsonl"))[-7:]:
-            for line in f.read_text().splitlines():
+        for f in self._days_files(7):
+            for line in f.read_text(encoding="utf-8").splitlines():
                 if not line:
                     continue
                 try:
@@ -71,6 +107,8 @@ class InitiativeStore:
                 except Exception:
                     pass
         return titles
+
+    # ── Écriture ──────────────────────────────────────────────────────────────
 
     def save(self, initiative: Initiative) -> None:
         today = datetime.now().strftime("%Y-%m-%d")
@@ -102,6 +140,8 @@ class InitiativeStore:
                 + "\n"
             )
 
+    # ── Lecture ───────────────────────────────────────────────────────────────
+
     def load_pending(self) -> list[Initiative]:
         """Charge toutes les initiatives en attente du jour, dédupliquées."""
         today = datetime.now().strftime("%Y-%m-%d")
@@ -111,47 +151,72 @@ class InitiativeStore:
             return []
 
         initiatives = []
-        for line in log_file.read_text().strip().split("\n"):
+        for line in log_file.read_text(encoding="utf-8").strip().split("\n"):
             if not line:
                 continue
             try:
                 data = json.loads(line)
                 if data.get("status") == "pending":
-                    initiatives.append(
-                        Initiative(
-                            id=data["id"],
-                            type=InitiativeType(data["type"]),
-                            title=data["title"],
-                            context=data["context"],
-                            reasoning=data["reasoning"],
-                            action=data["action"],
-                            priority=Priority(data["priority"]),
-                            execution_mode=ExecutionMode(data["execution_mode"]),
-                            draft_content=data.get("draft_content"),
-                            mission_description=data.get("mission_description"),
-                            status=data["status"],
-                            created_at=datetime.fromisoformat(data["created_at"]),
-                        )
-                    )
+                    initiatives.append(self._parse_initiative(data))
             except Exception:
                 pass
 
         return _dedup_initiatives(initiatives)
 
-    def get_by_id(self, initiative_id: str) -> Initiative | None:
-        for i in self.load_pending():
-            if i.id == initiative_id:
-                return i
+    def load_pending_all(self, days: int = 7) -> list[Initiative]:
+        """Charge toutes les initiatives 'pending' des N derniers jours, dédupliquées."""
+        all_initiatives: list[Initiative] = []
+        for f in self._days_files(days):
+            for line in f.read_text(encoding="utf-8").splitlines():
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if data.get("status") == "pending":
+                        all_initiatives.append(self._parse_initiative(data))
+                except Exception:
+                    pass
+        return _dedup_initiatives(all_initiatives)
+
+    def list_recent(self, days: int = 7, statuses: list[str] | None = None) -> list[Initiative]:
+        """Retourne les initiatives des N derniers jours filtrées par statut (tous si None)."""
+        all_items: list[Initiative] = []
+        target = set(statuses) if statuses else None
+        for f in self._days_files(days):
+            for line in f.read_text(encoding="utf-8").splitlines():
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if target is None or data.get("status") in target:
+                        all_items.append(self._parse_initiative(data))
+                except Exception:
+                    pass
+        return all_items
+
+    def get_by_id(self, initiative_id: str, days: int = 7) -> Initiative | None:
+        """Recherche une initiative par ID sur les N derniers jours (plus récent en premier)."""
+        for f in reversed(self._days_files(days)):
+            for line in f.read_text(encoding="utf-8").splitlines():
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if data.get("id") == initiative_id:
+                        return self._parse_initiative(data)
+                except Exception:
+                    pass
         return None
 
+    # ── Mise à jour ───────────────────────────────────────────────────────────
+
     def update_initiative(self, initiative_id: str, updates: dict) -> None:
-        """Met à jour les champs d'une initiative existante."""
-        today = datetime.now().strftime("%Y-%m-%d")
-        log_file = INITIATIVES_DIR / f"{today}.jsonl"
-        if not log_file.exists():
+        """Met à jour les champs d'une initiative existante (cherche dans N derniers jours)."""
+        log_file = self._find_file_for_id(initiative_id)
+        if not log_file:
             return
 
-        lines = log_file.read_text().strip().split("\n")
+        lines = log_file.read_text(encoding="utf-8").strip().split("\n")
         updated = []
         for line in lines:
             if not line:
@@ -165,15 +230,15 @@ class InitiativeStore:
                 pass
             updated.append(line)
 
-        log_file.write_text("\n".join(updated) + "\n")
+        log_file.write_text("\n".join(updated) + "\n", encoding="utf-8")
 
     def update_status(self, initiative_id: str, status: str) -> None:
-        today = datetime.now().strftime("%Y-%m-%d")
-        log_file = INITIATIVES_DIR / f"{today}.jsonl"
-        if not log_file.exists():
+        """Met à jour le statut d'une initiative (cherche dans N derniers jours)."""
+        log_file = self._find_file_for_id(initiative_id)
+        if not log_file:
             return
 
-        lines = log_file.read_text().strip().split("\n")
+        lines = log_file.read_text(encoding="utf-8").strip().split("\n")
         updated = []
         for line in lines:
             if not line:
@@ -187,4 +252,4 @@ class InitiativeStore:
                 pass
             updated.append(line)
 
-        log_file.write_text("\n".join(updated) + "\n")
+        log_file.write_text("\n".join(updated) + "\n", encoding="utf-8")
