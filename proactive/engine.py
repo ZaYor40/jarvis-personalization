@@ -102,27 +102,11 @@ class ProactiveEngine:
         self._running = False
 
     async def _restore_pending(self) -> None:
-        """Recharge les initiatives pending existantes et les renvoie au Command Center."""
+        """Recharge les initiatives pending et signal le Command Center en un seul event."""
         pending = self._store.load_pending_all(days=7)
         if not pending:
             return
-        for initiative in pending:
-            self._broadcast_event(
-                {
-                    "type": "initiative_pending",
-                    "initiative": {
-                        "id": initiative.id,
-                        "type": initiative.type,
-                        "title": initiative.title,
-                        "context": initiative.context,
-                        "reasoning": initiative.reasoning,
-                        "action": initiative.action,
-                        "priority": initiative.priority,
-                        "draft_content": initiative.draft_content,
-                        "created_at": initiative.created_at.isoformat(),
-                    },
-                }
-            )
+        # Un seul événement groupé — évite N rechargements UI en cascade
         self._broadcast_event({"type": "initiatives_restored", "count": len(pending)})
         logger.info(f"ProactiveEngine: {len(pending)} initiatives pending restaurées")
 

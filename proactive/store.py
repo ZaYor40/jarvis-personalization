@@ -60,9 +60,13 @@ class InitiativeStore:
     # ── Helpers privés ────────────────────────────────────────────────────────
 
     def _days_files(self, days: int) -> list[Path]:
-        """Retourne les fichiers JSONL des N derniers jours, triés du plus ancien au plus récent."""
-        files = sorted(INITIATIVES_DIR.glob("*.jsonl"))
-        return files[-days:] if len(files) > days else files
+        """Retourne les fichiers JSONL des N derniers jours CALENDAIRES, triés du plus ancien au plus récent."""
+        from datetime import date, timedelta
+
+        cutoff = (date.today() - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+        return sorted(
+            f for f in INITIATIVES_DIR.glob("*.jsonl") if f.stem >= cutoff
+        )
 
     def _parse_initiative(self, data: dict) -> Initiative:
         return Initiative(

@@ -1109,6 +1109,12 @@ async function loadInitiatives() {
 
 // ── WebSocket ─────────────────────────────────────────────────
 
+let _reloadTimer = null;
+function _scheduleReload() {
+  clearTimeout(_reloadTimer);
+  _reloadTimer = setTimeout(loadInitiatives, 300);
+}
+
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -1117,9 +1123,11 @@ function connectWS() {
       const msg = JSON.parse(e.data);
       if (msg.type === 'proactive_update') {
         _analysisDone();
-      } else if (msg.type === 'initiative_pending' || msg.type === 'initiatives_restored') {
-        loadInitiatives();
+      } else if (msg.type === 'initiatives_restored') {
+        // Rechargement groupé après un restart — un seul fetch debounced
+        _scheduleReload();
       }
+      // initiative_pending individuel : ignoré (le cycle complet envoie proactive_update en fin)
     } catch {}
   };
   ws.onclose = () => setTimeout(connectWS, 3000);

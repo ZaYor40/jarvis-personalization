@@ -250,7 +250,6 @@ class TestEngineRestore:
 
             types = [e["type"] for e in events]
             assert "initiatives_restored" in types
-            assert "initiative_pending" in types
 
             restored = next(e for e in events if e["type"] == "initiatives_restored")
             assert restored["count"] >= 1
