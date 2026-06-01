@@ -17,23 +17,39 @@ from loguru import logger
 
 
 class _TelegramNetworkFilter(logging.Filter):
-    """Réduit les NetworkError du polling loop en DEBUG (spam hors-ligne)."""
+    """Réduit les NetworkError/ConnectError du polling loop en DEBUG (spam hors-ligne).
 
-    _NOISE = ("NetworkError", "ConnectError", "TimedOut", "polling for updates")
+    Couvre python-telegram-bot v20 (requests) et v21+ (httpx).
+    """
+
+    _NOISE = (
+        "NetworkError",
+        "ConnectError",
+        "TimedOut",
+        "polling for updates",
+        "httpcore",
+        "ConnectTimeout",
+        "ReadError",
+        "RemoteProtocolError",
+        "Connection refused",
+        "getaddrinfo failed",
+    )
 
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
         if any(kw in msg for kw in self._NOISE):
             if record.levelno >= logging.ERROR:
                 logging.getLogger("telegram.ext._utils.networkloop").debug(
-                    "Telegram hors-ligne — retry en cours"
+                    "Telegram hors-ligne — retry automatique en cours"
                 )
             return False
         return True
 
 
-# Appliqué une seule fois au module level pour toute la hiérarchie telegram
-logging.getLogger("telegram").addFilter(_TelegramNetworkFilter())
+# Appliqué une seule fois au module level sur toute la hiérarchie telegram + httpx
+_tg_filter = _TelegramNetworkFilter()
+logging.getLogger("telegram").addFilter(_tg_filter)
+logging.getLogger("httpx").addFilter(_tg_filter)
 
 from channels.base import ChannelAdapter, IncomingMessage, MessageTarget, Platform
 

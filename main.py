@@ -392,17 +392,30 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from api.channels import router as channels_router
     from channels.discord_bot import DiscordChannel
     from channels.gateway import MessagingGateway
+    from core.connectivity import is_offline_mode
 
     _messaging_gw: MessagingGateway | None = None
-    if os.getenv("MESSAGING_GATEWAY_ENABLED", "false").lower() == "true":
+    _telegram_enabled = os.getenv("TELEGRAM_ENABLED", "false").lower() == "true"
+    _discord_enabled = os.getenv("DISCORD_ENABLED", "false").lower() == "true"
+    _messaging_enabled = os.getenv("MESSAGING_GATEWAY_ENABLED", "false").lower() == "true"
+
+    # En mode local, les canaux réseau (Telegram, Discord) ne démarrent pas :
+    # leur long-polling spamme les logs avec des erreurs réseau en boucle hors-ligne.
+    if is_offline_mode() and (_telegram_enabled or _discord_enabled or _messaging_enabled):
+        logger.info(
+            "Canaux réseau (Telegram/Discord) désactivés — mode local actif",
+            telegram=_telegram_enabled,
+            discord=_discord_enabled,
+        )
+    elif _messaging_enabled:
         _messaging_gw = MessagingGateway(jarvis_gateway=app.state.gateway)
 
-        if os.getenv("TELEGRAM_ENABLED", "false").lower() == "true":
+        if _telegram_enabled:
             telegram = TelegramChannel()
             _tg_module._telegram_instance = telegram
             _messaging_gw.register(telegram)
 
-        if os.getenv("DISCORD_ENABLED", "false").lower() == "true":
+        if _discord_enabled:
             _messaging_gw.register(DiscordChannel())
 
         app.state.messaging_gateway = _messaging_gw
@@ -412,13 +425,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "MessagingGateway démarré",
             adapters=list(_messaging_gw._adapters.keys()),
         )
-    else:
+    elif _telegram_enabled:
         # Mode legacy : Telegram seul, session non persistée
-        if os.getenv("TELEGRAM_ENABLED", "false").lower() == "true":
-            telegram = TelegramChannel(gateway=app.state.gateway)
-            _tg_module._telegram_instance = telegram
-            asyncio.create_task(telegram.start(), name="telegram-bot")
-            logger.info("Canal Telegram démarré (mode legacy)")
+        telegram = TelegramChannel(gateway=app.state.gateway)
+        _tg_module._telegram_instance = telegram
+        asyncio.create_task(telegram.start(), name="telegram-bot")
+        logger.info("Canal Telegram démarré (mode legacy)")
     # ── [/GATEWAY] ───────────────────────────────────────────────────────────
 
     logger.info(
