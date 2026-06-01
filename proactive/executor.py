@@ -19,12 +19,23 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Protocol
 
 from loguru import logger
 
 from proactive.schemas import Initiative, InitiativeType
 from proactive.store import InitiativeStore
+
+
+class _Orchestrator(Protocol):
+    async def create_and_run(self, mission: str) -> object: ...
+
+
+class _ApprovalChecker(Protocol): ...
+
+
+class _BudgetGuard(Protocol):
+    async def reserve(self, scope: str, amount: float) -> bool: ...
 
 
 class InitiativeExecutor:
@@ -34,9 +45,9 @@ class InitiativeExecutor:
         self,
         store: InitiativeStore,
         broadcast_event: Callable[[dict], None],
-        orchestrator: Any | None = None,
-        approval_checker: Any | None = None,
-        budget_guard: Any | None = None,
+        orchestrator: _Orchestrator | None = None,
+        approval_checker: _ApprovalChecker | None = None,
+        budget_guard: _BudgetGuard | None = None,
     ) -> None:
         self._store = store
         self._broadcast = broadcast_event
@@ -181,8 +192,6 @@ class InitiativeExecutor:
 
         mission = init.mission_description or init.action
         try:
-            import asyncio
-
             project = await self._orchestrator.create_and_run(mission)
             self._store.update_initiative(init.id, {
                 "status": "in_progress",
