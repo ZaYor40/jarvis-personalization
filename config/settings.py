@@ -126,6 +126,13 @@ class Settings(BaseSettings):
         default="config/tools.yaml",
         description="Chemin vers le fichier YAML de scripts CLI whitelistés.",
     )
+    allow_unsandboxed_exec: bool = Field(
+        default=False,
+        description=(
+            "Autorise ExecuteCLITool à s'exécuter sans sandbox (tmpdir isolé + env restreint). "
+            "Désactivé par défaut. N'activer qu'en dev local en connaissance de cause."
+        ),
+    )
     skills_dir: str = Field(
         default="skills",
         description="Répertoire racine des skills OpenClaw/ClawHub.",
