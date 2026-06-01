@@ -9,10 +9,31 @@ Un seul utilisateur autorisé : TELEGRAM_OWNER_ID.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import TYPE_CHECKING
 
 from loguru import logger
+
+
+class _TelegramNetworkFilter(logging.Filter):
+    """Réduit les NetworkError du polling loop en DEBUG (spam hors-ligne)."""
+
+    _NOISE = ("NetworkError", "ConnectError", "TimedOut", "polling for updates")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if any(kw in msg for kw in self._NOISE):
+            if record.levelno >= logging.ERROR:
+                logging.getLogger("telegram.ext._utils.networkloop").debug(
+                    "Telegram hors-ligne — retry en cours"
+                )
+            return False
+        return True
+
+
+# Appliqué une seule fois au module level pour toute la hiérarchie telegram
+logging.getLogger("telegram").addFilter(_TelegramNetworkFilter())
 
 from channels.base import ChannelAdapter, IncomingMessage, MessageTarget, Platform
 
