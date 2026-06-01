@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from typing import Never
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -17,12 +18,11 @@ from llm.base import LLMProvider
 from llm.local import OllamaProvider
 from memory.consolidation import CrossSessionRecall
 
-
 # ── Fixtures de mode ──────────────────────────────────────────────────────────
 
 
 @pytest.fixture
-def local_mode():
+def local_mode() -> Iterator[None]:
     from config.settings import settings
 
     old = settings.llm_provider
@@ -32,7 +32,7 @@ def local_mode():
 
 
 @pytest.fixture
-def api_mode():
+def api_mode() -> Iterator[None]:
     from config.settings import settings
 
     old = settings.llm_provider
@@ -57,7 +57,7 @@ class _MockLLM(LLMProvider):
         system: str,
         tools: list[dict] | None = None,
         stream: bool = False,
-        **kwargs,
+        **kwargs: object,
     ) -> str | AsyncIterator[str]:
         if stream:
             return self._stream()
@@ -130,7 +130,7 @@ def test_hot_swap_updates_gateway_and_voice_gateway(local_mode: None) -> None:
     )
 
     # Simule le hot-swap (même logique que http_config.update_setting)
-    from llm.factory import create_background_llm, get_llm_provider
+    from llm.factory import get_llm_provider
 
     new_llm = get_llm_provider()
     object.__setattr__(gw._agent, "_llm", new_llm)
@@ -202,7 +202,7 @@ async def test_collector_base_offline_no_error_log(
     class _FailingCollector(CollectorBase):
         name = "test_failing"
 
-        async def _collect(self):
+        async def _collect(self) -> Never:
             raise ConnectionRefusedError("réseau inaccessible")
 
     import logging
@@ -212,7 +212,9 @@ async def test_collector_base_offline_no_error_log(
 
     assert items == []
     error_records = [r for r in caplog.records if r.levelno >= logging.ERROR]
-    assert not error_records, f"Des ERROR inattendus en mode local : {[r.message for r in error_records]}"
+    assert not error_records, (
+        f"Des ERROR inattendus en mode local : {[r.message for r in error_records]}"
+    )
 
 
 @pytest.mark.asyncio
@@ -223,7 +225,7 @@ async def test_collector_base_online_returns_empty_on_failure(api_mode: None) ->
     class _FailingCollector(CollectorBase):
         name = "test_failing_online"
 
-        async def _collect(self):
+        async def _collect(self) -> Never:
             raise ConnectionRefusedError("réseau inaccessible")
 
     # CollectorBase.collect() doit absorber l'exception et retourner [] dans tous les cas

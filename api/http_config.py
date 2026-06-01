@@ -335,7 +335,8 @@ async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
                     object.__setattr__(synth, "_llm", new_llm)
 
                 logger.info(
-                    "LLM provider hot-swapped (main + voice + recall + background + worker + proactive + skills)",
+                    "LLM provider hot-swapped"
+                    " (main + voice + recall + background + worker + proactive + skills)",
                     provider=_s.llm_provider,
                     model=getattr(new_llm, "_model", "?"),
                 )

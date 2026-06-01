@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -121,7 +122,7 @@ class TestTranscriptToText:
 
 
 @pytest.fixture(autouse=False)
-def _force_api_mode():
+def _force_api_mode() -> Iterator[None]:
     """Force le mode 'api' pour les tests CrossSessionRecall qui vérifient l'appel LLM."""
     from config.settings import settings
 

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 
 from config.settings import Settings
 
 
 @pytest.fixture
-def local_mode():
+def local_mode() -> Iterator[None]:
     """Bascule settings en mode local pour la durée du test."""
     from config.settings import settings
 
@@ -17,7 +19,7 @@ def local_mode():
 
 
 @pytest.fixture
-def api_mode():
+def api_mode() -> Iterator[None]:
     """Bascule settings en mode api pour la durée du test."""
     from config.settings import settings
 

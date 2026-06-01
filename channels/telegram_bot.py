@@ -51,7 +51,7 @@ _tg_filter = _TelegramNetworkFilter()
 logging.getLogger("telegram").addFilter(_tg_filter)
 logging.getLogger("httpx").addFilter(_tg_filter)
 
-from channels.base import ChannelAdapter, IncomingMessage, MessageTarget, Platform
+from channels.base import ChannelAdapter, IncomingMessage, MessageTarget, Platform  # noqa: E402
 
 try:
     from telegram import Update
