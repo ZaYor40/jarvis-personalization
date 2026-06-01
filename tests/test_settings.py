@@ -14,6 +14,6 @@ def test_settings_load() -> None:
 def test_settings_defaults() -> None:
     """Vérifie les valeurs par défaut."""
     s = Settings()
-    assert s.host == "0.0.0.0"
+    assert s.host == "127.0.0.1"
     assert s.port == 8000
     assert s.anthropic_model == "claude-sonnet-4-6"
