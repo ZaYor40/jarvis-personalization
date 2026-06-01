@@ -38,6 +38,18 @@
     ]},
     "Deepgram":           { kind: "key",   keys: [{ key: "DEEPGRAM_API_KEY",     label: "Clé API Deepgram",    secret: true }] },
     "Mistral":            { kind: "key",   keys: [{ key: "MISTRAL_API_KEY",      label: "Clé API Mistral",     secret: true }] },
+    // ── Messagerie ───────────────────────────────────────────────────────────
+    "Telegram":           { kind: "messaging", keys: [
+      { key: "TELEGRAM_BOT_TOKEN", label: "Bot Token",              secret: true,  hint: "@BotFather → /newbot" },
+      { key: "TELEGRAM_OWNER_ID",  label: "Ton User ID",            secret: false, hint: "@userinfobot → envoie un message" },
+      { key: "TELEGRAM_ENABLED",   label: "Activer le bot",         secret: false, type: "toggle" },
+    ]},
+    "Discord":            { kind: "messaging", keys: [
+      { key: "DISCORD_BOT_TOKEN",  label: "Bot Token",              secret: true,  hint: "discord.com/developers → Bot" },
+      { key: "DISCORD_OWNER_ID",   label: "Ton User ID",            secret: false, hint: "Profil → Copier l'identifiant" },
+      { key: "DISCORD_ENABLED",    label: "Activer le bot",         secret: false, type: "toggle" },
+    ]},
+    "WhatsApp":           { kind: "stub", note: "Bientôt disponible via Twilio ou WhatsApp Business API (WABA)." },
   };
 
   /* ─── Skills reclassifiés en routines ─── */
@@ -391,24 +403,23 @@
 
     const list = el("div", { class: "cn-list" });
 
-    connectors.forEach(c => {
+    // Sépare les connecteurs "services" des connecteurs "messagerie"
+    const services  = connectors.filter(c => c.group !== "messaging");
+    const messaging = connectors.filter(c => c.group === "messaging");
+
+    function renderConnectorRow(c) {
       const cfg = CONNECTOR_CONFIG[c.name] || { kind: "key", keys: [] };
       const status = c.status || "off";
 
       const row = el("div", { class: "cn-row" });
+      row.appendChild(el("div", { class: "cn-dot " + (status === "soon" ? "off" : status) }));
 
-      // Dot
-      row.appendChild(el("div", { class: "cn-dot " + status }));
-
-      // Name + sub
       const info = el("div", { class: "cn-info" });
       info.appendChild(el("div", { class: "cn-name", text: c.name }));
       info.appendChild(el("div", { class: "cn-sub", text: c.sub || "" }));
       row.appendChild(info);
 
-      // Right side: badge or action button
       const right = el("div", { class: "cn-right" });
-
       if (status === "on") {
         right.appendChild(el("span", { class: "cn-badge on", text: "Connecté" }));
       } else if (status === "expired") {
@@ -416,23 +427,33 @@
         const btn = el("button", { class: "cn-btn", text: "Reconnecter" });
         btn.addEventListener("click", () => triggerConnect(c, cfg, expand));
         right.appendChild(btn);
+      } else if (status === "soon") {
+        right.appendChild(el("span", { class: "cn-badge", text: "Bientôt" }));
       } else {
-        const btn = el("button", { class: "cn-btn", text: "Connecter →" });
+        const btn = el("button", { class: "cn-btn", text: "Configurer →" });
         btn.addEventListener("click", () => triggerConnect(c, cfg, expand));
         right.appendChild(btn);
       }
       row.appendChild(right);
       list.appendChild(row);
 
-      // Expand zone (hidden by default, for api key inputs)
       const expand = el("div", { class: "cn-expand" });
       list.appendChild(expand);
-    });
+    }
 
+    services.forEach(renderConnectorRow);
+
+    if (messaging.length) {
+      const sep = el("div", { class: "cn-section-sep", text: "Messagerie" });
+      list.appendChild(sep);
+      messaging.forEach(renderConnectorRow);
+    }
+
+    const activeCount = connectors.filter(c => c.status === "on").length;
     const wrap = el("div");
     wrap.appendChild(ghostSec(
       "Intégrations",
-      connectors.filter(c => c.status === "on").length + " actives · " + connectors.length + " total",
+      activeCount + " actives · " + connectors.length + " total",
       null, list
     ));
 
@@ -445,7 +466,18 @@
       window.location.href = cfg.url;
       return;
     }
-    if (cfg.kind === "key") {
+    if (cfg.kind === "stub") {
+      if (expandEl.classList.contains("open")) {
+        expandEl.classList.remove("open");
+        expandEl.innerHTML = "";
+        return;
+      }
+      expandEl.innerHTML = "";
+      expandEl.appendChild(el("div", { class: "cn-stub-note", text: cfg.note || "Bientôt disponible." }));
+      expandEl.classList.add("open");
+      return;
+    }
+    if (cfg.kind === "key" || cfg.kind === "messaging") {
       // Toggle expand with input fields
       if (expandEl.classList.contains("open")) {
         expandEl.classList.remove("open");
@@ -454,24 +486,49 @@
       }
       expandEl.innerHTML = "";
       const inputs = [];
-      (cfg.keys || []).forEach(f => {
-        const fw = el("div", { class: "cn-field" });
-        fw.appendChild(el("label", { class: "cn-field-label", text: f.label }));
-        const inp = el("input", { class: "cn-field-input", type: f.secret ? "password" : "text", placeholder: "••••••••••" });
-        J.api.get("/api/settings").then(ss => {
-          const v = (ss.api_keys || {})[f.key] || "";
-          if (v) inp.value = v;
-        }).catch(() => {});
-        fw.appendChild(inp);
-        inputs.push({ key: f.key, inp });
-        expandEl.appendChild(fw);
-      });
+      J.api.get("/api/settings").then(ss => {
+        (cfg.keys || []).forEach(f => {
+          const fw = el("div", { class: "cn-field" });
+          const labelEl = el("label", { class: "cn-field-label", text: f.label });
+          fw.appendChild(labelEl);
+          if (f.hint) {
+            fw.appendChild(el("div", { class: "cn-field-hint", text: f.hint }));
+          }
+
+          if (f.type === "toggle") {
+            // Valeur courante depuis .env via env-status
+            const tog = el("div", { class: "cn-toggle" });
+            J.api.get("/api/settings/env-status?keys=" + f.key).then(st => {
+              if (st[f.key]) tog.classList.add("on");
+            }).catch(() => {});
+            tog.addEventListener("click", () => tog.classList.toggle("on"));
+            fw.appendChild(tog);
+            inputs.push({ key: f.key, tog, isToggle: true });
+          } else {
+            const inp = el("input", {
+              class: "cn-field-input",
+              type: f.secret ? "password" : "text",
+              placeholder: f.secret ? "••••••••••" : "",
+            });
+            const v = (ss.api_keys || {})[f.key] || "";
+            if (v) inp.value = v;
+            fw.appendChild(inp);
+            inputs.push({ key: f.key, inp });
+          }
+          expandEl.appendChild(fw);
+        });
+      }).catch(() => {});
+
       const saveBtn = el("button", { class: "cn-save-btn", text: "Sauvegarder" });
       saveBtn.addEventListener("click", async () => {
         saveBtn.textContent = "…"; saveBtn.disabled = true;
         try {
-          for (const { key, inp } of inputs) {
-            if (inp.value) await J.api.post("/api/settings/update", { key, value: inp.value });
+          for (const item of inputs) {
+            if (item.isToggle) {
+              await J.api.post("/api/settings/update", { key: item.key, value: item.tog.classList.contains("on") ? "true" : "false" });
+            } else if (item.inp.value) {
+              await J.api.post("/api/settings/update", { key: item.key, value: item.inp.value });
+            }
           }
           J.notify({ kind: "success", text: c.name + " · configuré" });
           expandEl.classList.remove("open");

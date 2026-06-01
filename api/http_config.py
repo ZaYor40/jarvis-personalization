@@ -23,6 +23,7 @@ _SENSITIVE_KEYS = {
     "NOTION_TOKEN", "MISTRAL_API_KEY", "AISSTREAM_KEY",
     "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET",
     "DEEZER_APP_ID", "DEEZER_APP_SECRET",
+    "TELEGRAM_BOT_TOKEN", "DISCORD_BOT_TOKEN",
 }
 
 _RESTART_KEYS = {
@@ -583,6 +584,35 @@ async def get_connectors() -> list:
             "name":   "Mistral",
             "sub":    "LLM alternatif",
             "status": "on" if _env_ok("MISTRAL_API_KEY") else "off",
+        },
+        # ── Messagerie ───────────────────────────────────────────────────────
+        {
+            "name":   "Telegram",
+            "sub":    "bot · messagerie mobile",
+            "status": (
+                "on" if (
+                    _env_ok("TELEGRAM_BOT_TOKEN", "TELEGRAM_OWNER_ID")
+                    and env.get("TELEGRAM_ENABLED", "").lower() in ("true", "1")
+                ) else "off"
+            ),
+            "group":  "messaging",
+        },
+        {
+            "name":   "Discord",
+            "sub":    "bot · serveur Discord",
+            "status": (
+                "on" if (
+                    _env_ok("DISCORD_BOT_TOKEN", "DISCORD_OWNER_ID")
+                    and env.get("DISCORD_ENABLED", "").lower() in ("true", "1")
+                ) else "off"
+            ),
+            "group":  "messaging",
+        },
+        {
+            "name":   "WhatsApp",
+            "sub":    "bot · bientôt disponible (Twilio / WABA)",
+            "status": "soon",
+            "group":  "messaging",
         },
     ]
     return connectors
