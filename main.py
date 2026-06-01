@@ -320,12 +320,38 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from analytics.registry import analytics_registry as _analytics_registry
     logger.info("AnalyticsRegistry initialisé", widgets=len(_analytics_registry.get_active()))
 
-    # Démarrer le canal Telegram si configuré
-    if os.getenv("TELEGRAM_ENABLED", "false").lower() == "true":
-        telegram = TelegramChannel(gateway=app.state.gateway)
-        _tg_module._telegram_instance = telegram
-        asyncio.create_task(telegram.start(), name="telegram-bot")
-        logger.info("Canal Telegram démarré")
+    # ── [GATEWAY] ────────────────────────────────────────────────────────────
+    from channels.gateway import MessagingGateway
+    from channels.discord_bot import DiscordChannel
+    from api.channels import router as channels_router
+
+    _messaging_gw: MessagingGateway | None = None
+    if os.getenv("MESSAGING_GATEWAY_ENABLED", "false").lower() == "true":
+        _messaging_gw = MessagingGateway(jarvis_gateway=app.state.gateway)
+
+        if os.getenv("TELEGRAM_ENABLED", "false").lower() == "true":
+            telegram = TelegramChannel()
+            _tg_module._telegram_instance = telegram
+            _messaging_gw.register(telegram)
+
+        if os.getenv("DISCORD_ENABLED", "false").lower() == "true":
+            _messaging_gw.register(DiscordChannel())
+
+        app.state.messaging_gateway = _messaging_gw
+        app.include_router(channels_router)
+        await _messaging_gw.start_all()
+        logger.info(
+            "MessagingGateway démarré",
+            adapters=list(_messaging_gw._adapters.keys()),
+        )
+    else:
+        # Mode legacy : Telegram seul, session non persistée
+        if os.getenv("TELEGRAM_ENABLED", "false").lower() == "true":
+            telegram = TelegramChannel(gateway=app.state.gateway)
+            _tg_module._telegram_instance = telegram
+            asyncio.create_task(telegram.start(), name="telegram-bot")
+            logger.info("Canal Telegram démarré (mode legacy)")
+    # ── [/GATEWAY] ───────────────────────────────────────────────────────────
 
     logger.info(
         "Jarvis démarré",
@@ -344,9 +370,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await worker_task
     except asyncio.CancelledError:
         pass
-    telegram = get_telegram_channel()
-    if telegram:
-        await telegram.stop()
+    if _messaging_gw is not None:
+        await _messaging_gw.stop_all()
+    else:
+        telegram = get_telegram_channel()
+        if telegram:
+            await telegram.stop()
     logger.info("Jarvis arrêté")
 
 

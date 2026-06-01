@@ -1,23 +1,35 @@
-"""
-Channel Telegram pour Jarvis.
+"""Canal Telegram pour Jarvis.
+
+Implémente ChannelAdapter pour s'intégrer au MessagingGateway unifié.
+Compatible avec l'ancien mode (gateway= passé directement au constructeur)
+pour ne pas casser le démarrage existant dans main.py.
+
 Un seul utilisateur autorisé : TELEGRAM_OWNER_ID.
-Tourne en background process asyncio.
 """
 from __future__ import annotations
 
 import os
-import asyncio
+from typing import TYPE_CHECKING
+
 from loguru import logger
+
+from channels.base import ChannelAdapter, IncomingMessage, MessageTarget, Platform
 
 try:
     from telegram import Update
     from telegram.ext import (
-        Application, CommandHandler, MessageHandler,
-        filters, ContextTypes
+        Application,
+        CommandHandler,
+        ContextTypes,
+        MessageHandler,
+        filters,
     )
     TELEGRAM_AVAILABLE = True
 except ImportError:
     TELEGRAM_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from channels.base import DispatchCallback
 
 
 _telegram_instance: TelegramChannel | None = None
@@ -27,38 +39,41 @@ def get_telegram_channel() -> TelegramChannel | None:
     return _telegram_instance
 
 
-class TelegramChannel:
-    """
-    Canal Telegram pour Jarvis.
-    Reçoit les messages, les passe au gateway Jarvis,
-    retourne la réponse.
+class TelegramChannel(ChannelAdapter):
+    """Canal Telegram pour Jarvis.
+
+    Peut fonctionner en deux modes :
+    - Mode legacy : gateway= (core.Gateway) passé directement, session créée à chaque message
+    - Mode MessagingGateway : set_dispatch() injecte le callback, session persistée cross-messages
     """
 
-    def __init__(self, gateway):
-        self._gateway = gateway
+    platform = Platform.TELEGRAM  # type: ignore[assignment]
+
+    def __init__(self, gateway: object = None) -> None:
+        self._legacy_gateway = gateway
+        self._dispatch_cb: DispatchCallback | None = None
         self._token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         self._owner_id = int(os.getenv("TELEGRAM_OWNER_ID", "0"))
-        self._app = None
+        self._app: Application | None = None  # type: ignore[type-arg]
+        self._started = False
 
-    def _is_owner(self, update: Update) -> bool:
-        """Vérifie que le message vient bien du propriétaire."""
-        return update.effective_user.id == self._owner_id
+    # ── ChannelAdapter ────────────────────────────────────────────────────────
 
     async def start(self) -> None:
+        """Démarre le polling Telegram (idempotent)."""
+        if self._started:
+            return
         if not TELEGRAM_AVAILABLE:
             logger.warning("python-telegram-bot non installé — canal Telegram désactivé")
             return
-
         if not self._token:
             logger.warning("TELEGRAM_BOT_TOKEN absent — canal Telegram désactivé")
             return
-
         if not self._owner_id:
             logger.warning("TELEGRAM_OWNER_ID absent — canal Telegram désactivé")
             return
 
         self._app = Application.builder().token(self._token).build()
-
         self._app.add_handler(CommandHandler("start", self._cmd_start))
         self._app.add_handler(CommandHandler("status", self._cmd_status))
         self._app.add_handler(CommandHandler("initiatives", self._cmd_initiatives))
@@ -67,53 +82,97 @@ class TelegramChannel:
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._on_message)
         )
 
-        logger.info("Telegram bot démarré")
         await self._app.initialize()
         await self._app.start()
         await self._app.updater.start_polling(drop_pending_updates=True)
+        self._started = True
+        logger.info("Canal Telegram démarré")
 
     async def stop(self) -> None:
         if self._app:
             await self._app.updater.stop()
             await self._app.stop()
             await self._app.shutdown()
+            self._started = False
+
+    async def send(self, reply: str, target: MessageTarget) -> None:
+        """Envoie une réponse à l'utilisateur Telegram désigné par target."""
+        if not self._app:
+            return
+        chat_id = target.channel_id or target.user_id
+        if not chat_id:
+            return
+        text = reply[:4000] + "\n\n_[réponse tronquée]_" if len(reply) > 4000 else reply
+        await self._app.bot.send_message(
+            chat_id=int(chat_id),
+            text=text,
+            parse_mode="Markdown",
+        )
+
+    # ── Notification proactive (mode legacy) ─────────────────────────────────
 
     async def send_message(self, text: str) -> None:
-        """Envoyer un message proactif à l'owner (notifications)."""
+        """Envoie un message proactif à l'owner (notifications Jarvis)."""
         if self._app and self._owner_id:
             await self._app.bot.send_message(
                 chat_id=self._owner_id,
                 text=text,
-                parse_mode="Markdown"
+                parse_mode="Markdown",
             )
 
-    # ── Handlers ──────────────────────────────────────────────────
+    # ── Handlers internes ─────────────────────────────────────────────────────
 
-    async def _on_message(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-        """Message texte — passer à Jarvis et retourner la réponse."""
+    def _is_owner(self, update: Update) -> bool:  # type: ignore[name-defined]
+        return update.effective_user.id == self._owner_id
+
+    async def _on_message(
+        self,
+        update: Update,  # type: ignore[name-defined]
+        ctx: ContextTypes.DEFAULT_TYPE,  # type: ignore[name-defined]
+    ) -> None:
         if not self._is_owner(update):
             await update.message.reply_text("⛔ Accès non autorisé.")
             return
 
         user_text = update.message.text
-        logger.info(f"[Telegram] Message reçu : {user_text[:60]}")
+        logger.info("[Telegram] Message reçu", text=user_text[:60])
 
         await ctx.bot.send_chat_action(
             chat_id=update.effective_chat.id,
-            action="typing"
+            action="typing",
         )
 
-        _, _route, response = await self._gateway.handle(
-            user_text,
-            stream=False,
-        )
+        # Mode MessagingGateway (prioritaire)
+        if self._dispatch_cb is not None:
+            msg = IncomingMessage(
+                platform=Platform.TELEGRAM,
+                user_id=str(update.effective_user.id),
+                text=user_text,
+                channel_id=str(update.effective_chat.id),
+                raw=update,
+            )
+            await self._dispatch_cb(msg)
+            return
 
-        if len(response) > 4000:
-            response = response[:3990] + "\n\n_[réponse tronquée]_"
+        # Mode legacy
+        if self._legacy_gateway is not None:
+            _, _route, response = await self._legacy_gateway.handle(
+                user_text,
+                stream=False,
+            )
+            text = str(response)
+            if len(text) > 4000:
+                text = text[:3990] + "\n\n_[réponse tronquée]_"
+            await update.message.reply_text(text, parse_mode="Markdown")
+            return
 
-        await update.message.reply_text(response, parse_mode="Markdown")
+        logger.warning("[Telegram] Aucun gateway configuré — message ignoré")
 
-    async def _cmd_start(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def _cmd_start(
+        self,
+        update: Update,  # type: ignore[name-defined]
+        ctx: ContextTypes.DEFAULT_TYPE,  # type: ignore[name-defined]
+    ) -> None:
         if not self._is_owner(update):
             return
         await update.message.reply_text(
@@ -122,10 +181,14 @@ class TelegramChannel:
             "/status — état du système\n"
             "/initiatives — tes initiatives en attente\n"
             "/help — toutes les commandes",
-            parse_mode="Markdown"
+            parse_mode="Markdown",
         )
 
-    async def _cmd_status(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def _cmd_status(
+        self,
+        update: Update,  # type: ignore[name-defined]
+        ctx: ContextTypes.DEFAULT_TYPE,  # type: ignore[name-defined]
+    ) -> None:
         if not self._is_owner(update):
             return
         try:
@@ -136,14 +199,22 @@ class TelegramChannel:
             checks = health.get("checks", {})
             lines = []
             for name, info in checks.items():
-                emoji = "✅" if info["status"] == "ok" else "⚠️" if info["status"] == "warning" else "❌"
+                emoji = (
+                    "✅" if info["status"] == "ok"
+                    else "⚠️" if info["status"] == "warning"
+                    else "❌"
+                )
                 lines.append(f"{emoji} *{name}* — {info['detail']}")
             text = "🖥 *Jarvis Doctor*\n\n" + "\n".join(lines)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             text = f"❌ Impossible de joindre Jarvis : {e}"
         await update.message.reply_text(text, parse_mode="Markdown")
 
-    async def _cmd_initiatives(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def _cmd_initiatives(
+        self,
+        update: Update,  # type: ignore[name-defined]
+        ctx: ContextTypes.DEFAULT_TYPE,  # type: ignore[name-defined]
+    ) -> None:
         if not self._is_owner(update):
             return
         try:
@@ -161,12 +232,16 @@ class TelegramChannel:
                 emoji = "🔴" if priority == "high" else "🟡" if priority == "medium" else "⚪"
                 lines.append(f"{emoji} {ini.get('title', '?')}")
             if len(initiatives) > 5:
-                lines.append(f"\n_+{len(initiatives)-5} autres — voir le Command Center_")
+                lines.append(f"\n_+{len(initiatives) - 5} autres — voir le Command Center_")
             await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             await update.message.reply_text(f"❌ Erreur : {e}")
 
-    async def _cmd_help(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def _cmd_help(
+        self,
+        update: Update,  # type: ignore[name-defined]
+        ctx: ContextTypes.DEFAULT_TYPE,  # type: ignore[name-defined]
+    ) -> None:
         if not self._is_owner(update):
             return
         text = (
