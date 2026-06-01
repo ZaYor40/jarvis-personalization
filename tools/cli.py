@@ -30,6 +30,7 @@ CLI_WHITELIST: frozenset[str] = frozenset(
         "find",
         "mv",
         "cp",
+        "rm",
         "mkdir",
         "touch",
         "zip",
