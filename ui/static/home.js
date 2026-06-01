@@ -737,6 +737,8 @@
       _frameActive = false;
       history.replaceState(null, "", "/");
     } else {
+      // Fermer toute vue active (globe, etc.) avant de naviguer
+      Jarvis.views.deactivate();
       if (_frame) {
         _frame.src = url;
         _frame.classList.add("is-active");
