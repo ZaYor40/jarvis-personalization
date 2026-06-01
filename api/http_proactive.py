@@ -157,7 +157,8 @@ async def list_proactive_initiatives(
     days: int = Query(default=7, ge=1, le=30),
     status: str | None = Query(default=None),
 ) -> list[dict]:
-    """Liste les initiatives récentes (multi-jours). status=pending|done|dismissed|… ou absent=tous."""
+    """Liste les initiatives récentes (multi-jours). status=pending|done|dismissed|… ou absent=tous.
+    """
     from proactive.store import InitiativeStore
 
     store = InitiativeStore()
