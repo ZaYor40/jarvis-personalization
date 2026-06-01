@@ -60,3 +60,7 @@ class SessionStore:
         """Retourne les n fichiers les plus récents (par mtime)."""
         files = sorted(self._dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
         return files[:n]
+
+    def list_all(self) -> list[Path]:
+        """Retourne tous les fichiers de sessions triés par mtime décroissant."""
+        return sorted(self._dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -248,7 +249,7 @@ class VectorIndex:
         self._vectors = self._vectors[keep_idx]
 
     @staticmethod
-    def _transcript_to_text(path: Path) -> str:
+    def transcript_to_text(path: Path) -> str:
         """Concatène les messages d'un transcript JSONL en un seul texte."""
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
@@ -268,3 +269,101 @@ class VectorIndex:
             if isinstance(content, str) and content.strip():
                 parts.append(f"{role}: {content}")
         return "\n".join(parts)
+
+
+class FTSIndex:
+    """Index full-text FTS5 pour la recherche sur les sessions JSONL.
+
+    Complémentaire au VectorIndex : FTS5 capture les correspondances exactes
+    (noms propres, termes techniques, dates) que le vectoriel peut rater.
+    Tokenizer unicode61 avec suppression des diacritiques pour le français.
+    """
+
+    def __init__(self, db_path: Path) -> None:
+        self._db_path = db_path
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = asyncio.Lock()
+        self._init_db()
+
+    def _init_db(self) -> None:
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS sessions USING fts5("
+                "doc_id UNINDEXED, text, "
+                "tokenize='unicode61 remove_diacritics 1'"
+                ")"
+            )
+            conn.commit()
+
+    # ── sync helpers (run in thread) ─────────────────────────
+    def _add_sync(self, doc_id: str, text: str) -> None:
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute("DELETE FROM sessions WHERE doc_id = ?", (doc_id,))
+            conn.execute("INSERT INTO sessions(doc_id, text) VALUES (?, ?)", (doc_id, text))
+            conn.commit()
+
+    def _remove_sync(self, doc_id: str) -> None:
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute("DELETE FROM sessions WHERE doc_id = ?", (doc_id,))
+            conn.commit()
+
+    def _search_sync(self, query: str, k: int) -> list[dict]:
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                rows = conn.execute(
+                    "SELECT doc_id, text, bm25(sessions) FROM sessions "
+                    "WHERE sessions MATCH ? ORDER BY bm25(sessions) LIMIT ?",
+                    (query, k),
+                ).fetchall()
+        except sqlite3.OperationalError:
+            # Requête FTS5 malformée (guillemets non fermés, etc.)
+            return []
+        return [
+            {"doc_id": row[0], "text": row[1], "score": float(row[2])}
+            for row in rows
+        ]
+
+    def _count_sync(self) -> int:
+        with sqlite3.connect(self._db_path) as conn:
+            return conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+
+    def _rebuild_sync(self, sessions_dir: Path) -> int:
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute("DELETE FROM sessions")
+            conn.commit()
+        count = 0
+        for jsonl in sorted(sessions_dir.glob("*.jsonl")):
+            text = VectorIndex.transcript_to_text(jsonl)
+            if not text.strip():
+                continue
+            self._add_sync(jsonl.name, text)
+            count += 1
+        return count
+
+    # ── public async API ──────────────────────────────────────
+    async def add(self, doc_id: str, text: str) -> None:
+        async with self._lock:
+            await asyncio.to_thread(self._add_sync, doc_id, text)
+        logger.debug("FTSIndex.add", doc_id=doc_id)
+
+    async def remove(self, doc_id: str) -> None:
+        async with self._lock:
+            await asyncio.to_thread(self._remove_sync, doc_id)
+        logger.debug("FTSIndex.remove", doc_id=doc_id)
+
+    async def search(self, query: str, k: int = 5) -> list[dict]:
+        if not query.strip():
+            return []
+        return await asyncio.to_thread(self._search_sync, query, k)
+
+    async def count(self) -> int:
+        return await asyncio.to_thread(self._count_sync)
+
+    async def is_empty(self) -> bool:
+        return await self.count() == 0
+
+    async def rebuild(self, sessions_dir: Path) -> int:
+        async with self._lock:
+            n = await asyncio.to_thread(self._rebuild_sync, sessions_dir)
+        logger.info("FTSIndex rebuilt", docs=n, dir=str(sessions_dir))
+        return n
