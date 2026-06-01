@@ -275,6 +275,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         broadcast_event=proactive_queue.broadcast_event,
         budget_guard=_budget_guard,
     )
+
+    # ── [INITIATIVES] ────────────────────────────────────────────────────────
+    from proactive.executor import InitiativeExecutor as _InitiativeExecutor
+    from proactive.store import InitiativeStore as _InitiativeStore
+
+    _initiative_executor = _InitiativeExecutor(
+        store=_InitiativeStore(),
+        broadcast_event=proactive_queue.broadcast_event,
+        orchestrator=orchestrator,
+        approval_checker=approval_checker,
+        budget_guard=_budget_guard,
+    )
+    # ── [/INITIATIVES] ───────────────────────────────────────────────────────
+
     worker = BackgroundWorker(llm=llm, notifications=notifications, tool_registry=tool_registry)
     worker_task = asyncio.create_task(worker.run_loop(), name="background-worker")
 
@@ -330,6 +344,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # lancé par `jarvis start`. main.py ne s'occupe que du backend FastAPI / texte.
 
     app.state.orchestrator = orchestrator
+    app.state.initiative_executor = _initiative_executor
     app.state.session_store = session_store
     app.state.tool_registry = tool_registry
     app.state.skill_registry = skill_registry
