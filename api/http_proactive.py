@@ -25,7 +25,7 @@ async def get_initiatives() -> list[dict]:
     from proactive.store import InitiativeStore
 
     store = InitiativeStore()
-    initiatives = store.load_pending()
+    initiatives = store.load_pending_all(days=7)
     return [
         {
             "id": i.id,
