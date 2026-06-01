@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 import httpx
 from loguru import logger
@@ -12,6 +13,7 @@ from llm.base import LLMProvider
 
 # Strip <think>...</think> au cas où Ollama les laisse passer (fallback)
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+_MAX_TOOL_ITERATIONS = 8
 
 
 def _strip_think(text: str) -> str:
@@ -137,6 +139,99 @@ class OllamaProvider(LLMProvider):
 
                     if data.get("done"):
                         break
+
+    async def tool_loop(
+        self,
+        messages: list[dict],
+        system: str,
+        tools: list[dict],
+        tool_executor: Callable[[str, dict], Awaitable[str]],
+        context: str = "",
+    ) -> str:
+        """Boucle tool use Ollama (function calling natif, /api/chat).
+
+        Envoie le champ "tools" et traite message.tool_calls en multi-tours.
+        Robustesse :
+        - arguments dict ou string JSON selon le modèle — les deux sont gérés.
+        - outil inconnu ou erreur d'exécution → tool result d'erreur renvoyé au modèle
+          plutôt qu'une exception, pour permettre l'auto-correction.
+        - arrêt automatique après _MAX_TOOL_ITERATIONS tours pour éviter les boucles.
+        """
+        tool_names = {t["name"] for t in tools}
+        ollama_tools = _claude_tools_to_ollama(tools)
+        current: list[dict] = [{"role": "system", "content": system}, *messages]
+
+        async def _exec_one(call_id: str, name: str, args: dict) -> tuple[str, str]:
+            if name not in tool_names:
+                logger.warning("Ollama tool_loop: outil inconnu", name=name)
+                return call_id, f"Erreur : outil '{name}' inconnu."
+            try:
+                result = await tool_executor(name, args)
+                return call_id, result
+            except Exception as exc:
+                logger.warning("Ollama tool_loop: erreur exécution", name=name, error=str(exc))
+                return call_id, f"Erreur lors de l'exécution de '{name}' : {exc}"
+
+        for iteration in range(_MAX_TOOL_ITERATIONS):
+            payload: dict = {
+                "model": self._model,
+                "messages": current,
+                "stream": False,
+                "think": False,
+                "options": {"temperature": 0.7},
+                "tools": ollama_tools,
+            }
+
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(f"{self._base_url}/api/chat", json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+            msg: dict = data.get("message", {})
+            raw_tool_calls: list[dict] = msg.get("tool_calls") or []
+
+            if not raw_tool_calls:
+                text: str = _strip_think(msg.get("content", ""))
+                logger.debug("Ollama tool loop done", iterations=iteration + 1)
+                return text
+
+            # Réinjecte la réponse assistant avec ses tool_calls dans l'historique
+            current.append({
+                "role": "assistant",
+                "content": msg.get("content") or "",
+                "tool_calls": raw_tool_calls,
+            })
+
+            # Parse les tool calls : arguments peuvent être dict OU string JSON
+            parsed: list[tuple[str, str, dict]] = []
+            for i, tc in enumerate(raw_tool_calls):
+                fn = tc.get("function", {})
+                tc_name: str = fn.get("name", "")
+                raw_args = fn.get("arguments", {})
+                call_id: str = tc.get("id", f"call_{tc_name}_{iteration}_{i}")
+
+                if isinstance(raw_args, str):
+                    try:
+                        tc_args: dict = json.loads(raw_args)
+                    except json.JSONDecodeError:
+                        tc_args = {}
+                elif isinstance(raw_args, dict):
+                    tc_args = raw_args
+                else:
+                    tc_args = {}
+
+                parsed.append((call_id, tc_name, tc_args))
+
+            results: list[tuple[str, str]] = await asyncio.gather(
+                *(_exec_one(cid, n, a) for cid, n, a in parsed)
+            )
+            logger.debug("Ollama tools called", names=[n for _, n, _ in parsed])
+
+            for _cid, result in results:
+                current.append({"role": "tool", "content": result})
+
+        logger.warning("Ollama tool loop max iterations reached", max=_MAX_TOOL_ITERATIONS)
+        return "Je n'ai pas pu terminer — trop d'étapes."
 
     async def health_check(self) -> bool:
         try:
