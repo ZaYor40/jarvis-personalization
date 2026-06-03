@@ -1,0 +1,17 @@
+author: Grominet95
+capabilities: []
+description: Cockpit système temps réel — jauges CPU/RAM/disque, cerveau LLM, services,
+  missions
+label: system-monitor
+name: system-monitor
+requires_env: []
+requires_tools: []
+static_files:
+- view.js
+tags:
+- système
+- monitoring
+- dashboard
+- performance
+type: view
+version: 2.0.0

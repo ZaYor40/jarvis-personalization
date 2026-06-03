@@ -1,0 +1,16 @@
+author: Grominet95
+capabilities: []
+description: Horloge solaire — cadran 24 h, course du soleil, fuseaux Tokyo/New York/Londres
+label: clock
+name: clock
+requires_env: []
+requires_tools: []
+static_files:
+- view.js
+tags:
+- horloge
+- temps
+- fuseaux
+- soleil
+type: view
+version: 1.0.0

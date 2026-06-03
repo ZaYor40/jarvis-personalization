@@ -1,0 +1,17 @@
+author: Grominet95
+capabilities: []
+description: Voûte céleste immersive — constellations qui s'illuminent au focus, faits
+  stellaires
+label: astronomy
+name: astronomy
+requires_env: []
+requires_tools: []
+static_files:
+- view.js
+tags:
+- astronomie
+- ciel
+- constellations
+- étoiles
+type: view
+version: 2.0.0
