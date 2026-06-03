@@ -79,7 +79,9 @@ class ShowViewTool(Tool):
         "Utilise cet outil quand l'utilisateur demande :\n"
         '- Afficher une vue par son ID → action: show, view_id: "<id>"\n'
         '  Le SYSTEM_PROMPT de chaque vue installée indique son view_id exact.\n'
-        '- Masquer une vue → action: hide, view_id: "<id>"\n'
+        '- Masquer une vue / retour à la sphère d\'accueil → action: home\n'
+        '  Utiliser quand : "reviens", "retour", "ferme", "vue de base", "sphère", "home"\n'
+        '- Masquer une vue précise → action: hide, view_id: "<id>"\n'
         "- Cite un lieu, une ville, un monument → action: fly_to, location: ...\n"
         '  Exemples: "montre Lyon", "va à Tokyo", "montre la tour Eiffel"\n'
         "  Zoom recommandé: ville=10, monument/quartier=16, pays/continent=5\n"
@@ -94,7 +96,7 @@ class ShowViewTool(Tool):
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["show", "hide", "fly_to", "zoom_out", "zoom_in", "globe_view"],
+                "enum": ["show", "hide", "home", "fly_to", "zoom_out", "zoom_in", "globe_view"],
                 "description": "Action à effectuer.",
             },
             "view_id": {
@@ -132,6 +134,10 @@ class ShowViewTool(Tool):
         if action == "show":
             self._broadcast({"type": "show_view", "view_id": view_id})
             return ToolResult(content=f"Vue {view_id} affichée.")
+
+        if action == "home":
+            self._broadcast({"type": "show_home"})
+            return ToolResult(content="Retour à la vue d'accueil.")
 
         if action == "hide":
             self._broadcast({"type": "hide_view", "view_id": view_id})
