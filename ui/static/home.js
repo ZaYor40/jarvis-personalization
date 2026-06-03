@@ -105,7 +105,10 @@
   };
   J.views.deactivate = function (id) {
     _origViewDeactivate(id);
-    if (!J.views._active) document.body.classList.remove("view-active");
+    // Différé : si activate() enchaîne, _active est déjà re-setté quand le check tourne
+    Promise.resolve().then(() => {
+      if (!J.views._active) document.body.classList.remove("view-active");
+    });
   };
 
   // ── Sync état orbe depuis les events voice.js ─────────────────────
@@ -689,6 +692,7 @@
           if (_prevActive) J.views.activate(_prevActive);
         });
       }
+      if (data.type === "show_home")  { const a = J.views._active; if (a) J.views.deactivate(a); }
       if (data.type === "show_view")    J.views.activate(data.view_id, data.params);
       if (data.type === "hide_view")    J.views.deactivate(data.view_id);
       if (data.type === "view_command") J.views.dispatch(data.view_id, data.command, data.params);
