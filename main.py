@@ -70,6 +70,7 @@ from tools.memory import (
 from tools.notion import NotionTasksTool
 from tools.preset import ExecutePresetTool
 from tools.registry import ToolRegistry
+from tools.show_view import ShowViewTool
 from tools.spotify import SpotifyTool
 from tools.subagent import ScriptRPCTool, SpawnSubagentTool
 from tools.vision import VisionTool
@@ -204,7 +205,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     notifications = NotificationQueue()
     proactive_queue = ProactiveQueue()
-    # ShowViewTool fourni par le skill globe-view — désenregistré ici
+    # Tools core (indépendants des skills installés)
+    tool_registry.register(ShowViewTool(broadcast_event=proactive_queue.broadcast_event))
     tool_registry.register(ExecutePresetTool())
     approval_checker = ApprovalChecker(broadcast_event=proactive_queue.broadcast_event)
 

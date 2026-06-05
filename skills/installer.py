@@ -151,63 +151,79 @@ class SkillInstaller:
     async def _install_view(
         self, skill_name: str, skill_meta: dict, skill_dir: Path, path: str
     ) -> None:
-        """Installe une vue (view.js + view.css optionnel, skill.py généré localement)."""
+        """Installe une vue.
+
+        Stratégie :
+        - Honore catalog.static_files (ex. globe-view : globe.js + globe.css)
+        - Fallback : view.js (+ view.css optionnel)
+        - skill.py : DL depuis GitHub s'il existe, sinon générique
+        - skill.yaml : pareil
+        ShowViewTool est un tool core (main.py), pas besoin de le fournir ici.
+        """
         static_dst = Path("ui/static/skills") / skill_name
         static_dst.mkdir(parents=True, exist_ok=True)
+        catalog_files = skill_meta.get("static_files") or []
+        targets = catalog_files if catalog_files else ["view.js", "view.css"]
 
         async with httpx.AsyncClient(timeout=15) as client:
-            # Télécharge view.js (obligatoire)
-            r = await client.get(f"{SKILLS_REPO_RAW}/{path}/view.js")
-            if r.status_code != 200:
-                raise Exception(f"view.js introuvable (HTTP {r.status_code})")
-            (static_dst / "view.js").write_text(r.text)
+            downloaded: list[str] = []
+            for fname in targets:
+                r = await client.get(f"{SKILLS_REPO_RAW}/{path}/{fname}")
+                if r.status_code == 200:
+                    (static_dst / fname).write_bytes(r.content)
+                    downloaded.append(fname)
+                elif not catalog_files and fname == "view.css":
+                    continue  # view.css optionnel par défaut
+                elif catalog_files:
+                    logger.warning(f"Fichier {fname} manquant (HTTP {r.status_code})")
+            if not downloaded:
+                raise Exception("Aucun asset de vue téléchargé")
 
-            # Télécharge view.css si présent
-            r = await client.get(f"{SKILLS_REPO_RAW}/{path}/view.css")
-            if r.status_code == 200:
-                (static_dst / "view.css").write_text(r.text)
+            # skill.py custom prioritaire (ex. globe-view)
+            r = await client.get(f"{SKILLS_REPO_RAW}/{path}/skill.py")
+            has_remote_skill_py = r.status_code == 200
+            if has_remote_skill_py:
+                (skill_dir / "skill.py").write_text(r.text)
 
-        # Génère skill.py : SYSTEM_PROMPT uniquement, pas de tool dupliqué
-        # (ShowViewTool est déjà enregistré par globe-view et accepte n'importe quel view_id)
-        class_name = "".join(w.capitalize() for w in skill_name.replace("-", "_").split("_"))
-        description = skill_meta.get("description", "")
-        view_id = skill_name  # convention : view_id == skill_name
-        skill_py = (
-            "from skills.base import SkillBase\n\n\n"
-            f"class {class_name}Skill(SkillBase):\n"
-            f'    SYSTEM_PROMPT = (\n'
-            f'        "Vue \\"{view_id}\\" installée : {description} "\n'
-            f'        "Pour l\'afficher : show_view(action=\\"show\\", view_id=\\"{view_id}\\"). "\n'
-            f'        "Pour la masquer : show_view(action=\\"hide\\", view_id=\\"{view_id}\\")."\n'
-            f'    )\n\n'
-            "    def get_tools(self) -> list:\n"
-            "        return []\n"
-        )
-        (skill_dir / "skill.py").write_text(skill_py)
+            r = await client.get(f"{SKILLS_REPO_RAW}/{path}/skill.yaml")
+            has_remote_yaml = r.status_code == 200
+            if has_remote_yaml:
+                (skill_dir / "skill.yaml").write_text(r.text)
 
-        # Génère skill.yaml depuis les métadonnées du catalogue
-        import yaml
+        if not has_remote_skill_py:
+            class_name = "".join(w.capitalize() for w in skill_name.replace("-", "_").split("_"))
+            description = skill_meta.get("description", "")
+            view_id = skill_meta.get("view_id", skill_name)
+            skill_py = (
+                "from skills.base import SkillBase\n\n\n"
+                f"class {class_name}Skill(SkillBase):\n"
+                f'    SYSTEM_PROMPT = (\n'
+                f'        "Vue \\"{view_id}\\" installée : {description} "\n'
+                f'        "Pour l\'afficher : show_view(action=\\"show\\", view_id=\\"{view_id}\\"). "\n'
+                f'        "Pour la masquer : show_view(action=\\"hide\\", view_id=\\"{view_id}\\")."\n'
+                f'    )\n\n'
+                "    def get_tools(self) -> list:\n"
+                "        return []\n"
+            )
+            (skill_dir / "skill.py").write_text(skill_py)
 
-        static_files = []
-        if (static_dst / "view.js").exists():
-            static_files.append("view.js")
-        if (static_dst / "view.css").exists():
-            static_files.append("view.css")
+        if not has_remote_yaml:
+            import yaml
 
-        yaml_meta = {
-            "name": skill_name,
-            "label": skill_meta.get("label", skill_name),
-            "version": skill_meta.get("version", "1.0.0"),
-            "author": skill_meta.get("author", ""),
-            "description": skill_meta.get("description", ""),
-            "tags": skill_meta.get("tags", ["view"]),
-            "type": "view",
-            "static_files": static_files,
-            "requires_env": [],
-            "requires_tools": [],
-            "capabilities": skill_meta.get("capabilities", []),
-        }
-        (skill_dir / "skill.yaml").write_text(yaml.dump(yaml_meta, allow_unicode=True))
+            yaml_meta = {
+                "name": skill_name,
+                "label": skill_meta.get("label", skill_name),
+                "version": skill_meta.get("version", "1.0.0"),
+                "author": skill_meta.get("author", ""),
+                "description": skill_meta.get("description", ""),
+                "tags": skill_meta.get("tags", ["view"]),
+                "type": "view",
+                "static_files": downloaded,
+                "requires_env": [],
+                "requires_tools": [],
+                "capabilities": skill_meta.get("capabilities", []),
+            }
+            (skill_dir / "skill.yaml").write_text(yaml.dump(yaml_meta, allow_unicode=True))
 
     def uninstall(self, skill_name: str) -> dict:
         """Désinstalle un skill."""
