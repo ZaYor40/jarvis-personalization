@@ -101,22 +101,36 @@ async def uninstall_skill(skill_name: str, request: Request) -> dict:
 
 @router.get("/api/skills/view-scripts")
 async def get_view_scripts() -> dict:
-    """Retourne les chemins JS/CSS des skills de type vue installés, avec hash de contenu."""
+    """Retourne les JS/CSS des skills installés dont type=view (hash MD5 pour cache-busting)."""
     import hashlib
 
+    import yaml
+
     base = Path("ui/static/skills")
+    installed = Path("skills/installed")
     scripts, styles = [], []
-    if base.exists():
-        for skill_static in sorted(base.iterdir()):
-            if not skill_static.is_dir():
-                continue
-            name = skill_static.name
-            for f in sorted(skill_static.iterdir()):
-                v = hashlib.md5(f.read_bytes()).hexdigest()[:8]
-                if f.suffix == ".js":
-                    scripts.append(f"/skills/{name}/{f.name}?v={v}")
-                elif f.suffix == ".css":
-                    styles.append(f"/skills/{name}/{f.name}?v={v}")
+    if not base.exists():
+        return {"scripts": scripts, "styles": styles}
+
+    for skill_static in sorted(base.iterdir()):
+        if not skill_static.is_dir():
+            continue
+        name = skill_static.name
+        yaml_path = installed / name / "skill.yaml"
+        if not yaml_path.exists():
+            continue
+        try:
+            meta = yaml.safe_load(yaml_path.read_text()) or {}
+        except Exception:
+            continue
+        if meta.get("type") != "view":
+            continue
+        for f in sorted(skill_static.iterdir()):
+            v = hashlib.md5(f.read_bytes()).hexdigest()[:8]
+            if f.suffix == ".js":
+                scripts.append(f"/skills/{name}/{f.name}?v={v}")
+            elif f.suffix == ".css":
+                styles.append(f"/skills/{name}/{f.name}?v={v}")
     return {"scripts": scripts, "styles": styles}
 
 
