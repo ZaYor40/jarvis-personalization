@@ -23,10 +23,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent.project_store import ProjectStore  # noqa: E402
-from agent.schemas import Project, Step, StepStatus, validate_step  # noqa: E402
+from agent.schemas import Project, Step, validate_step  # noqa: E402
 from agent.worker_agent import WorkerAgent  # noqa: E402
 from core.vocab import AccessLevel  # noqa: E402
-
 
 # ── Mission ──────────────────────────────────────────────────────────────────
 
