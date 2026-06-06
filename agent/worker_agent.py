@@ -15,6 +15,7 @@ from agent.file_tool import SandboxedFileTool
 from agent.governance import GateContext, GateDecision, Governance
 from agent.project_store import ProjectStore
 from agent.quality_checker import QualityChecker
+from agent.reflexion import Reflexion
 from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
 from agent.verifier import Verifier
 from agent.worker_cli import WorkerCLITool
@@ -212,6 +213,7 @@ class WorkerAgent:
         budget_guard: BudgetGuard | None = None,
         governance: Governance | None = None,
         verifier: Verifier | None = None,
+        reflexion: Reflexion | None = None,
     ) -> None:
         self._project = project
         self._store = store
@@ -229,6 +231,9 @@ class WorkerAgent:
         # PHASE 1 — governance et verifier (injection ou construction tardive).
         self._governance = governance
         self._verifier = verifier
+        # PHASE 2 — reflexion post-mission (injection optionnelle).
+        # Si None, aucune leçon n'est produite (mode dégradé silencieux).
+        self._reflexion = reflexion
 
     def kill(self) -> None:
         self._killed = True
@@ -353,10 +358,50 @@ class WorkerAgent:
             project.status = ProjectStatus.FAILED
             await self._log("error", f"Erreur inattendue : {e}")
         finally:
+            # PHASE 2 §5.1 — réflexion post-mission sur statut terminal.
+            # PAUSED est exclu (mission reprenable). Best-effort, jamais bloquant.
+            await self._maybe_reflect()
+
             if self._docker:
                 await self._docker.stop()
             self._store.save_project(project)
             self._push_update()
+
+    async def _maybe_reflect(self) -> None:
+        """Appelle Reflexion si terminale + injectée. Dégrade silencieusement sinon."""
+        if self._reflexion is None:
+            return
+        if self._project.status not in (
+            ProjectStatus.DONE,
+            ProjectStatus.FAILED,
+            ProjectStatus.KILLED,
+        ):
+            return
+        try:
+            lesson = await self._reflexion.reflect(self._project)
+        except Exception as exc:  # noqa: BLE001 — la mission est close, on log et basta
+            logger.warning(
+                "Reflexion error in worker.finally",
+                project_id=self._project.id,
+                error=str(exc),
+            )
+            return
+        if lesson is None:
+            return
+        await self._log(
+            "info",
+            f"Leçon produite (skill_candidate={lesson.skill_candidate}) : "
+            f"{lesson.corrective_action[:120] or lesson.what_worked[:120]}",
+        )
+        self._broadcast(
+            {
+                "type": "mission_lesson_produced",
+                "project_id": self._project.id,
+                "lesson_event_id": lesson.lesson_event_id,
+                "skill_candidate": lesson.skill_candidate,
+                "skill_description": lesson.skill_description,
+            }
+        )
 
     # ── Step execution ─────────────────────────────────────────────────────────
 

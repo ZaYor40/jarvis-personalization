@@ -9,6 +9,7 @@ from loguru import logger
 
 from agent.project_manager import ProjectManager
 from agent.project_store import ProjectStore
+from agent.reflexion import Reflexion
 from agent.schemas import LogEntry, Project, validate_step
 from agent.worker_agent import WorkerAgent
 from core.budget import BudgetGuard
@@ -21,9 +22,11 @@ class ProjectOrchestrator:
         self,
         broadcast_event: Callable[[dict], None],
         budget_guard: BudgetGuard | None = None,
+        reflexion: Reflexion | None = None,
     ) -> None:
         self._broadcast = broadcast_event
         self._budget = budget_guard
+        self._reflexion = reflexion  # PHASE 2 — partagée entre tous les workers
         self._store = ProjectStore()
         self._manager = ProjectManager()
         self._workers: dict[str, WorkerAgent] = {}
@@ -67,6 +70,7 @@ class ProjectOrchestrator:
             broadcast_event=self._broadcast,
             approval_callback=self._request_approval,
             budget_guard=self._budget,
+            reflexion=self._reflexion,
         )
         self._workers[project.id] = worker
 
@@ -130,6 +134,7 @@ class ProjectOrchestrator:
             broadcast_event=self._broadcast,
             approval_callback=self._request_approval,
             budget_guard=self._budget,
+            reflexion=self._reflexion,
         )
         self._workers[project_id] = worker
 
@@ -177,6 +182,7 @@ class ProjectOrchestrator:
             broadcast_event=self._broadcast,
             approval_callback=self._request_approval,
             budget_guard=self._budget,
+            reflexion=self._reflexion,
         )
         self._workers[project_id] = worker
 
