@@ -9,6 +9,7 @@ from loguru import logger
 
 from agent.project_store import ProjectStore
 from agent.schemas import Project, Step, StepStatus
+from core.vocab import AccessLevel
 
 _PLANNING_SYSTEM = """\
 Tu es un chef de projet expert. Analyse la demande utilisateur et décompose-la en étapes
@@ -52,6 +53,27 @@ Réseau :
   téléchargement de ressources)
 - requires_network=false pour tout ce qui est faisable offline (dont Fusion 360)
 
+Pour CHAQUE étape, tu DOIS fournir un critère de succès vérifiable.
+
+Règles success_criterion (obligatoire, non vide) :
+- Décrit ce que signifie "étape terminée" en termes OBJECTIFS et VÉRIFIABLES
+- Préfère des conditions mesurables : "le fichier X existe et fait > N lignes",
+  "la commande Y exit 0", "le HTML contient un <h1> avec le texte Z"
+- Ne dis JAMAIS "le code marche bien" ou "tout est ok" — ce n'est pas vérifiable
+
+Règles verification_command (facultatif, exit 0 = succès) :
+- Si l'étape produit du code/fichiers testables, fournis une commande shell qui
+  exit 0 ssi le critère est atteint. Ex : "test -s index.html", "python3 -c 'import script'"
+- Vide ou null si pas de commande déterministe
+
+Règles access_level (entier 0-5, par défaut 1) :
+- 0 = READ_ONLY (lecture seule)
+- 1 = WRITE_LOCAL (créer/modifier dans le workspace) — défaut
+- 2 = EXECUTE_CODE (exécuter du code sandboxé)
+- 3 = NETWORK (appel réseau)
+- 4 = INSTALL_PACKAGE (pip/npm install — DEMANDE TOUJOURS approbation humaine)
+- 5 = MODIFY_CORE (jamais demandé en mission)
+
 Réponds UNIQUEMENT avec du JSON valide (sans markdown, sans commentaires) :
 {
   "title": "Titre court du projet (< 40 chars)",
@@ -62,6 +84,9 @@ Réponds UNIQUEMENT avec du JSON valide (sans markdown, sans commentaires) :
       "id": "step_001",
       "title": "Titre de l'étape (< 50 chars)",
       "description": "Description précise de ce que l'agent doit faire (1-3 phrases)",
+      "success_criterion": "Condition objective et vérifiable d'achèvement",
+      "verification_command": null,
+      "access_level": 1,
       "requires_approval": false
     }
   ]
@@ -105,6 +130,12 @@ class ProjectManager:
                     description=step_data["description"],
                     requires_approval=step_data.get("requires_approval", False),
                     status=StepStatus.PENDING,
+                    # PHASE 1 — champs vérification & gouvernance (§3.4)
+                    success_criterion=step_data.get("success_criterion", "").strip(),
+                    verification_command=step_data.get("verification_command") or None,
+                    access_level=AccessLevel(
+                        int(step_data.get("access_level", int(AccessLevel.WRITE_LOCAL)))
+                    ),
                 )
             )
 
@@ -143,6 +174,15 @@ class ProjectManager:
                 "d'amélioration éventuels. Format Markdown avec sections ## claires."
             ),
             "requires_approval": False,
+            "success_criterion": (
+                "Le fichier RAPPORT.md existe à la racine, fait > 200 caractères, "
+                "et contient au moins 3 sections '##'."
+            ),
+            "verification_command": (
+                "test -s RAPPORT.md && grep -c '^## ' RAPPORT.md | "
+                "awk '{exit ($1 >= 3) ? 0 : 1}'"
+            ),
+            "access_level": int(AccessLevel.WRITE_LOCAL),
         }
 
         steps.append(test_step)
@@ -155,6 +195,12 @@ class ProjectManager:
         """Retourne une étape de test adaptée au type de projet."""
         step_id = f"step_{step_num:03d}"
 
+        # Critères et access_level partagés par les variantes (vérification = pas de risque accru)
+        base = {
+            "requires_approval": False,
+            "access_level": int(AccessLevel.EXECUTE_CODE),
+        }
+
         if project_type == "website":
             return {
                 "id": step_id,
@@ -166,7 +212,12 @@ class ProjectManager:
                     "4. Vérifier que index.html existe à la racine. "
                     "5. Exécuter une validation syntaxique si possible."
                 ),
-                "requires_approval": False,
+                "success_criterion": (
+                    "index.html existe à la racine et toutes ses dépendances "
+                    "CSS/JS/images référencées sont présentes dans le workspace."
+                ),
+                "verification_command": "test -s index.html",
+                **base,
             }
 
         if project_type == "python_script":
@@ -180,7 +231,12 @@ class ProjectManager:
                     "4. Si erreur (returncode != 0) : lire stderr, corriger, relancer. "
                     "5. Ne pas continuer tant que le script ne tourne pas sans erreur."
                 ),
-                "requires_approval": False,
+                "success_criterion": (
+                    "Le script principal s'exécute avec returncode=0 et sa sortie "
+                    "stdout correspond à l'objectif initial de la mission."
+                ),
+                "verification_command": None,
+                **base,
             }
 
         if project_type == "content":
@@ -193,7 +249,12 @@ class ProjectManager:
                     "3. Vérifier que l'objectif initial de la mission est atteint. "
                     "4. Corriger toute incohérence détectée."
                 ),
-                "requires_approval": False,
+                "success_criterion": (
+                    "Tous les livrables texte produits sont non vides, cohérents entre eux, "
+                    "et couvrent l'objectif initial de la mission."
+                ),
+                "verification_command": None,
+                **base,
             }
 
         if project_type == "fusion_360":
@@ -208,7 +269,12 @@ class ProjectManager:
                     "3. Si problème détecté, utiliser fusion_360(action='undo') et corriger. "
                     "4. Prendre un screenshot final (direction='top') pour confirmer."
                 ),
-                "requires_approval": False,
+                "success_criterion": (
+                    "Un screenshot final confirme que la géométrie 3D correspond "
+                    "à l'objectif décrit dans la mission."
+                ),
+                "verification_command": None,
+                **base,
             }
 
         # generic (défaut)
@@ -221,7 +287,12 @@ class ProjectManager:
                 "3. Tester / exécuter les livrables principaux si applicable. "
                 "4. Corriger tout problème détecté avant de passer à l'étape suivante."
             ),
-            "requires_approval": False,
+            "success_criterion": (
+                "Tous les livrables principaux existent, sont non vides, et l'objectif "
+                "initial de la mission est démontrablement atteint."
+            ),
+            "verification_command": None,
+            **base,
         }
 
     def _parse_plan(self, raw: str) -> dict:

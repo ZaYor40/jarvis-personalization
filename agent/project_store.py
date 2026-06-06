@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
+from core.vocab import AccessLevel
 
 WORKSPACE_DIR = Path("workspace/projects")
 
@@ -201,6 +202,12 @@ class ProjectStore:
                     "error": s.error,
                     "started_at": s.started_at.isoformat() if s.started_at else None,
                     "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                    # PHASE 1 — champs de vérification & gouvernance (§3.4)
+                    "success_criterion": s.success_criterion,
+                    "verification_command": s.verification_command,
+                    "access_level": int(s.access_level),
+                    "verified": s.verified,
+                    "verification_notes": s.verification_notes,
                 }
                 for s in project.steps
             ],
@@ -220,6 +227,12 @@ class ProjectStore:
                 completed_at=datetime.fromisoformat(s["completed_at"])
                 if s.get("completed_at")
                 else None,
+                # PHASE 1 — champs PHASE 0 ajoutés ; `.get(...)` pour les projets antérieurs.
+                success_criterion=s.get("success_criterion", ""),
+                verification_command=s.get("verification_command"),
+                access_level=AccessLevel(s.get("access_level", int(AccessLevel.WRITE_LOCAL))),
+                verified=s.get("verified", False),
+                verification_notes=s.get("verification_notes"),
             )
             for s in d.get("steps", [])
         ]

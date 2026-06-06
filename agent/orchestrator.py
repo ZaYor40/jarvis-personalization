@@ -9,7 +9,7 @@ from loguru import logger
 
 from agent.project_manager import ProjectManager
 from agent.project_store import ProjectStore
-from agent.schemas import LogEntry, Project
+from agent.schemas import LogEntry, Project, validate_step
 from agent.worker_agent import WorkerAgent
 from core.budget import BudgetGuard
 
@@ -32,8 +32,34 @@ class ProjectOrchestrator:
     # ── Création & lancement ──────────────────────────────────────────────────
 
     async def create_and_run(self, mission: str, timeout_minutes: int = 30) -> Project:
-        """Crée le projet (appel LLM de planification) et lance le worker en background."""
+        """Crée le projet (appel LLM de planification) et lance le worker en background.
+
+        PHASE 1 §4.2 — refuse de lancer un plan dont un step n'a pas de success_criterion.
+        """
         project = await self._manager.create_project(mission, timeout_minutes)
+
+        # Validation du plan : chaque step DOIT porter un success_criterion vérifiable.
+        try:
+            for step in project.steps:
+                validate_step(step)
+        except ValueError as exc:
+            from agent.schemas import ProjectStatus
+
+            project.status = ProjectStatus.FAILED
+            self._store.save_project(project)
+            logger.error(
+                "Plan refusé — step sans success_criterion",
+                project_id=project.id,
+                error=str(exc),
+            )
+            self._broadcast(
+                {
+                    "type": "project_plan_invalid",
+                    "project_id": project.id,
+                    "error": str(exc),
+                }
+            )
+            raise
 
         worker = WorkerAgent(
             project=project,

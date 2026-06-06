@@ -12,11 +12,39 @@ from pathlib import Path
 from loguru import logger
 
 from agent.file_tool import SandboxedFileTool
+from agent.governance import GateContext, GateDecision, Governance
 from agent.project_store import ProjectStore
 from agent.quality_checker import QualityChecker
 from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
+from agent.verifier import Verifier
 from agent.worker_cli import WorkerCLITool
 from core.budget import BudgetGuard
+from core.vocab import AccessLevel
+
+# ── Constantes PHASE 1 ─────────────────────────────────────────────────────────
+
+# Nombre maximum de tentatives de vérification d'un step (CDC §4.4).
+_VERIFICATION_MAX_RETRIES = 2
+
+# Mapping outil → (AccessLevel, action_category) pour le gate au niveau tool (Q3=c, §9).
+# Catégorie par défaut "agent_mission" : la mission est l'enveloppe sémantique du worker.
+# Un tool futur à effet externe (send_email, etc.) pourra utiliser une catégorie spécifique.
+_TOOL_ACCESS_LEVEL: dict[str, AccessLevel] = {
+    "read_file": AccessLevel.READ_ONLY,
+    "list_files": AccessLevel.READ_ONLY,
+    "write_file": AccessLevel.WRITE_LOCAL,
+    "create_directory": AccessLevel.WRITE_LOCAL,
+    "execute_cli": AccessLevel.EXECUTE_CODE,
+    "fusion_360": AccessLevel.WRITE_LOCAL,
+}
+_TOOL_CATEGORY: dict[str, str] = {
+    "read_file": "agent_mission",
+    "list_files": "agent_mission",
+    "write_file": "agent_mission",
+    "create_directory": "agent_mission",
+    "execute_cli": "agent_mission",
+    "fusion_360": "agent_mission",
+}
 
 _QUALITY_RULES_PATH = Path(__file__).parent.parent / "prompts" / "worker_system.md"
 try:
@@ -182,6 +210,8 @@ class WorkerAgent:
         broadcast_event: Callable[[dict], None],
         approval_callback: Callable[[str, str, str], Awaitable[bool]],
         budget_guard: BudgetGuard | None = None,
+        governance: Governance | None = None,
+        verifier: Verifier | None = None,
     ) -> None:
         self._project = project
         self._store = store
@@ -196,14 +226,51 @@ class WorkerAgent:
         self._quality = QualityChecker(project.workspace_path)
         self._pending_issues: list[str] = []
         self._files_snapshot: list[str] = []
+        # PHASE 1 — governance et verifier (injection ou construction tardive).
+        self._governance = governance
+        self._verifier = verifier
 
     def kill(self) -> None:
         self._killed = True
         logger.info("WorkerAgent killed", project_id=self._project.id)
 
+    def _ensure_governance(self) -> None:
+        """Construit une Governance par défaut si non injectée (singletons globaux)."""
+        if self._governance is not None:
+            return
+        from pathlib import Path
+
+        from config.approvals import approval_config
+        from core.audit import AuditLog
+
+        audit_path = Path(self._project.workspace_path) / ".jarvis" / "audit.jsonl"
+        self._governance = Governance(
+            approval_config=approval_config,
+            budget_guard=self._budget,
+            audit_log=AuditLog(audit_path),
+        )
+
+    def _ensure_verifier(self) -> None:
+        """Construit un Verifier par défaut si non injecté (LLM Anthropic Haiku)."""
+        if self._verifier is not None:
+            return
+        from config.settings import settings
+        from llm.api import AnthropicProvider
+
+        llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
+        self._verifier = Verifier(
+            quality_checker=self._quality,
+            llm=llm,
+            cli_executor=self._cli_tool.execute,
+        )
+
     async def _setup_environment(self) -> None:
         """Configure l'environnement d'exécution : Docker V2 ou direct V1."""
         from config.settings import settings
+
+        self._ensure_governance()
+        # Le verifier doit utiliser le _cli_tool ACTUEL (potentiellement Dockerisé).
+        # On le construit après la sélection du backend pour qu'il pointe sur le bon CLI.
 
         if settings.docker_enabled:
             from agent.docker_executor import DockerExecutor
@@ -211,21 +278,28 @@ class WorkerAgent:
             available = await DockerExecutor.is_available()
             if not available:
                 await self._log("warning", "Docker non disponible — fallback V1 direct")
-                return
-            network = "bridge" if self._project.requires_network else settings.docker_network
-            self._docker = DockerExecutor(
-                workspace_path=self._project.workspace_path,
-                project_id=self._project.id,
-                network=network,
-            )
-            await self._docker.start()
-            self._cli_tool = WorkerCLITool(
-                workspace_path=self._project.workspace_path,
-                docker_executor=self._docker,
-            )
-            await self._log("info", f"Environnement Docker démarré ({settings.docker_base_image})")
+            else:
+                network = "bridge" if self._project.requires_network else settings.docker_network
+                self._docker = DockerExecutor(
+                    workspace_path=self._project.workspace_path,
+                    project_id=self._project.id,
+                    network=network,
+                )
+                await self._docker.start()
+                self._cli_tool = WorkerCLITool(
+                    workspace_path=self._project.workspace_path,
+                    docker_executor=self._docker,
+                )
+                await self._log(
+                    "info", f"Environnement Docker démarré ({settings.docker_base_image})"
+                )
         else:
             await self._log("info", "Environnement direct V1")
+
+        # Verifier construit après le choix du backend CLI (peut être Dockerisé).
+        # CRITIQUE : doit être appelé sur TOUTES les branches, sinon le verifier reste None
+        # et `_execute_with_verification` court-circuite la couche 3.
+        self._ensure_verifier()
 
     # ── Main loop ─────────────────────────────────────────────────────────────
 
@@ -302,12 +376,28 @@ class WorkerAgent:
         await self._log("info", f"→ {step.title}", step_id=step.id)
         self._push_update()
 
-        # Approbation humaine si nécessaire
-        if step.requires_approval:
+        # ── PHASE 1 §4.5 — gate composite avant le step ───────────────────────
+        gate_decision = await self._gate_step(step)
+        if gate_decision == GateDecision.REFUSED:
+            step.status = StepStatus.FAILED
+            step.error = "Gate composite : REFUSED (catégorie NEVER ou budget hard_stop)"
+            await self._log("error", "Gate REFUSED — step bloqué", step_id=step.id)
+            self._store.save_project(self._project)
+            self._push_update()
+            return
+
+        # Approbation : par gate (APPROVAL/DRY_RUN) OU par flag legacy requires_approval (Q1=a).
+        gate_wants_approval = gate_decision in (GateDecision.APPROVAL, GateDecision.DRY_RUN)
+        if gate_wants_approval or step.requires_approval:
             step.status = StepStatus.WAITING_APPROVAL
             self._store.save_project(self._project)
             self._push_update()
-            await self._log("approval", f"Approbation requise : {step.title}", step_id=step.id)
+            reason = "Gate composite" if gate_wants_approval else "plan : requires_approval"
+            await self._log(
+                "approval",
+                f"Approbation requise ({reason}) : {step.title}",
+                step_id=step.id,
+            )
 
             approved = await self._approval_cb(self._project.id, step.id, step.description)
 
@@ -319,55 +409,132 @@ class WorkerAgent:
                 self._push_update()
                 return
 
-        # Exécution via LLM tool-loop
-        self._files_snapshot = self._file_tool.list_files()
-        is_fusion = (
-            "fusion" in self._project.mission.lower() or "fusion" in self._project.title.lower()
-        )
-        try:
-            result = await asyncio.wait_for(self._run_step_llm(step), timeout=300)
-            step.status = StepStatus.DONE
-            step.output = result
-            step.completed_at = datetime.now()
-            if not is_fusion:  # quality check inutile pour Fusion (pas de fichiers)
-                await self._post_step_check(step)
-            await self._log(
-                "info", f"✓ {step.title}", step_id=step.id, data={"output": result[:300]}
-            )
-        except _BudgetExceeded:
-            # Hard-stop budget : on met le projet en pause (reprise possible)
-            await self._log(
-                "warning", f"Budget épuisé — pause du projet : {step.title}", step_id=step.id
-            )
-            self._store.pause_for_budget(self._project, step.id)
-            self._push_update()
-            self._broadcast(
-                {
-                    "type": "budget_hard_stop",
-                    "project_id": self._project.id,
-                    "step_id": step.id,
-                    "message": (
-                        "Budget atteint — projet mis en pause."
-                        " Reprise possible après recharge."
-                    ),
-                }
-            )
-            return  # on sort proprement sans marquer le step FAILED
-        except TimeoutError:
-            step.status = StepStatus.FAILED
-            step.error = "Timeout (5 min) dépassé."
-            await self._log("error", f"Timeout : {step.title}", step_id=step.id)
-        except Exception as e:
-            step.status = StepStatus.FAILED
-            step.error = str(e)
-            await self._log("error", f"Erreur : {step.title} — {e}", step_id=step.id)
+            step.status = StepStatus.RUNNING
+            self._store.save_project(self._project)
+
+        # ── PHASE 1 §4.4 — exécution avec retry borné de la vérification ─────
+        await self._execute_with_verification(step)
 
         self._store.save_project(self._project)
         self._push_update()
 
+    async def _execute_with_verification(self, step: Step) -> None:
+        """Exécute le step puis le vérifie avec retry borné (CDC §4.4)."""
+        is_fusion = (
+            "fusion" in self._project.mission.lower() or "fusion" in self._project.title.lower()
+        )
+        prev_issues: list[str] = []
+
+        for attempt in range(_VERIFICATION_MAX_RETRIES):
+            self._files_snapshot = self._file_tool.list_files()
+            try:
+                result = await asyncio.wait_for(
+                    self._run_step_llm(step, prev_issues=prev_issues, attempt=attempt),
+                    timeout=300,
+                )
+                step.output = result
+            except _BudgetExceeded:
+                # Hard-stop budget : on met le projet en pause (reprise possible)
+                await self._log(
+                    "warning",
+                    f"Budget épuisé — pause du projet : {step.title}",
+                    step_id=step.id,
+                )
+                self._store.pause_for_budget(self._project, step.id)
+                self._push_update()
+                self._broadcast(
+                    {
+                        "type": "budget_hard_stop",
+                        "project_id": self._project.id,
+                        "step_id": step.id,
+                        "message": (
+                            "Budget atteint — projet mis en pause."
+                            " Reprise possible après recharge."
+                        ),
+                    }
+                )
+                return
+            except TimeoutError:
+                step.status = StepStatus.FAILED
+                step.error = "Timeout (5 min) dépassé."
+                await self._log("error", f"Timeout : {step.title}", step_id=step.id)
+                return
+            except Exception as e:  # noqa: BLE001 — exec failure surfaced as step FAILED
+                step.status = StepStatus.FAILED
+                step.error = str(e)
+                await self._log("error", f"Erreur : {step.title} — {e}", step_id=step.id)
+                return
+
+            # Vérification — fusion exclu (pas de fichiers à vérifier au quality check)
+            if is_fusion or self._verifier is None:
+                step.status = StepStatus.DONE
+                step.verified = True
+                step.completed_at = datetime.now()
+                await self._log(
+                    "info", f"✓ {step.title}", step_id=step.id, data={"output": result[:300]}
+                )
+                return
+
+            verdict = await self._verifier.verify(self._project, step, self._files_snapshot)
+            if verdict.verified:
+                step.status = StepStatus.DONE
+                step.verified = True
+                step.completed_at = datetime.now()
+                step.verification_notes = (verdict.notes or "")[:500]
+                await self._log(
+                    "info",
+                    f"✓ Vérifié [{verdict.layer}] : {step.title}",
+                    step_id=step.id,
+                    data={"layer": verdict.layer, "notes": verdict.notes[:300]},
+                )
+                return
+
+            # Non vérifié — préparer un nouvel essai (s'il en reste un)
+            prev_issues = verdict.issues
+            step.verification_notes = (
+                f"[{attempt + 1}/{_VERIFICATION_MAX_RETRIES}] "
+                f"[{verdict.layer}] {verdict.notes}"
+            )[:500]
+            self._pending_issues.extend(verdict.issues)
+            await self._log(
+                "warning",
+                (
+                    f"Vérif. échouée [{verdict.layer}] "
+                    f"try {attempt + 1}/{_VERIFICATION_MAX_RETRIES} : {verdict.notes}"
+                ),
+                step_id=step.id,
+                data={"issues": verdict.issues[:5]},
+            )
+
+        # Tous les essais épuisés sans vérification — step FAILED, mission FAILED.
+        step.status = StepStatus.FAILED
+        step.error = f"Vérification non concluante après {_VERIFICATION_MAX_RETRIES} essais"
+        await self._log(
+            "error",
+            f"Step FAILED — vérification non concluante : {step.title}",
+            step_id=step.id,
+        )
+
+    async def _gate_step(self, step: Step) -> GateDecision:
+        """Appelle le gate composite pour ce step (§4.5)."""
+        assert self._governance is not None  # garanti par _ensure_governance
+        ctx = GateContext(
+            access_level=step.access_level,
+            action_category="agent_mission",
+            estimated_cost_usd=0.02,  # estimation conservatrice (cf. _run_step_llm)
+            budget_scope=f"project:{self._project.id}",
+            description=f"step:{step.title}",
+        )
+        return self._governance.gate(ctx, f"step:{self._project.id}:{step.id}")
+
     # ── LLM tool-loop ─────────────────────────────────────────────────────────
 
-    async def _run_step_llm(self, step: Step) -> str:
+    async def _run_step_llm(
+        self,
+        step: Step,
+        prev_issues: list[str] | None = None,
+        attempt: int = 0,
+    ) -> str:
         from config.settings import settings
         from llm.api import AnthropicProvider
 
@@ -400,13 +567,23 @@ class WorkerAgent:
         prompt = (
             f"Étape à exécuter : {step.title}\n\n"
             f"Description : {step.description}\n\n"
+            f"Critère de succès à atteindre : {step.success_criterion}\n\n"
             f"Exécute cette étape avec les outils disponibles et retourne un résumé concis."
         )
-        if self._pending_issues:
+
+        # Feedback du verifier au retry : on injecte les issues de l'essai précédent.
+        if attempt > 0 and prev_issues:
+            issues_text = "\n".join(f"  • {i}" for i in prev_issues[:5])
+            prompt += (
+                f"\n\nL'essai précédent N'A PAS atteint le critère. "
+                f"Problèmes signalés par le vérificateur (à corriger) :\n{issues_text}"
+            )
+        # Issues héritées des steps PRÉCÉDENTS (qualité non bloquante)
+        elif self._pending_issues:
             issues_text = "\n".join(f"  • {i}" for i in self._pending_issues[-5:])
             prompt += (
-                f"\n\nProblèmes qualité détectés aux étapes précédentes"
-                f" (à corriger) :\n{issues_text}"
+                f"\n\nProblèmes qualité détectés aux étapes précédentes "
+                f"(à corriger si pertinent) :\n{issues_text}"
             )
             self._pending_issues.clear()
 
@@ -425,21 +602,15 @@ class WorkerAgent:
         self._project.files_created = self._file_tool.list_files()
         return result
 
-    # ── Post-step quality check ───────────────────────────────────────────────
-
-    async def _post_step_check(self, step: Step) -> None:
-        issues = self._quality.check_step_output(self._files_snapshot)
-        if issues:
-            self._pending_issues.extend(issues)
-            for issue in issues:
-                await self._log("warning", f"QualityCheck: {issue}", step_id=step.id)
-        else:
-            await self._log("info", "✓ QualityCheck OK", step_id=step.id)
-        self._files_snapshot = self._file_tool.list_files()
-
     # ── Tool executor ─────────────────────────────────────────────────────────
 
     async def _tool_executor(self, name: str, inputs: dict) -> str:
+        # PHASE 1 §9 / Q3=c — gate au niveau outil.
+        # Chaque tool a son AccessLevel et sa catégorie ; refusé/approbation → court-circuit.
+        refusal = await self._gate_tool(name, inputs)
+        if refusal is not None:
+            return refusal
+
         try:
             if name == "read_file":
                 content = self._file_tool.read_file(inputs["path"])
@@ -498,6 +669,44 @@ class WorkerAgent:
         except Exception as e:
             await self._log("error", f"Tool error {name}: {e}")
             return f"Erreur : {e}"
+
+    async def _gate_tool(self, name: str, inputs: dict) -> str | None:
+        """Gate au niveau outil (Q3=c). Renvoie un message de refus, ou None si autorisé."""
+        if self._governance is None:
+            return None
+        al = _TOOL_ACCESS_LEVEL.get(name, AccessLevel.WRITE_LOCAL)
+        cat = _TOOL_CATEGORY.get(name, "agent_mission")
+        ctx = GateContext(
+            access_level=al,
+            action_category=cat,
+            estimated_cost_usd=0.0,
+            budget_scope=f"project:{self._project.id}",
+            description=f"{name} {json.dumps(inputs)[:200]}",
+        )
+        decision = self._governance.gate(
+            ctx, f"tool:{name}:{self._project.id}:{uuid.uuid4().hex[:6]}"
+        )
+        if decision == GateDecision.AUTO:
+            return None
+        if decision == GateDecision.REFUSED:
+            await self._log("error", f"Tool REFUSED par gate : {name} (cat. {cat})")
+            return (
+                f"ACCÈS REFUSÉ : action '{name}' (cat. {cat}, niveau {int(al)}) "
+                f"bloquée par configuration utilisateur (catégorie NEVER ou budget hard_stop)."
+            )
+        # APPROVAL ou DRY_RUN → demander à l'humain
+        approval_id = f"tool-{uuid.uuid4().hex[:6]}"
+        approved = await self._approval_cb(
+            self._project.id,
+            approval_id,
+            f"Outil '{name}' (cat. {cat}, niveau {int(al)}) requiert votre approbation",
+        )
+        if not approved:
+            await self._log(
+                "warning", f"Tool {name} non approuvé par l'utilisateur", data={"category": cat}
+            )
+            return f"ACCÈS REFUSÉ : approbation utilisateur refusée pour '{name}'."
+        return None
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
