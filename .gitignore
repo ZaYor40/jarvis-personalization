@@ -28,7 +28,7 @@ models/
 
 # ── Données personnelles de Jarvis ───────────────────────────
 memory_data/
-workspace/projects/proj_*/
+workspace/
 vision/faces/
 
 # ── Paramètres locaux Claude Code ────────────────────────────
