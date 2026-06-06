@@ -5,6 +5,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from core.vocab import AccessLevel
+
 
 class StepStatus(StrEnum):
     PENDING = "pending"
@@ -35,6 +37,12 @@ class Step:
     error: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    # Champs PHASE 0 — contrat de vérification (§3.4)
+    success_criterion: str = ""
+    verification_command: str | None = None
+    access_level: AccessLevel = AccessLevel.WRITE_LOCAL
+    verified: bool = False
+    verification_notes: str | None = None
 
 
 @dataclass
@@ -61,3 +69,14 @@ class LogEntry:
     message: str
     step_id: str | None = None
     data: Any = None
+
+
+def validate_step(step: Step) -> None:
+    """Valide qu'un Step porte un success_criterion non vide. Lève ValueError sinon.
+
+    À appeler à la validation du plan (orchestrateur), pas à la construction (Option A §3.4).
+    Le défaut `""` n'existe que pour la compatibilité ascendante : un step sans critère
+    réel (vide ou blancs) doit toujours être rejeté.
+    """
+    if not step.success_criterion.strip():
+        raise ValueError(f"Step '{step.id}' n'a pas de success_criterion.")
