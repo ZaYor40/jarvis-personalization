@@ -44,11 +44,13 @@ class Scheduler:
         auto_dream: AutoDream,
         calendar_tool: CalendarListTool,
         skill_lab: object | None = None,
+        curator: object | None = None,
     ) -> None:
         self._proactive = proactive
         self._auto_dream = auto_dream
         self._calendar_tool = calendar_tool
         self._skill_lab = skill_lab  # PHASE 4 — SkillLab pour polling nocturne
+        self._curator = curator  # PHASE 6 — Curator nocturne
         self._tasks: list[asyncio.Task] = []
         self._routine_tasks: list[asyncio.Task] = []
 
@@ -61,6 +63,10 @@ class Scheduler:
         if self._skill_lab is not None:
             self._tasks.append(
                 asyncio.create_task(self._skill_lab_loop(), name="scheduler-skill-lab")
+            )
+        if self._curator is not None:
+            self._tasks.append(
+                asyncio.create_task(self._curator_loop(), name="scheduler-curator")
             )
         logger.info("Scheduler started", tasks=len(self._tasks))
 
@@ -290,3 +296,29 @@ class Scheduler:
                 )
             except Exception as exc:  # noqa: BLE001 — un scan raté ne tue pas la boucle
                 logger.warning("Skill Lab scan échec", error=str(exc))
+
+    # ── Curator nocturne (PHASE 6) ────────────────────────────
+    # 3h10 du matin (10 min après AutoDream deep, 5 min après Skill Lab scan).
+    # Pas critique : le Curator est RAPPORTEUR uniquement en MVP, son rapport
+    # peut être consulté à tout moment via GET /api/curator/latest, et un
+    # /api/curator/scan manuel est dispo pour itérer sans attendre la nuit.
+
+    async def _curator_loop(self) -> None:
+        if self._curator is None:
+            return
+        while True:
+            delay = _seconds_until(3) + 600
+            logger.debug("Curator scan planifié", seconds=int(delay))
+            await asyncio.sleep(delay)
+            try:
+                logger.info("Curator scan nocturne démarré")
+                report = await self._curator.scan()
+                logger.info(
+                    "Curator scan terminé",
+                    patches=len(report.patches),
+                    refused=len(report.refused_protected_patches),
+                    facts_archive=report.facts_archive_proposed,
+                    skills_stale=report.skills_stale_proposed,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Curator scan échec", error=str(exc))
