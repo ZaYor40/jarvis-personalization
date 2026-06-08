@@ -31,6 +31,9 @@ memory_data/
 workspace/
 vision/faces/
 
+# ── Skills générées par le Lab (artefacts run, regénérables) ─
+skills/candidates/
+
 # ── Paramètres locaux Claude Code ────────────────────────────
 .claude/
 
