@@ -23,6 +23,17 @@
     3: "SANDBOX", 4: "MODIFY_PROJECT", 5: "EXTERNAL_ACTION",
   };
 
+  function fmtDeadline(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    const diff = d - new Date();
+    const abs = Math.abs(diff);
+    if (abs < 3600000)    return Math.round(diff/60000)   + " min";
+    if (abs < 86400000)   return Math.round(diff/3600000) + " h";
+    if (abs < 86400000*30) return Math.round(diff/86400000) + " j";
+    return d.toLocaleDateString("fr");
+  }
+
   /* ───────── Loaders ───────── */
   async function loadInitiatives() {
     try {
@@ -210,6 +221,36 @@
     root.appendChild(page);
   }
 
+  /* PHASE 6 §10.1 — bloc gouvernance pour le panel détail.
+     Renvoie null si aucune info §10.1 sur l'initiative (legacy). */
+  function _buildGovBlock(raw) {
+    const hasAny = (raw.autonomy_level != null) || (raw.cost_max_usd != null)
+      || raw.risk || raw.deadline || raw.next_action || raw.requires_validation;
+    if (!hasAny) return null;
+    const sec = el("div", { class: "panel-section gov-panel" });
+    sec.appendChild(el("div", { class: "panel-section-title", text: "Gouvernance §10.1" }));
+    const chips = el("div", { class: "gov-chips" });
+    const chip = (text, extraClass) => {
+      const c = el("span", { class: "gov-chip" + (extraClass ? " " + extraClass : ""), text });
+      chips.appendChild(c);
+    };
+    if (raw.autonomy_level != null) {
+      chip(raw.autonomy_level + " · " + (AUTONOMY_LABELS[raw.autonomy_level] || "—"));
+    }
+    if (raw.permission_required)  chip(raw.permission_required);
+    if (raw.cost_max_usd != null) chip("≤ " + Number(raw.cost_max_usd).toFixed(2) + "$");
+    if (raw.risk)                 chip(raw.risk, "risk-" + raw.risk);
+    if (raw.deadline)             chip("deadline " + fmtDeadline(raw.deadline));
+    sec.appendChild(chips);
+    if (raw.next_action) {
+      const next = el("div", { class: "gov-next" });
+      next.appendChild(el("span", { class: "gov-next-lbl", text: "prochaine étape" }));
+      next.appendChild(document.createTextNode(" " + raw.next_action));
+      sec.appendChild(next);
+    }
+    return sec;
+  }
+
   function buildInitPanel(panel, i) {
     const raw = i.raw || {};
     const closeBtn = el("button", { class: "panel-close", text: "✕" });
@@ -234,6 +275,11 @@
       s.appendChild(el("div", { style: { fontSize: "12px", lineHeight: "1.6", color: "var(--fg-2)" }, text: text }));
       body.appendChild(s);
     };
+
+    /* PHASE 6 §10.1 — bloc gouvernance (tout en haut pour qu'il soit visible
+       avant les actions). N'affiche rien si l'initiative est legacy pré-PHASE 6. */
+    const govEl = _buildGovBlock(raw);
+    if (govEl) body.appendChild(govEl);
 
     addSec("Action proposée", raw.action || i.title);
     addSec("Contexte", raw.context);
