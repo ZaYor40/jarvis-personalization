@@ -11,6 +11,7 @@ from llm.base import LLMProvider
 
 if TYPE_CHECKING:
     from memory.ingest import IngestResult, MemoryIngest
+    from memory.mirror import MemoryMirror
 
 # Plafond du nombre de sessions ingérées par run deep (la plus récente d'abord).
 _MAX_SESSIONS_PER_DEEP = 5
@@ -46,11 +47,13 @@ class AutoDream:
         prefs_path: Path,
         sessions_dir: Path,
         memory_ingest: MemoryIngest | None = None,
+        mirror: MemoryMirror | None = None,
     ) -> None:
         self._llm = llm
         self._prefs_path = prefs_path
         self._sessions_dir = sessions_dir
         self._ensure_prefs()
+        self._mirror = mirror
         # MOUVEMENT 2 (option D, Generative Agents) : l'ingestion Kernel est
         # déclenchée UNIQUEMENT par _run_deep (passe nocturne), et JAMAIS par
         # _run_micro (à chaque message). On évite la double extraction côté
@@ -146,6 +149,20 @@ class AutoDream:
         # Kernel à chaque ingest individuel → dédoublonnage intra-batch garanti.
         if self._ingest is not None:
             await self._ingest_recent_sessions()
+
+        # 3) Régénération du miroir Markdown (SQLite → MD unidirectionnel, §6.7).
+        # Tourne UNIQUEMENT en deep nocturne — c'est l'instant où la base est
+        # stable après ingestion. Échec silencieux : le miroir est secondaire.
+        if self._mirror is not None:
+            try:
+                report = self._mirror.export()
+                logger.info(
+                    "MemoryMirror exporté",
+                    files=len(report.files_written),
+                    facts=report.facts_exported,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("MemoryMirror export échec", error=str(exc))
 
     # ── Ingestion batch deep ──────────────────────────────────
 
