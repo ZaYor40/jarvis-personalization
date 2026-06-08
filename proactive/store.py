@@ -10,6 +10,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from core.vocab import AutonomyLevel
 from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
 
 
@@ -70,6 +71,8 @@ class InitiativeStore:
         )
 
     def _parse_initiative(self, data: dict) -> Initiative:
+        # PHASE 6 — nouveaux champs avec .get(...) defaults pour compat JSONL legacy.
+        deadline_str = data.get("deadline")
         return Initiative(
             id=data["id"],
             type=InitiativeType(data["type"]),
@@ -83,6 +86,15 @@ class InitiativeStore:
             mission_description=data.get("mission_description"),
             status=data.get("status", "pending"),
             created_at=datetime.fromisoformat(data["created_at"]),
+            autonomy_level=AutonomyLevel(
+                int(data.get("autonomy_level", int(AutonomyLevel.SUGGEST)))
+            ),
+            permission_required=data.get("permission_required", "agent_mission"),
+            cost_max_usd=data.get("cost_max_usd"),
+            risk=data.get("risk", "low"),
+            deadline=datetime.fromisoformat(deadline_str) if deadline_str else None,
+            next_action=data.get("next_action", ""),
+            requires_validation=bool(data.get("requires_validation", False)),
         )
 
     def _find_file_for_id(self, initiative_id: str, days: int = 7) -> Path | None:
@@ -140,6 +152,18 @@ class InitiativeStore:
                         "mission_description": initiative.mission_description,
                         "status": initiative.status,
                         "created_at": initiative.created_at.isoformat(),
+                        # PHASE 6 — champs gouvernance §10.1
+                        "autonomy_level": int(initiative.autonomy_level),
+                        "permission_required": initiative.permission_required,
+                        "cost_max_usd": initiative.cost_max_usd,
+                        "risk": initiative.risk,
+                        "deadline": (
+                            initiative.deadline.isoformat()
+                            if initiative.deadline
+                            else None
+                        ),
+                        "next_action": initiative.next_action,
+                        "requires_validation": initiative.requires_validation,
                     }
                 )
                 + "\n"
