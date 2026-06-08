@@ -120,6 +120,19 @@ class Settings(BaseSettings):
         default="memory_data",
         description="Répertoire racine des données mémoire (MEMORY.md, topics/, sessions/).",
     )
+    autonomy_auto_execute_enabled: bool = Field(
+        default=False,
+        description=(
+            "PHASE 6 — Active l'auto-exécution des initiatives de niveau "
+            "d'autonomie ≥ 3 (SANDBOX, MODIFY_PROJECT) quand le gate composite "
+            "(§9) renvoie 'auto'. DÉSACTIVÉ par défaut : toute initiative "
+            "qui demanderait une auto-exécution passe par validation humaine "
+            "en MVP, peu importe son niveau. À NE FLIPPER QU'APRÈS observation "
+            "validée (sous-mouvement séparé). Niveau 5 EXTERNAL_ACTION "
+            "(publier/payer/contacter) reste systématiquement en validation "
+            "humaine — ce flag NE peut PAS contourner la règle CDC §10.1."
+        ),
+    )
     auto_install_whitelisted_enabled: bool = Field(
         default=False,
         description=(
