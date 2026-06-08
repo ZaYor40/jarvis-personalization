@@ -130,6 +130,72 @@
     if (btn) { btn.textContent = "Sauv."; btn.disabled = false; }
   }
 
+  /* ───────── Connexions (M5) ─────────
+     Lit /api/connectors/status (lecture seule) et rend une ligne par connecteur :
+     pastille santé + libellé statut + bouton "Reconnecter" (si OAuth).
+     L'édition (clés API, OAuth initial) reste dans Atelier › Intégrations. */
+  const HEALTH_STYLES = {
+    ok:      { color: "var(--green, #36d399)", label: "connecté" },
+    expired: { color: "var(--red, #ff4444)",   label: "token expiré" },
+    missing: { color: "var(--fg-3, #666)",     label: "non configuré" },
+    error:   { color: "var(--red, #ff4444)",   label: "erreur" },
+  };
+
+  async function fetchConnectorsStatus(container) {
+    const items = await J.api.get("/api/connectors/status");
+    container.innerHTML = "";
+    items.forEach(c => {
+      const row = el("div", { style: {
+        display: "grid", gridTemplateColumns: "10px 1fr auto auto",
+        gap: "12px", alignItems: "center",
+        padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.05)",
+      }});
+      const h = HEALTH_STYLES[c.token_health] || HEALTH_STYLES.error;
+      /* Pastille santé */
+      const dot = el("div"); dot.style.cssText =
+        "width:10px;height:10px;border-radius:50%;background:" + h.color +
+        ";box-shadow:0 0 6px " + h.color + "55";
+      row.appendChild(dot);
+      /* Nom + sous-libellé */
+      const txt = el("div");
+      txt.appendChild(el("div", { text: c.name, style: { fontSize: "14px" } }));
+      const subParts = [c.kind, h.label];
+      if (c.kind === "messaging" && c.enabled === false) subParts.push("désactivé");
+      txt.appendChild(el("div", {
+        text: subParts.join(" · "),
+        style: { fontSize: "11px", color: "var(--fg-3, #777)", fontFamily: "var(--mono, Geist Mono, monospace)" },
+      }));
+      row.appendChild(txt);
+      /* Reconnecter (OAuth uniquement, ou si missing+token-based) */
+      if (c.reconnect_url) {
+        const btn = el("button", {
+          class: "m-btn",
+          text: c.token_health === "ok" ? "Renouveler" : "Reconnecter",
+        });
+        btn.style.cssText = "padding:4px 10px;font-size:11px;";
+        btn.addEventListener("click", () => { window.location.href = c.reconnect_url; });
+        row.appendChild(btn);
+      } else {
+        row.appendChild(el("div"));
+      }
+      /* Lien Éditer (Atelier/Intégrations) */
+      if (c.edit_url) {
+        const ed = el("a", { text: "Éditer", href: c.edit_url });
+        ed.style.cssText = "font-size:11px;color:var(--fg-3,#888);text-decoration:none;border-bottom:1px dotted rgba(255,255,255,.2);padding-bottom:1px;";
+        row.appendChild(ed);
+      } else {
+        row.appendChild(el("div"));
+      }
+      container.appendChild(row);
+    });
+    if (!items.length) {
+      container.appendChild(el("div", {
+        style: { color: "var(--fg-3, #777)", fontSize: "12px", padding: "8px 0" },
+        text: "Aucun connecteur configuré.",
+      }));
+    }
+  }
+
   /* ───────── 01 Préférences ───────── */
   async function renderPreferences() {
     const s   = await getSettings();
@@ -190,6 +256,20 @@
     proList.appendChild(settingRow("Heure du briefing", "BRIEFING_HOUR", hourCtrl));
 
     wrap.appendChild(ghostSec("Proactivité", "briefing · rappels · météo", null, proList));
+
+    // ── Connexions (santé des connecteurs OAuth / API — M5) ──
+    const connList = el("div", { id: "connexions-list" });
+    connList.appendChild(el("div", { style: { color:"var(--fg-3)", fontSize:"12px" }, text:"Chargement…" }));
+    wrap.appendChild(ghostSec(
+      "Connexions",
+      "état des tokens · édition des clés dans Atelier › Intégrations",
+      null, connList
+    ));
+    /* Fetch async — ne bloque pas le rendu. */
+    fetchConnectorsStatus(connList).catch(() => {
+      connList.innerHTML = '';
+      connList.appendChild(el("div", { style: { color:"var(--red)", fontSize:"12px" }, text:"État indisponible" }));
+    });
 
     // ── Wake up ──
     const wakeList = el("div");
