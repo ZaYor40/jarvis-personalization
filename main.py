@@ -386,14 +386,51 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from proactive.executor import InitiativeExecutor as _InitiativeExecutor
     from proactive.store import InitiativeStore as _InitiativeStore
 
+    _initiative_store = _InitiativeStore()
     _initiative_executor = _InitiativeExecutor(
-        store=_InitiativeStore(),
+        store=_initiative_store,
         broadcast_event=proactive_queue.broadcast_event,
         orchestrator=orchestrator,
         approval_checker=approval_checker,
         budget_guard=_budget_guard,
     )
     # ── [/INITIATIVES] ───────────────────────────────────────────────────────
+
+    # ── [CURATOR + COMMAND CENTER] PHASE 6 — maintenance nocturne + vue agrégée
+    # Curator : tourne dans le scheduler (3h10), produit un rapport, n'applique
+    # RIEN automatiquement en MVP. Endpoint manuel /api/curator/scan pour
+    # itérer pendant l'observation.
+    # Command Center : agrégateur lecture-seule des workstreams (initiatives,
+    # missions, budget, skills). Sert au dashboard, ne court-circuite aucun
+    # endpoint des phases précédentes.
+    from proactive.command_center import CommandCenter
+    from proactive.curator import Curator
+
+    _curator = Curator(
+        kernel=_memory_kernel,
+        skill_lifecycle=_skill_lifecycle,
+        initiative_store=_initiative_store,
+        budget_guard=_budget_guard,
+        reports_dir=Path(settings.memory_dir) / "curator_reports",
+    )
+    _command_center = CommandCenter(
+        initiative_store=_initiative_store,
+        project_store=orchestrator._store,
+        budget_guard=_budget_guard,
+        skill_lifecycle=_skill_lifecycle,
+    )
+    app.state.curator = _curator
+    app.state.command_center = _command_center
+    if settings.autonomy_auto_execute_enabled:
+        logger.warning(
+            "Autonomy auto-exec flag ON — flag stocké mais INERTE en MVP, "
+            "toute initiative ≥ niveau 3 passe par validation humaine."
+        )
+    else:
+        logger.info("Autonomy auto-exec désactivé (MVP) — toute initiative validée humaine")
+    logger.info("Curator activé (rapport-only en MVP, scan nocturne à 3h10)")
+    logger.info("Command Center activé (vue agrégée lecture-seule)")
+    # ── [/CURATOR + COMMAND CENTER] ──────────────────────────────────────────
 
     worker = BackgroundWorker(llm=llm, notifications=notifications, tool_registry=tool_registry)
     worker_task = asyncio.create_task(worker.run_loop(), name="background-worker")
@@ -419,6 +456,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         auto_dream=auto_dream,
         calendar_tool=calendar_list_tool,
         skill_lab=_skill_lab,
+        curator=_curator,
     )
     scheduler.start()
 
@@ -608,6 +646,11 @@ app.include_router(google_oauth_router)
 # ── [SURFACE] ────────────────────────────────────────────────────────────────
 app.include_router(budget_router)
 app.include_router(routines_router)
+
+# ── [PHASE 6] Curator + Command Center routes
+from api.http_curator import router as curator_router  # noqa: E402
+
+app.include_router(curator_router)
 # ── [/SURFACE] ───────────────────────────────────────────────────────────────
 
 
