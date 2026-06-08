@@ -317,6 +317,38 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     # ── [/SKILL LAB] ─────────────────────────────────────────────────────────
 
+    # ── [CAPABILITY ENGINE] PHASE 5 — auto-extension contrôlée
+    # Détecte les gaps signalés par l'agent et délègue au Skill Lab. AUCUNE
+    # auto-installation en MVP (cf. CDC §8) : toute candidate exige promote()
+    # humain, peu importe le verdict sandbox ou la whitelist.
+    from agent.capability_engine import CapabilityEngine, Whitelist
+    from tools.capability import ReportMissingCapabilityTool
+
+    _whitelist = Whitelist.load(Path("config/permissions.yaml"))
+    _capability_engine = CapabilityEngine(
+        kernel=_memory_kernel,
+        lab=_skill_lab,
+        skill_registry=skill_registry,
+        tool_registry=tool_registry,
+        whitelist=_whitelist,
+        auto_install_enabled=settings.auto_install_whitelisted_enabled,
+    )
+    app.state.capability_engine = _capability_engine
+    tool_registry.register(
+        ReportMissingCapabilityTool(engine=_capability_engine),
+    )
+    if settings.auto_install_whitelisted_enabled:
+        logger.warning(
+            "Capability Engine AUTO-INSTALL flag ON — flag stocké mais INERTE "
+            "en PHASE 5 MVP, toute candidate exige promote() humain."
+        )
+    else:
+        logger.info(
+            "Capability Engine activé — toute candidate exige validation humaine "
+            f"({len(_whitelist.domains)} domaine(s) whitelistés, inertes en MVP)"
+        )
+    # ── [/CAPABILITY ENGINE] ─────────────────────────────────────────────────
+
     # ── [BACKENDS] ───────────────────────────────────────────────────────────
     # Agent doit être créé AVANT cet bloc (SpawnSubagentTool référence l'agent).
     from config.backends import backends_config as _backends_cfg
