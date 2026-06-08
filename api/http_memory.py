@@ -14,6 +14,14 @@ class _ContentBody(BaseModel):
     content: str
 
 
+class _CorrectionBody(BaseModel):
+    target_fact_id: str
+    new_status: str | None = None
+    new_object: str | None = None
+    new_confidence: float | None = None
+    correction_text: str = ""
+
+
 def _mem_dir(request: Request) -> Path:  # noqa: ARG001
     from config.settings import settings
 
@@ -109,6 +117,102 @@ async def delete_memory_topic(name: str, request: Request) -> dict:
         asyncio.create_task(_remove_vector(), name=f"vector-remove-{name}")
 
     return {"ok": True}
+
+
+@router.get("/api/memory/facts")
+async def list_memory_facts(
+    request: Request,
+    status: str = "active",
+    category: str | None = None,
+    limit: int = 200,
+) -> list[dict]:
+    """Liste les facts du Kernel (vraie fenêtre sur ce que Jarvis sait).
+
+    Le miroir Markdown (memory_data/mirror/) reste la version *lisible*
+    régénérée par AutoDream deep ; cet endpoint expose les facts BRUTS
+    pour l'UI Atelier/Mémoire. Lecture seule — la correction passe par
+    POST /api/memory/correct.
+    """
+    from memory.schemas import FactStatus
+
+    kernel = getattr(request.app.state, "memory_kernel", None)
+    if kernel is None:
+        raise HTTPException(503, "Memory Kernel non disponible.")
+    try:
+        st = FactStatus(status)
+    except ValueError:
+        raise HTTPException(
+            400, f"Status invalide '{status}'. Valeurs : {[s.value for s in FactStatus]}"
+        ) from None
+    facts = kernel.list_facts_by_status(st, limit=limit)
+    if category:
+        facts = [f for f in facts if f.category == category]
+    return [
+        {
+            "id": f.id,
+            "subject": f.subject,
+            "predicate": f.predicate,
+            "object": f.object,
+            "category": f.category,
+            "status": f.status.value,
+            "confidence": round(f.confidence, 3),
+            "support_count": f.support_count,
+            "decay_policy": f.decay_policy.value,
+            "importance": round(f.importance, 3),
+            "last_seen_at": f.last_seen_at.isoformat(),
+            "created_at": f.created_at.isoformat(),
+        }
+        for f in facts
+    ]
+
+
+@router.post("/api/memory/correct")
+async def correct_memory_fact(body: _CorrectionBody, request: Request) -> dict:
+    """Applique une correction humaine sur un fact (§6.7).
+
+    Délègue à kernel.apply_correction() qui trace un event human_correction
+    en audit immuable et met à jour le fact. C'est l'UNIQUE chemin d'écriture
+    légitime sur la mémoire depuis l'UI — le miroir Markdown reste lecture seule.
+    """
+    from memory.schemas import FactStatus
+
+    kernel = getattr(request.app.state, "memory_kernel", None)
+    if kernel is None:
+        raise HTTPException(503, "Memory Kernel non disponible.")
+
+    new_status_enum: FactStatus | None = None
+    if body.new_status:
+        try:
+            new_status_enum = FactStatus(body.new_status)
+        except ValueError:
+            raise HTTPException(
+                400,
+                f"Status invalide '{body.new_status}'. Valeurs : "
+                f"{[s.value for s in FactStatus]}",
+            ) from None
+
+    event, fact = kernel.apply_correction(
+        target_fact_id=body.target_fact_id,
+        new_object=body.new_object,
+        new_status=new_status_enum,
+        new_confidence=body.new_confidence,
+        correction_text=body.correction_text,
+        source="ui_atelier",
+    )
+    return {
+        "event_id": event.id,
+        "fact_found": fact is not None,
+        "fact": (
+            {
+                "id": fact.id,
+                "status": fact.status.value,
+                "object": fact.object,
+                "confidence": round(fact.confidence, 3),
+            }
+            if fact
+            else None
+        ),
+    }
 
 
 @router.post("/api/memory/autodream")
