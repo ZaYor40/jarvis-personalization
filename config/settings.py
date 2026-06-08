@@ -120,6 +120,21 @@ class Settings(BaseSettings):
         default="memory_data",
         description="Répertoire racine des données mémoire (MEMORY.md, topics/, sessions/).",
     )
+    auto_install_whitelisted_enabled: bool = Field(
+        default=False,
+        description=(
+            "PHASE 5 — Active l'auto-installation des skills candidates qui "
+            "(1) sont issues du CapabilityEngine, (2) passent le sandbox vert, "
+            "(3) matchent un domaine listé dans config/permissions.yaml. "
+            "DÉSACTIVÉ par défaut : aucune route auto en MVP, toute candidate "
+            "passe par promote() humain. À NE FLIPPER QU'APRÈS observation "
+            "validée (sous-mouvement séparé, équivalent du flag "
+            "ingest_deep_enabled de PHASE 3 MOUVEMENT 2). "
+            "Même quand True : INSTALL_PACKAGE et MODIFY_CORE restent "
+            "systématiquement en validation humaine, le gate composite §9 ne "
+            "peut pas être contourné."
+        ),
+    )
     ingest_deep_enabled: bool = Field(
         default=False,
         description=(
