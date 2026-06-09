@@ -124,8 +124,13 @@ class PresetSkill(SkillBase):
         return bool(self.SYSTEM_PROMPT)
 
     def get_steps(self) -> list[PresetStep]:
-        installed_dir = Path("skills/installed") / self.name
-        yaml_file = installed_dir / "skill.yaml"
+        # `__dir` est injecté par SkillRegistry au chargement (pointe vers le
+        # vrai dossier — installed/ ou zone dev). Fallback historique sur
+        # skills/installed/<name> si le preset a été instancié sans passer par
+        # le registry (ex. ancien chemin de code, tests anciens).
+        base_dir = self.metadata.get("__dir")
+        skill_dir = Path(base_dir) if base_dir else Path("skills/installed") / self.name
+        yaml_file = skill_dir / "skill.yaml"
 
         if not yaml_file.exists():
             return []

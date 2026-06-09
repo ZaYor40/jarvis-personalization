@@ -673,6 +673,12 @@ async def mapbox_style() -> FileResponse:
     return FileResponse("ui/static/mapbox-style.json", media_type="application/json")
 
 
+# Vues dev (extensions liées) montées AVANT le mount global pour les servir
+# en priorité sous /static/skills/<name>. Inerte si la zone n'existe pas.
+from skills.dev_extensions import mount_dev_views  # noqa: E402
+
+mount_dev_views(app)
+
 # UI statique montée en dernier pour ne pas masquer les routes API
 app.mount("/", StaticFiles(directory="ui/static", html=True), name="ui")
 

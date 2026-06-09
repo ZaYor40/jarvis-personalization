@@ -8,6 +8,7 @@ from pathlib import Path
 from loguru import logger
 
 from skills.base import PresetSkill, SkillBase
+from skills.dev_extensions import iter_dev_skills_and_presets
 
 SKILLS_INSTALLED_DIR = Path("skills/installed")
 
@@ -31,9 +32,18 @@ class SkillRegistry:
     def load_all(self) -> None:
         SKILLS_INSTALLED_DIR.mkdir(parents=True, exist_ok=True)
         self._skills = {}
+        # Zone dev (~/.jarvis/extensions/dev) chargée en priorité. Inerte si
+        # la zone n'existe pas : iter_dev_skills_and_presets() ne yield rien.
+        for dev_dir in iter_dev_skills_and_presets():
+            self._load_skill(dev_dir)
         for skill_dir in SKILLS_INSTALLED_DIR.iterdir():
-            if skill_dir.is_dir():
-                self._load_skill(skill_dir)
+            if not skill_dir.is_dir():
+                continue
+            # Skip si un skill dev du même nom a déjà été chargé (override dev).
+            if skill_dir.name in self._skills:
+                logger.debug(f"Skill installé masqué par version dev : {skill_dir.name}")
+                continue
+            self._load_skill(skill_dir)
         logger.info(f"SkillRegistry: {len(self._skills)} skill(s) chargé(s)")
 
     def _load_skill(self, skill_dir: Path) -> None:
@@ -53,6 +63,9 @@ class SkillRegistry:
             metadata["requires_apps"] = []
         if "capabilities" not in metadata:
             metadata["capabilities"] = []
+        # Dossier source réel — utilisé par PresetSkill.get_steps() pour lire
+        # son skill.yaml sans hardcoder skills/installed/. Toujours injecté.
+        metadata["__dir"] = str(skill_dir.resolve())
 
         try:
             spec = importlib.util.spec_from_file_location(f"skill_{skill_dir.name}", skill_py)
