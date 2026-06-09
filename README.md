@@ -26,12 +26,14 @@ Jarvis est un assistant personnel IA qui tourne en local. Il expose un serveur F
 **Fonctionnalités principales :**
 
 - Pipeline vocal temps réel : STT (Whisper/Deepgram) + LLM + TTS (Piper/ElevenLabs), bridgé via LiveKit
-- Mémoire persistante : sessions, topics, auto-consolidation (passe "rêve" nocturne), recherche vectorielle
-- Utilisation d'outils : navigateur, Gmail, Google Calendar, Notion, Spotify, runner CLI, filesystem, vision (YOLOv8), météo
-- Système de skills : modules autonomes pluggables (ex : chercheur web)
-- Moteur proactif : agent en arrière-plan qui envoie des notifications sur déclencheurs (météo, actualités…)
+- Mémoire vivante (Memory Kernel) : faits atomiques datés, sourcés, renforçables, oubliables, corrigeables — SQLite source de vérité, miroir Markdown lisible
+- Mission Engine : transforme une demande en mission planifiée, vérifiée à chaque étape (structurelle, déterministe, sémantique), reprise après crash
+- Gouvernance transversale : tout ce qui touche au filesystem ou au réseau passe par un gate composite (risque × catégorie × budget) avec audit immuable
+- Apprentissage : leçon post-mission, Skill Lab (skills nées de l'usage, testées en sandbox Docker, validées par l'humain avant install), Capability Engine pour combler les manques de capacité
+- Proactif gouverné : initiatives à niveau d'autonomie 0-5, Command Center pour les piloter, Curator nocturne qui fait l'entretien (facts/skills/coûts)
+- Utilisation d'outils : navigateur, Gmail, Calendar, Notion, Spotify, runner CLI, filesystem, vision (YOLOv8), météo
 - Multi-LLM : Anthropic Claude, Mistral, Google Gemini, ou modèles Ollama en local
-- UI d'administration : dashboard web, widget globe, panneau de contrôle
+- UI d'administration : dashboard web, widget globe, Command Center, Skill Lab
 
 ---
 
@@ -60,17 +62,17 @@ voice_agent.py  ──LiveKit──►  STT ──► Gateway ──► TTS
 
 | Module | Rôle |
 |---|---|
-| `core/` | Agent, Gateway, SessionManager, Router |
+| `core/` | Agent, Gateway, SessionManager, Router + vocabulaires fermés / niveaux d'accès / niveaux d'autonomie (`vocab.py`), audit immuable (`audit.py`), budget USD (`budget.py`) |
 | `llm/` | Abstraction providers (Anthropic, Mistral, Ollama, Gemini) |
-| `memory/` | Sessions, topics, index vectoriel, auto-consolidation |
+| `memory/` | Memory Kernel SQLite (`kernel.py`, `schemas.py`), ingestion + réconciliation (`ingest.py`), miroir Markdown unidirectionnel (`mirror.py`), retrieval pondéré (`retrieval.py`), sessions, vault topics, AutoDream / ConsolidationAgent comme producteurs de facts |
 | `tools/` | Tous les outils appelables (navigateur, Gmail, Calendar, vision…) |
-| `skills/` | Modules de haut niveau pluggables |
+| `agent/` | Mission Engine : orchestrator, worker, project store ; vérification 3 couches (`verifier.py`), gouvernance composite (`governance.py`), reflexion post-mission (`reflexion.py`), Capability Engine (`capability_engine.py`), exécuteur Docker |
+| `skills/` | Skill Lab (`lab.py`) — génération + test sandbox Docker + validation humaine — et cycle de vie (`registry.py`, `lifecycle.py`) ; skills installées dans `installed/` |
 | `audio/` | STT, TTS, VAD, wake word, chunker audio |
-| `proactive/` | Moteur proactif + collectors |
+| `proactive/` | Moteur d'initiatives gouvernées, Command Center (`command_center.py`), Curator nocturne (`curator.py`), collectors |
 | `background/` | Scheduler, worker, file de notifications |
-| `agent/` | Agent projet/code autonome (exécuteur Docker) |
 | `api/` | Routeurs FastAPI (WS, HTTP, admin, voice, globe…) |
-| `config/` | Settings (pydantic-settings), tools.yaml |
+| `config/` | Settings (pydantic-settings), `tools.yaml`, `approvals.py`, `permissions.yaml` |
 | `prompts/` | Prompt système (partie statique + contexte dynamique) |
 
 ---
@@ -154,16 +156,20 @@ Sans cette photo, la séquence de scan s'exécute mais retourne toujours "identi
 
 ## Système de mémoire
 
-| Composant | Ce qu'il stocke |
+Jarvis ne mémorise pas en vrac : il **extrait des faits atomiques** (« Barth vise un marathon sub-3h »), les **date**, les **source** (quel échange l'a produit), les **renforce** quand il les ré-entend, les **archive** quand ils sont contredits — sans jamais les supprimer. Une base SQLite unique est la source de vérité ; un miroir Markdown lisible (compatible Obsidian) en donne une vue inerte.
+
+| Table | Ce qu'elle contient |
 |---|---|
-| `sessions/` | Historique complet des conversations (jsonl par session) |
-| `topics/` | Notes long-terme nommées (écrites par l'assistant) |
-| `conso/` | Logs de consommation quotidiens (tokens, coût) |
-| `initiatives/` | Log des événements proactifs |
+| `events` | Log immuable de tout ce qui arrive (échanges, observations, leçons de mission) |
+| `facts` | Claims atomiques avec prédicat/catégorie issus d'un vocabulaire fermé, statut (`active`/`superseded`/`needs_review`…), confiance, decay par catégorie |
+| `fact_observations` | Renforcement sans duplication : chaque ré-observation crée une trace au lieu d'ajouter un doublon |
+| `fact_relations` | Liens entre facts (`supersedes`, `contradicts`, `supports`, `related_to`) |
 
-Chaque nuit (ou à la demande), **AutoDream** + **ConsolidationAgent** passent sur les sessions récentes et fusionnent les informations pertinentes dans les topics, l'équivalent du sommeil pour consolider la mémoire.
+Le miroir Markdown est **unidirectionnel** : la DB génère `user/preferences.md`, `user/projects.md`, `user/goals.md`, `jarvis/persona.md`, etc., pour inspection. Éditer un `.md` ne modifie pas la mémoire — pour corriger un souvenir, Jarvis crée un événement `human_correction` qui met la DB à jour.
 
-Tous les fichiers mémoire vivent dans `memory_data/` qui est gitignorés, ils restent uniquement sur ta machine.
+Chaque nuit, **AutoDream** + **ConsolidationAgent** repassent sur les sessions récentes pour en extraire les facts manqués en temps réel.
+
+Tout vit dans `memory_data/` (DB `jarvis_memory.db`, vault `topics/` lisible, sessions, conso, initiatives). Le dossier est gitignored — la mémoire reste sur ta machine.
 
 ---
 
@@ -188,12 +194,12 @@ Une fois lancé sur `http://localhost:3000`, l'onglet Intel Monde de Jarvis l'af
 
 ## Moteur proactif
 
-Le moteur proactif tourne en arrière-plan et pousse des notifications au client connecté via WebSocket. Collectors intégrés :
+Jarvis ne « pousse pas juste des notifs » : il **entreprend des initiatives gouvernées**. Chaque initiative porte un déclencheur, un objectif, un coût max (tokens/temps/argent), un niveau d'autonomie (0 = répondre seulement → 5 = publier/payer/contacter, validation humaine obligatoire), et un état suivi en continu.
 
-- **Météo** : briefing matinal + alertes météo sévères
-- **Actualités** : digest RSS sur des topics configurés
-
-Ajoute un collector dans `proactive/collectors/` pour l'étendre.
+- **Collectors** (`proactive/collectors/`) — captent les signaux : météo (briefing + alertes sévères), actualités (digest RSS), trackers personnalisables. Étends-les en ajoutant un fichier dans le dossier.
+- **Command Center** (`proactive/command_center.py`) — la vue unifiée de toutes les initiatives et missions en cours : objectifs, budgets, permissions, heartbeat, coûts. Jarvis ne « fait pas des trucs », il gère des workstreams.
+- **Curator nocturne** (`proactive/curator.py`) — job de maintenance qui produit chaque nuit un rapport et propose des patches : facts ajoutés/contradictoires, skills inutilisées à archiver, prompts qui ont dérivé, coûts du jour, erreurs récurrentes. Il **propose**, l'humain valide pour tout ce qui dépasse le gate (cf. gouvernance).
+- **Gouvernance** — toute initiative niveau ≥ 3 (exécution sandboxée), 4 (modification de fichiers projet) ou 5 (publication/paiement/contact) passe par le gate composite avant agir, comme n'importe quel step de mission.
 
 ---
 
