@@ -106,7 +106,19 @@ _SANDBOX_TEST_SCRIPT = textwrap.dedent(
         sys.stdout.write(json.dumps({"layer": layer, "ok": True, "notes": message}))
 
 
-    # 1) Import du skill.py
+    # 1) Rendre `skills.base` résolvable AVANT d'importer skill.py — la
+    # candidate fait `from skills.base import SkillBase` au top, donc le
+    # sys.path doit déjà contenir la racine du repo. (Ce sys.path.insert
+    # arrivait après exec_module dans une version antérieure ; tous les
+    # skills réels étaient alors rejetés à la couche import.)
+    sys.path.insert(0, "/jarvis_src")
+    try:
+        from skills.base import SkillBase
+    except Exception as exc:
+        _fail("import", f"SkillBase indisponible dans la sandbox : {exc!r}")
+
+
+    # 2) Import du skill.py de la candidate.
     if not SKILL_PY.exists():
         _fail("import", f"skill.py introuvable dans {SKILL_DIR}")
 
@@ -116,14 +128,6 @@ _SANDBOX_TEST_SCRIPT = textwrap.dedent(
         spec.loader.exec_module(module)
     except Exception as exc:
         _fail("import", f"import a échoué : {exc!r}\\n{traceback.format_exc()[:600]}")
-
-
-    # 2) Trouver la classe SkillBase (recherche dans le module + dans sys.modules)
-    try:
-        sys.path.insert(0, "/jarvis_src")
-        from skills.base import SkillBase
-    except Exception as exc:
-        _fail("import", f"SkillBase indisponible dans la sandbox : {exc!r}")
 
     skill_class = None
     for attr_name in dir(module):
