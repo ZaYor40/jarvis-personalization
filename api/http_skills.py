@@ -178,7 +178,7 @@ async def get_installed_skills() -> dict:
 @router.post("/api/skills/install/{skill_name}")
 async def install_skill(skill_name: str, request: Request) -> dict:
     """Installe un skill depuis le repo jarvis-skills."""
-    from background.notifications import broadcast_event
+    from jarvis.engine.background.notifications import broadcast_event
     from jarvis.capabilities.skills.installer import skill_installer
     from jarvis.capabilities.skills.registry import skill_registry
 
@@ -194,7 +194,7 @@ async def install_skill(skill_name: str, request: Request) -> dict:
 @router.delete("/api/skills/uninstall/{skill_name}")
 async def uninstall_skill(skill_name: str, request: Request) -> dict:
     """Désinstalle un skill."""
-    from background.notifications import broadcast_event
+    from jarvis.engine.background.notifications import broadcast_event
     from jarvis.capabilities.skills.installer import skill_installer
     from jarvis.capabilities.skills.registry import skill_registry
 
@@ -284,7 +284,7 @@ async def get_presets() -> dict:
 @router.post("/api/presets/{preset_name}/execute")
 async def execute_preset_endpoint(preset_name: str, request: Request) -> dict:
     """Lance un preset depuis l'UI (bouton ▶)."""
-    from background.notifications import broadcast_event
+    from jarvis.engine.background.notifications import broadcast_event
     from jarvis.capabilities.skills.executor import PresetExecutor
     from jarvis.capabilities.skills.registry import skill_registry
     from jarvis.engine.gateway import get_tool_registry

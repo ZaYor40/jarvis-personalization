@@ -232,7 +232,7 @@ class TestEngineRestore:
 
             events: list[dict] = []
 
-            from background.notifications import NotificationQueue
+            from jarvis.engine.background.notifications import NotificationQueue
             nq = NotificationQueue()
 
             from jarvis.engine.proactive.engine import ProactiveEngine
@@ -261,7 +261,7 @@ class TestEngineRestore:
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
             events: list[dict] = []
-            from background.notifications import NotificationQueue
+            from jarvis.engine.background.notifications import NotificationQueue
             from jarvis.engine.proactive.engine import ProactiveEngine
 
             engine = ProactiveEngine(

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from background.notifications import NotificationQueue
-from background.worker import BackgroundWorker
+from jarvis.engine.background.notifications import NotificationQueue
+from jarvis.engine.background.worker import BackgroundWorker
 from jarvis.engine.agent import Agent
 from jarvis.engine.gateway import Gateway
 from jarvis.engine.router import RouteEnum

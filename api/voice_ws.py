@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from background.notifications import ProactiveQueue
-from background.worker import BackgroundTask, BackgroundWorker
+from jarvis.engine.background.notifications import ProactiveQueue
+from jarvis.engine.background.worker import BackgroundTask, BackgroundWorker
 from config.settings import settings
 from jarvis.engine.gateway import _FALLBACK, Gateway
 from jarvis.engine.router import RouteEnum

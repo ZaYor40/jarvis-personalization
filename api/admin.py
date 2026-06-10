@@ -204,8 +204,8 @@ async def delete_topic(filename: str, request: Request) -> dict:
 
 @router.get("/tasks")
 async def get_tasks(request: Request) -> dict:
-    from background.scheduler import Scheduler
-    from background.worker import BackgroundWorker
+    from jarvis.engine.background.scheduler import Scheduler
+    from jarvis.engine.background.worker import BackgroundWorker
 
     scheduler: Scheduler = request.app.state.scheduler
     worker: BackgroundWorker = request.app.state.worker
@@ -279,7 +279,7 @@ async def system_update() -> dict:
 
 @router.get("/notifications")
 async def get_notifications(request: Request) -> dict:
-    from background.notifications import NotificationQueue
+    from jarvis.engine.background.notifications import NotificationQueue
 
     queue: NotificationQueue = request.app.state.notifications
     return {

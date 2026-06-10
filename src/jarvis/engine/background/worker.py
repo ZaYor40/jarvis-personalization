@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from background.notifications import NotificationQueue
+from jarvis.engine.background.notifications import NotificationQueue
 from jarvis.providers.llm.base import LLMProvider
 
 if TYPE_CHECKING:

@@ -23,7 +23,7 @@ for _dep in ("openai", "anthropic", "ollama", "google", "google.genai", "google.
     if _dep not in sys.modules:
         sys.modules[_dep] = MagicMock()  # type: ignore[assignment]
 
-from background.routines import (  # noqa: E402
+from jarvis.engine.background.routines import (  # noqa: E402
     CatchUpPolicy,
     ConcurrencyPolicy,
     Routine,
@@ -154,7 +154,7 @@ async def test_concurrency_blocks_overlap(tmp_path: Path) -> None:
 
 def test_proactive_audit_event() -> None:
     """ProactiveEngine._dispatch doit enregistrer un ProactiveAuditEvent consultable."""
-    from background.notifications import NotificationQueue
+    from jarvis.engine.background.notifications import NotificationQueue
     from jarvis.engine.proactive.engine import ProactiveEngine
 
     broadcast_events: list[dict] = []

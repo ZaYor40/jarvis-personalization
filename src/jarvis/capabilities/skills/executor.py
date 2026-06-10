@@ -179,7 +179,7 @@ class PresetExecutor:
 
         audio_bytes = await self._tts.synthesize(step.text)
 
-        from background.notifications import broadcast_audio
+        from jarvis.engine.background.notifications import broadcast_audio
 
         await broadcast_audio(audio_bytes)
 
@@ -199,7 +199,7 @@ class PresetExecutor:
 
         if self._tts and text:
             audio_bytes = await self._tts.synthesize(text)
-            from background.notifications import broadcast_audio
+            from jarvis.engine.background.notifications import broadcast_audio
 
             await broadcast_audio(audio_bytes)
 

@@ -25,7 +25,7 @@ for _dep in ("openai", "anthropic", "ollama", "google", "google.genai", "google.
         sys.modules[_dep] = MagicMock()  # type: ignore[assignment]
 
 from api.http_routines import router as routines_router  # noqa: E402
-from background.routines import (  # noqa: E402
+from jarvis.engine.background.routines import (  # noqa: E402
     CatchUpPolicy,
     ConcurrencyPolicy,
     Routine,

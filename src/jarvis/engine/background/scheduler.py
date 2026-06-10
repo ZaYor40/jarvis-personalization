@@ -7,8 +7,8 @@ from datetime import UTC, datetime, timedelta
 
 from loguru import logger
 
-from background.notifications import ProactiveQueue
-from background.routines import (
+from jarvis.engine.background.notifications import ProactiveQueue
+from jarvis.engine.background.routines import (
     ROUTINES_ENABLED,
     CatchUpPolicy,
     Routine,

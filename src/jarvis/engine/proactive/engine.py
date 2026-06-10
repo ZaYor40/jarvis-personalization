@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 from loguru import logger
 
-from background.notifications import NotificationQueue
+from jarvis.engine.background.notifications import NotificationQueue
 from jarvis.engine.proactive.context_builder import ContextBuilder
 from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
 from jarvis.engine.proactive.schemas import ExecutionMode, Initiative, Priority

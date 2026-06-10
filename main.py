@@ -34,9 +34,9 @@ from api.spotify import router as spotify_router
 from api.voice_ws import router as voice_router
 from api.websocket import router as ws_router
 from api.widgets import router as widgets_router
-from background.notifications import NotificationQueue, ProactiveQueue
-from background.scheduler import Scheduler
-from background.worker import BackgroundWorker
+from jarvis.engine.background.notifications import NotificationQueue, ProactiveQueue
+from jarvis.engine.background.scheduler import Scheduler
+from jarvis.engine.background.worker import BackgroundWorker
 from channels.telegram_bot import TelegramChannel, get_telegram_channel
 from config.settings import settings
 from jarvis.capabilities.skills.registry import skill_registry
@@ -265,7 +265,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ── [/MEMORY-RECALL] ─────────────────────────────────────────────────────
 
     # Expose singletons pour les presets (executor + tool)
-    from background.notifications import set_proactive_queue
+    from jarvis.engine.background.notifications import set_proactive_queue
     from jarvis.engine.gateway import set_tool_registry
 
     set_proactive_queue(proactive_queue)
@@ -477,7 +477,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     asyncio.create_task(proactive_engine.start(), name="proactive-engine")
 
     # ── [ROUTINES] ────────────────────────────────────────────────────────────
-    from background.routines import ROUTINES_ENABLED, Routine, RoutineStore  # noqa: F401
+    from jarvis.engine.background.routines import ROUTINES_ENABLED, Routine, RoutineStore  # noqa: F401
 
     if ROUTINES_ENABLED:
         _routine_store = RoutineStore()
