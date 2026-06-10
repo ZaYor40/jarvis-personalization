@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from jarvis.capabilities.skills.executor import PresetExecutor
+from jarvis.capabilities.skills.registry import skill_registry
 from jarvis.capabilities.tools.base import Tool, ToolResult
-
-if TYPE_CHECKING:
-    from jarvis.capabilities.tools.registry import ToolRegistry
+from jarvis.capabilities.tools.registry import ToolRegistry
+from jarvis.engine.background.notifications import broadcast_event
+from jarvis.providers.audio.tts import tts_engine
 
 
 class ExecutePresetTool(Tool):
@@ -36,10 +36,6 @@ class ExecutePresetTool(Tool):
         self._tool_registry = tool_registry
 
     async def execute(self, preset_name: str, **_: object) -> ToolResult:
-        from jarvis.capabilities.skills.executor import PresetExecutor
-        from jarvis.capabilities.skills.registry import skill_registry
-        from jarvis.engine.background.notifications import broadcast_event
-        from jarvis.providers.audio.tts import tts_engine
 
         preset = skill_registry.get_preset(preset_name)
 

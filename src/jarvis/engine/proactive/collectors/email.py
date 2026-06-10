@@ -10,8 +10,12 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 from loguru import logger
 
+from config.settings import settings
 from jarvis.engine.connectivity import is_offline_mode
 from jarvis.engine.proactive.collectors.base import CollectorBase
 from jarvis.engine.proactive.schemas import ContextItem, ItemType, Priority
@@ -62,9 +66,6 @@ def _extract_text_body(payload: dict) -> str:
 
 
 def _load_gmail_creds(credentials_path: Path, token_path: Path):  # noqa: ANN202
-    from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
 
     creds = None
     if token_path.exists():
@@ -91,7 +92,6 @@ class EmailCollector(CollectorBase):
             logger.debug("EmailCollector ignoré — mode local")
             return []
 
-        from config.settings import settings
 
         creds_path = Path(settings.google_credentials_path)
         token_path = Path(settings.google_token_path).parent / "google_gmail_token.json"

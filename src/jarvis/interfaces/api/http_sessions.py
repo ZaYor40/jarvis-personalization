@@ -7,11 +7,12 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from config.settings import settings
+
 router = APIRouter()
 
 
 def _mem_dir(request: Request) -> Path:  # noqa: ARG001
-    from config.settings import settings
 
     return Path(settings.memory_dir)
 

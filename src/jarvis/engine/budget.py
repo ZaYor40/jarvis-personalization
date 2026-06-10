@@ -13,13 +13,12 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from loguru import logger
 
-if TYPE_CHECKING:
-    from jarvis.engine.tracking import UsageTracker
-    from jarvis.kernel.settings import Settings
+from jarvis.engine.tracking import UsageTracker
+from jarvis.kernel.settings import Settings
 
 BudgetStatus = Literal["ok", "warning", "hard_stop"]
 

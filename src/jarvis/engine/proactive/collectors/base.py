@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 from loguru import logger
 
+from jarvis.engine.connectivity import is_offline_mode
 from jarvis.engine.proactive.schemas import ContextItem
 
 
@@ -12,7 +13,6 @@ class CollectorBase(ABC):
 
     async def collect(self) -> list[ContextItem]:
         """Point d'entrée principal. Gère les erreurs proprement."""
-        from jarvis.engine.connectivity import is_offline_mode
 
         try:
             items = await self._collect()

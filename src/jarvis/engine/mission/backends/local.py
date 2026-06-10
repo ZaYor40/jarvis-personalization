@@ -7,6 +7,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from config.settings import settings
 from jarvis.engine.mission.backends.base import BackendResult, ExecutionBackend
 
 
@@ -21,12 +22,10 @@ class LocalBackend(ExecutionBackend):
         self._workspace = Path(workspace_path).resolve()
 
     async def is_available(self) -> bool:
-        from config.settings import settings
 
         return bool(getattr(settings, "allow_unsandboxed_exec", False))
 
     async def execute(self, command: str, timeout: int = 60) -> BackendResult:  # noqa: ASYNC109
-        from config.settings import settings
 
         if not getattr(settings, "allow_unsandboxed_exec", False):
             logger.error("LocalBackend: opt-in manquant (ALLOW_UNSANDBOXED_EXEC absent/false)")

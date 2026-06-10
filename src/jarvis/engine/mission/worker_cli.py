@@ -7,6 +7,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from config.backends import get_backend
+
 WORKER_CLI_WHITELIST: list[str] = [
     "python",
     "python3",
@@ -154,7 +156,6 @@ class WorkerCLITool:
         if err:
             return err
 
-        from config.backends import get_backend
 
         backend = get_backend(str(self._workspace), docker_executor=self._docker)
 

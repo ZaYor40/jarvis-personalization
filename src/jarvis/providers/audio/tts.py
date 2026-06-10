@@ -4,16 +4,15 @@ import asyncio
 import io
 import wave
 from datetime import datetime
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import httpx
 from loguru import logger
+from piper import PiperVoice
 
 from config.settings import settings
+from jarvis.kernel.contracts import UsageTracker
 from jarvis.kernel.schemas import UsageEntry, calculate_cost
-
-if TYPE_CHECKING:
-    from jarvis.kernel.contracts import UsageTracker
 
 
 class TTSEngine:
@@ -99,9 +98,7 @@ class TTSEngine:
         return data
 
     def _piper_sync(self, text: str) -> bytes:
-        from pathlib import Path
 
-        from piper import PiperVoice  # type: ignore[import-untyped]
 
         if self._piper_voice is None:
             model_path = Path(settings.piper_model_path)

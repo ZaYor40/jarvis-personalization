@@ -26,20 +26,15 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from jarvis.capabilities.skills.lifecycle import SkillStatus
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
+from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.proactive.store import InitiativeStore
 from jarvis.kernel.paths import MEMORY_DATA_DIR
-from jarvis.providers.memory.schemas import DecayPolicy, FactStatus
-
-if TYPE_CHECKING:
-    from jarvis.capabilities.skills.lifecycle import SkillLifecycle
-    from jarvis.engine.budget import BudgetGuard
-    from jarvis.engine.proactive.store import InitiativeStore
-    from jarvis.providers.memory.kernel import MemoryKernel
-
+from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.providers.memory.schemas import DecayPolicy, Fact, FactStatus
 
 # ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -211,7 +206,6 @@ class Curator:
 
     def _scan_facts(self, report: CuratorReport) -> None:
         """Pour chaque fact ACTIVE, calcule si son âge dépasse N demi-vies."""
-        from jarvis.providers.memory.schemas import Fact  # import tardif
 
         active: list[Fact] = self._kernel.list_facts_by_status(FactStatus.ACTIVE)
         superseded = self._kernel.count_facts(FactStatus.SUPERSEDED)

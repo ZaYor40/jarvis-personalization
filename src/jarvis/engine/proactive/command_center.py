@@ -18,15 +18,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
-if TYPE_CHECKING:
-    from jarvis.capabilities.skills.lifecycle import SkillLifecycle
-    from jarvis.engine.budget import BudgetGuard
-    from jarvis.engine.mission.project_store import ProjectStore
-    from jarvis.engine.proactive.store import InitiativeStore
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
+from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.mission.project_store import ProjectStore
+from jarvis.engine.mission.schemas import StepStatus
+from jarvis.engine.proactive.store import InitiativeStore
 
 
 @dataclass
@@ -178,7 +177,6 @@ class CommandCenter:
 
     @staticmethod
     def _project_to_summary(p: object) -> MissionSummary:
-        from jarvis.engine.mission.schemas import StepStatus
 
         steps = p.steps  # type: ignore[attr-defined]
         return MissionSummary(
@@ -220,7 +218,6 @@ class CommandCenter:
     def _skills_summary(self) -> SkillSummary:
         if self._skills is None:
             return SkillSummary()
-        from jarvis.capabilities.skills.lifecycle import SkillStatus
 
         by_status: dict[str, int] = {}
         for st in SkillStatus:

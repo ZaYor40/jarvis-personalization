@@ -7,7 +7,9 @@ import platform
 
 from loguru import logger
 
+from jarvis.capabilities.skills.app_checker import check_all_apps
 from jarvis.capabilities.skills.base import PresetSkill, PresetStep
+from jarvis.engine.background.notifications import broadcast_audio
 
 
 class PresetExecutor:
@@ -28,7 +30,6 @@ class PresetExecutor:
         Exécute tous les steps d'un preset.
         broadcast_fn : coroutine async(dict) pour envoyer des events WebSocket.
         """
-        from jarvis.capabilities.skills.app_checker import check_all_apps
 
         requires_apps = preset.metadata.get("requires_apps", [])
         if requires_apps:
@@ -179,7 +180,6 @@ class PresetExecutor:
 
         audio_bytes = await self._tts.synthesize(step.text)
 
-        from jarvis.engine.background.notifications import broadcast_audio
 
         await broadcast_audio(audio_bytes)
 
@@ -199,7 +199,6 @@ class PresetExecutor:
 
         if self._tts and text:
             audio_bytes = await self._tts.synthesize(text)
-            from jarvis.engine.background.notifications import broadcast_audio
 
             await broadcast_audio(audio_bytes)
 

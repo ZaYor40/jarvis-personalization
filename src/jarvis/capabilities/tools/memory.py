@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from config.settings import settings
 from jarvis.capabilities.tools.base import Tool, ToolResult
+from jarvis.providers.memory.search import FTSIndex, VectorIndex
 from jarvis.providers.memory.topics import TopicStore
-
-if TYPE_CHECKING:
-    from jarvis.providers.memory.search import FTSIndex, VectorIndex
 
 
 def _is_invalid_filename(filename: str) -> bool:

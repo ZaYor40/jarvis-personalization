@@ -380,7 +380,7 @@ async def test_skill_list_tool_vide() -> None:
     mock_registry.list_installed.return_value = []
 
     tool = SkillListTool()
-    with patch("jarvis.capabilities.skills.registry.skill_registry", mock_registry):
+    with patch("jarvis.capabilities.tools.skills.skill_registry", mock_registry):
         result = await tool.execute()
 
     assert not result.is_error
@@ -404,7 +404,7 @@ async def test_skill_list_tool_avec_skills() -> None:
     ]
 
     tool = SkillListTool()
-    with patch("jarvis.capabilities.skills.registry.skill_registry", mock_registry):
+    with patch("jarvis.capabilities.tools.skills.skill_registry", mock_registry):
         result = await tool.execute()
 
     assert not result.is_error

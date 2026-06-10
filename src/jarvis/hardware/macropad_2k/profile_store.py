@@ -15,6 +15,7 @@ from jarvis.hardware.macropad_2k.models import (
     default_profile,
 )
 from jarvis.hardware.macropad_2k.paths import (
+    firmware_root,
     is_valid_workspace,
     profile_path,
     workspace_state_path,
@@ -109,7 +110,6 @@ def load_default_workspace() -> Path | None:
         if isinstance(path, str) and is_valid_workspace(path):
             return Path(path)
 
-    from jarvis.hardware.macropad_2k.paths import firmware_root
 
     fw = firmware_root()
     if is_valid_workspace(fw):

@@ -4,6 +4,9 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from config.settings import settings
+from jarvis.interfaces.api import deezer as _dz
+from jarvis.interfaces.api import local_music as _lm
+from jarvis.interfaces.api import spotify as _sp
 
 router = APIRouter(prefix="/api/music")
 
@@ -11,17 +14,11 @@ router = APIRouter(prefix="/api/music")
 async def _get_state() -> dict:
     provider = settings.music_provider or ""
     if provider == "spotify":
-        from jarvis.interfaces.api.spotify import _get_player_state
-
-        state = await _get_player_state()
+        state = await _sp._get_player_state()
     elif provider == "deezer":
-        from jarvis.interfaces.api.deezer import _get_player_state
-
-        state = await _get_player_state()
+        state = await _dz._get_player_state()
     elif provider == "local":
-        from jarvis.interfaces.api.local_music import _get_player_state
-
-        state = await _get_player_state()
+        state = await _lm._get_player_state()
     else:
         return {"provider": None, "connected": False}
     state["provider"] = provider
@@ -34,26 +31,26 @@ async def _action(action: str) -> JSONResponse:
         return JSONResponse({"ok": False, "error": "no_provider"}, status_code=400)
 
     if provider == "spotify":
-        from jarvis.interfaces.api.spotify import next_track as sp_next
-        from jarvis.interfaces.api.spotify import pause as sp_pause
-        from jarvis.interfaces.api.spotify import play as sp_play
-        from jarvis.interfaces.api.spotify import previous_track as sp_prev
-
-        mapping = {"play": sp_play, "pause": sp_pause, "next": sp_next, "prev": sp_prev}
+        mapping = {
+            "play": _sp.play,
+            "pause": _sp.pause,
+            "next": _sp.next_track,
+            "prev": _sp.previous_track,
+        }
     elif provider == "deezer":
-        from jarvis.interfaces.api.deezer import next_track as dz_next
-        from jarvis.interfaces.api.deezer import pause as dz_pause
-        from jarvis.interfaces.api.deezer import play as dz_play
-        from jarvis.interfaces.api.deezer import previous_track as dz_prev
-
-        mapping = {"play": dz_play, "pause": dz_pause, "next": dz_next, "prev": dz_prev}
+        mapping = {
+            "play": _dz.play,
+            "pause": _dz.pause,
+            "next": _dz.next_track,
+            "prev": _dz.previous_track,
+        }
     elif provider == "local":
-        from jarvis.interfaces.api.local_music import next_track as lm_next
-        from jarvis.interfaces.api.local_music import pause as lm_pause
-        from jarvis.interfaces.api.local_music import play as lm_play
-        from jarvis.interfaces.api.local_music import previous_track as lm_prev
-
-        mapping = {"play": lm_play, "pause": lm_pause, "next": lm_next, "prev": lm_prev}
+        mapping = {
+            "play": _lm.play,
+            "pause": _lm.pause,
+            "next": _lm.next_track,
+            "prev": _lm.previous_track,
+        }
     else:
         return JSONResponse({"ok": False, "error": "unknown_provider"}, status_code=400)
 

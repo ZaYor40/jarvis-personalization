@@ -31,7 +31,7 @@ from pathlib import Path
 def check_1_prompts_dir() -> tuple[bool, str]:
     """Le code réel charge un prompt depuis PROMPTS_DIR."""
     try:
-        from jarvis.engine.agent import _STATIC_PROMPT_PATH
+        from jarvis.engine.agent import _STATIC_PROMPT_PATH  # lazy: diagnostic
     except Exception as e:
         return False, f"import _STATIC_PROMPT_PATH a levé : {e!r}"
 
@@ -59,7 +59,7 @@ def check_2_memory_data_dir() -> tuple[bool, str]:
     (c) le code réel n'a pas perdu sa cohérence db_path en route.
     """
     try:
-        from jarvis.providers.memory.kernel import MemoryKernel
+        from jarvis.providers.memory.kernel import MemoryKernel  # lazy: diagnostic
     except Exception as e:
         return False, f"import MemoryKernel a levé : {e!r}"
 
@@ -96,7 +96,7 @@ def check_3_ui_static_dir() -> tuple[bool, str]:
     try:
         from fastapi.testclient import TestClient
 
-        from jarvis.app import app
+        from jarvis.app import app  # lazy: diagnostic
     except Exception as e:
         return False, f"import app a levé : {e!r}"
 
@@ -118,7 +118,7 @@ def check_3_ui_static_dir() -> tuple[bool, str]:
 def check_4_skills_installed_dir() -> tuple[bool, str]:
     """Le code réel charge ≥ 1 skill via SkillRegistry."""
     try:
-        from jarvis.capabilities.skills.registry import SkillRegistry
+        from jarvis.capabilities.skills.registry import SkillRegistry  # lazy: diagnostic
     except Exception as e:
         return False, f"import SkillRegistry a levé : {e!r}"
 

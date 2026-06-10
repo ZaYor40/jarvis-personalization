@@ -17,6 +17,7 @@ from loguru import logger
 
 from config.settings import settings
 from jarvis.capabilities.tools.base import Tool, ToolResult
+from jarvis.engine.approval_checker import get_approval_checker
 
 _ORCA_CLI = "/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer"
 
@@ -100,7 +101,6 @@ class Printer3DTool(Tool):
         plate: int = 1,
         **_: object,
     ) -> ToolResult:
-        from jarvis.engine.approval_checker import get_approval_checker
 
         checker = get_approval_checker()
         action_id = str(uuid.uuid4())[:8]

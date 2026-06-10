@@ -20,6 +20,9 @@ from pathlib import Path
 
 from loguru import logger
 
+from config.settings import settings
+from jarvis.engine.mission.backends import DockerBackend, LocalBackend, RemoteBackend, SSHBackend
+
 
 class BackendType(StrEnum):
     """Type de backend d'exécution sélectionnable."""
@@ -97,13 +100,6 @@ def get_backend(
     Retourne None si aucun backend sûr n'est disponible.
     Le docker_executor (si fourni) doit être déjà démarré (DockerExecutor.start() appelé).
     """
-    from config.settings import settings
-    from jarvis.engine.mission.backends import (
-        DockerBackend,
-        LocalBackend,
-        RemoteBackend,
-        SSHBackend,
-    )
 
     config = load_backends_config()
 

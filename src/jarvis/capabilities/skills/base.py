@@ -5,12 +5,11 @@ from __future__ import annotations
 import platform
 from abc import ABC
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import yaml
 
-if TYPE_CHECKING:
-    from jarvis.capabilities.tools.base import Tool
+from jarvis.capabilities.tools.base import Tool
+from jarvis.kernel.paths import SKILLS_INSTALLED_DIR
 
 
 class SkillBase(ABC):  # noqa: B024 — sous-classes surchargent par convention, pas via abstractmethod
@@ -129,7 +128,6 @@ class PresetSkill(SkillBase):
         # skills/installed/<name> si le preset a été instancié sans passer par
         # le registry (ex. ancien chemin de code, tests anciens).
         base_dir = self.metadata.get("__dir")
-        from jarvis.kernel.paths import SKILLS_INSTALLED_DIR
 
         skill_dir = Path(base_dir) if base_dir else SKILLS_INSTALLED_DIR / self.name
         yaml_file = skill_dir / "skill.yaml"

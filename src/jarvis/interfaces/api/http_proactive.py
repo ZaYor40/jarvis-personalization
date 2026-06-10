@@ -3,7 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from loguru import logger as _log
 from pydantic import BaseModel
+
+from config.settings import settings as _s
+from jarvis.capabilities.tools.gmail import send_gmail_draft
+from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
+from jarvis.engine.proactive.schemas import InitiativeType
+from jarvis.engine.proactive.store import InitiativeStore
 
 router = APIRouter()
 
@@ -29,7 +36,6 @@ async def get_initiatives() -> list[dict]:
     badge "NIVEAU 5 — VALIDATION FORCÉE" et le bloc gouvernance.
     Ajout rétro-compatible : aucun champ historique retiré.
     """
-    from jarvis.engine.proactive.store import InitiativeStore
 
     store = InitiativeStore()
     initiatives = store.load_pending_all(days=7)
@@ -62,10 +68,7 @@ async def get_initiatives() -> list[dict]:
 async def approve_initiative(initiative_id: str, request: Request) -> dict:
     import asyncio
 
-    from loguru import logger as _log
 
-    from jarvis.engine.proactive.schemas import InitiativeType
-    from jarvis.engine.proactive.store import InitiativeStore
 
     store = InitiativeStore()
     init = store.get_by_id(initiative_id)
@@ -76,8 +79,6 @@ async def approve_initiative(initiative_id: str, request: Request) -> dict:
 
     try:
         if init.type == InitiativeType.DRAFT_RESPONSE:
-            from config.settings import settings as _s
-            from jarvis.capabilities.tools.gmail import send_gmail_draft
 
             msg_id = await send_gmail_draft(
                 draft_content=init.draft_content or "",
@@ -114,7 +115,6 @@ async def approve_initiative(initiative_id: str, request: Request) -> dict:
 
 @router.post("/api/initiatives/{initiative_id}/reject")
 async def reject_initiative(initiative_id: str) -> dict:
-    from jarvis.engine.proactive.store import InitiativeStore
 
     InitiativeStore().update_status(initiative_id, "rejected")
     return {"status": "rejected"}
@@ -122,8 +122,6 @@ async def reject_initiative(initiative_id: str) -> dict:
 
 @router.post("/api/initiatives/{initiative_id}/rectify")
 async def rectify_initiative(initiative_id: str, body: RectifyBody) -> dict:
-    from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
-    from jarvis.engine.proactive.store import InitiativeStore
 
     store = InitiativeStore()
     init = store.get_by_id(initiative_id)
@@ -174,7 +172,6 @@ async def list_proactive_initiatives(
 ) -> list[dict]:
     """Liste les initiatives récentes (multi-jours). status=pending|done|dismissed|… ou absent=tous.
     """
-    from jarvis.engine.proactive.store import InitiativeStore
 
     store = InitiativeStore()
     statuses = [s.strip() for s in status.split(",") if s.strip()] if status else None
@@ -219,7 +216,6 @@ async def confirm_initiative(initiative_id: str, body: ConfirmBody, request: Req
 @router.post("/api/proactive/initiatives/{initiative_id}/dismiss")
 async def dismiss_initiative(initiative_id: str) -> dict:
     """Marque l'initiative comme ignorée (dismissed)."""
-    from jarvis.engine.proactive.store import InitiativeStore
 
     store = InitiativeStore()
     init = store.get_by_id(initiative_id)

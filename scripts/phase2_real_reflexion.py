@@ -29,11 +29,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from collections.abc import Callable  # noqa: E402
 
+from config.settings import settings
 from jarvis.engine.mission.project_store import ProjectStore  # noqa: E402
 from jarvis.engine.mission.reflexion import Reflexion  # noqa: E402
 from jarvis.engine.mission.schemas import Project, Step, validate_step  # noqa: E402
 from jarvis.engine.mission.worker_agent import WorkerAgent  # noqa: E402
 from jarvis.engine.vocab import AccessLevel  # noqa: E402
+from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.memory.ingest import MemoryIngest  # noqa: E402
 from jarvis.providers.memory.kernel import MemoryKernel  # noqa: E402
 from jarvis.providers.memory.schemas import FactStatus  # noqa: E402
@@ -165,8 +167,6 @@ async def main() -> int:
     if db_path.exists():
         db_path.unlink()
 
-    from config.settings import settings
-    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
     kernel = MemoryKernel(db_path)

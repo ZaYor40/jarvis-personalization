@@ -6,18 +6,17 @@ import os
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import anthropic
+from google.genai import types as _t
 from loguru import logger
 from openai import AsyncOpenAI
 
 from config.settings import settings
+from jarvis.kernel.contracts import UsageTracker
 from jarvis.kernel.schemas import ToolCapture, UsageEntry, calculate_cost
 from jarvis.providers.llm.base import LLMProvider
-
-if TYPE_CHECKING:
-    from jarvis.kernel.contracts import UsageTracker
 
 _MAX_TOOL_ITERATIONS = 20
 
@@ -563,7 +562,6 @@ class GeminiProvider(LLMProvider):
 
     def _json_schema_to_gemini(self, schema: dict) -> object:
         """Convertit un schéma JSON (format Claude) vers types.Schema Gemini (récursif)."""
-        from google.genai import types as _t
 
         type_map: dict[str, Any] = {
             "string": _t.Type.STRING,
@@ -591,7 +589,6 @@ class GeminiProvider(LLMProvider):
 
     def _claude_tools_to_gemini(self, tools: list[dict]) -> list[Any]:
         """Convertit le schéma d'outils Claude vers une liste de Tool Gemini."""
-        from google.genai import types as _t
 
         declarations = [
             _t.FunctionDeclaration(
@@ -605,7 +602,6 @@ class GeminiProvider(LLMProvider):
 
     def _build_config(self, system: str, tools: list[dict] | None) -> object:
         """Construit GenerateContentConfig avec système et outils optionnels."""
-        from google.genai import types as _t
 
         config_kwargs: dict = {
             "system_instruction": system,
@@ -622,7 +618,6 @@ class GeminiProvider(LLMProvider):
         dans l'historique. Construit la map id→name en amont pour les FunctionResponse
         qui nécessitent le nom de la fonction, pas l'id.
         """
-        from google.genai import types as _t
 
         # Passe 1 : map tool_use_id → tool_name pour résoudre les tool_result
         id_to_name: dict[str, str] = {}
@@ -768,7 +763,6 @@ class GeminiProvider(LLMProvider):
         context: str = "",
     ) -> str:
         """Boucle tool use Gemini (function calling natif)."""
-        from google.genai import types as _t
 
         contents: list[Any] = self._messages_to_gemini(messages)
         config = self._build_config(system, tools)

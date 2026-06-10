@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
@@ -53,6 +52,7 @@ logging.getLogger("httpx").addFilter(_tg_filter)
 
 from jarvis.interfaces.channels.base import (  # noqa: E402
     ChannelAdapter,
+    DispatchCallback,
     IncomingMessage,
     MessageTarget,
     Platform,
@@ -72,8 +72,6 @@ try:
 except ImportError:
     TELEGRAM_AVAILABLE = False
 
-if TYPE_CHECKING:
-    from jarvis.interfaces.channels.base import DispatchCallback
 
 
 _telegram_instance: TelegramChannel | None = None

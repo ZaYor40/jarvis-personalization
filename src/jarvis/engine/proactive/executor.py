@@ -19,10 +19,14 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol
 
 from loguru import logger
 
+from config.approvals import ApprovalMode, approval_config
+from config.settings import settings
+from jarvis.capabilities.tools.gmail import send_gmail_draft
 from jarvis.engine.proactive.schemas import Initiative, InitiativeType
 from jarvis.engine.proactive.store import InitiativeStore
 
@@ -136,7 +140,6 @@ class InitiativeExecutor:
 
     async def _send_email(self, init: Initiative) -> dict:
         """Envoi effectif après 2e confirmation. Bloqué si email_send=NEVER."""
-        from config.approvals import ApprovalMode, approval_config
 
         mode = getattr(approval_config, "email_send", ApprovalMode.ASK)
         if mode == ApprovalMode.NEVER:
@@ -144,10 +147,7 @@ class InitiativeExecutor:
             return {"error": "Envoi mail désactivé (approbation : never)", "status": "blocked"}
 
         try:
-            from pathlib import Path
 
-            from config.settings import settings
-            from jarvis.capabilities.tools.gmail import send_gmail_draft
 
             msg_id = await send_gmail_draft(
                 draft_content=init.draft_content or "",

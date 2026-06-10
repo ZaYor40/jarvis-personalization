@@ -14,15 +14,16 @@ from __future__ import annotations
 import tempfile
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from config.backends import get_backend
 from jarvis.capabilities.tools.base import Tool, ToolResult
-
-if TYPE_CHECKING:
-    from jarvis.capabilities.tools.registry import ToolRegistry
-    from jarvis.engine.agent import Agent
+from jarvis.capabilities.tools.registry import ToolRegistry
+from jarvis.engine.agent import Agent
+from jarvis.engine.approval_checker import get_approval_checker
+from jarvis.engine.mission.backends.rpc import ScriptRPCRunner
+from jarvis.engine.session import Session
 
 
 class SpawnSubagentTool(Tool):
@@ -61,7 +62,6 @@ class SpawnSubagentTool(Tool):
         self._agent = agent
 
     async def execute(self, task: str, context: str = "") -> ToolResult:  # type: ignore[override]
-        from jarvis.engine.session import Session
 
         prompt = f"{context}\n\n---\nTâche : {task}" if context else task
         session = Session()
@@ -128,9 +128,6 @@ class ScriptRPCTool(Tool):
         self._workspace_path = workspace_path
 
     async def execute(self, script: str, timeout: int = 300) -> ToolResult:  # type: ignore[override]  # noqa: ASYNC109
-        from config.backends import get_backend
-        from jarvis.engine.approval_checker import get_approval_checker
-        from jarvis.engine.mission.backends.rpc import ScriptRPCRunner
 
         checker = get_approval_checker()
         if checker:

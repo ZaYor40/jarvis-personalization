@@ -8,6 +8,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from config.settings import settings
+from jarvis.capabilities.tools.calendar import CalendarListTool
 from jarvis.engine.proactive.collectors.base import CollectorBase
 from jarvis.engine.proactive.schemas import ContextItem, ItemType, Priority
 
@@ -16,8 +18,6 @@ class CalendarCollector(CollectorBase):
     name = "calendar"
 
     async def _collect(self) -> list[ContextItem]:
-        from config.settings import settings
-        from jarvis.capabilities.tools.calendar import CalendarListTool
 
         tool = CalendarListTool(
             credentials_path=Path(settings.google_credentials_path),

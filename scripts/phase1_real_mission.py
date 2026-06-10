@@ -22,10 +22,14 @@ from pathlib import Path
 # Path bootstrap pour exécution directe.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from config.settings import settings
 from jarvis.engine.mission.project_store import ProjectStore  # noqa: E402
+from jarvis.engine.mission.quality_checker import QualityChecker
 from jarvis.engine.mission.schemas import Project, Step, validate_step  # noqa: E402
+from jarvis.engine.mission.verifier import Verifier
 from jarvis.engine.mission.worker_agent import WorkerAgent  # noqa: E402
 from jarvis.engine.vocab import AccessLevel  # noqa: E402
+from jarvis.providers.llm.api import AnthropicProvider
 
 # ── Mission ──────────────────────────────────────────────────────────────────
 
@@ -191,10 +195,6 @@ async def main() -> int:
 async def _trap_test(project: Project) -> None:
     """Test délibéré : on remplace index.html par un stub plausible-mais-faux
     et on rappelle directement le verifier. Le grader DOIT rejeter."""
-    from config.settings import settings
-    from jarvis.engine.mission.quality_checker import QualityChecker
-    from jarvis.engine.mission.verifier import Verifier
-    from jarvis.providers.llm.api import AnthropicProvider
 
     print("\n=== TRAP TEST — artefact plausible mais faux ===")
     ws = Path(project.workspace_path)

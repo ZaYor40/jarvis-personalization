@@ -7,9 +7,13 @@ import platform
 import subprocess
 
 from loguru import logger
+from openai import AsyncOpenAI
+from PIL import Image, ImageGrab
 
 from config.settings import settings
 from jarvis.capabilities.tools.base import Tool, ToolResult
+from jarvis.engine.permissions import permissions as _perms
+from jarvis.providers.memory import visual_memory
 
 
 class VisionTool(Tool):
@@ -70,7 +74,6 @@ class VisionTool(Tool):
     }
 
     def __init__(self) -> None:
-        from openai import AsyncOpenAI
 
         self._openai = AsyncOpenAI(api_key=settings.openai_api_key)
 
@@ -82,11 +85,9 @@ class VisionTool(Tool):
         detail: str = "low",
         **_: object,
     ) -> ToolResult:
-        from jarvis.engine.permissions import permissions as _perms
 
         # ── Recall — pas de capture ───────────────────────────────────────────
         if action == "recall":
-            from jarvis.providers.memory import visual_memory
 
             matches = await visual_memory.search(question)
             if matches:
@@ -188,7 +189,6 @@ class VisionTool(Tool):
 
     async def _store_memory(self, description: str, source: str, action: str, context: str) -> None:
         try:
-            from jarvis.providers.memory import visual_memory
 
             await visual_memory.store(description=description, source=source, context=context)
         except Exception as e:
@@ -200,7 +200,6 @@ class VisionTool(Tool):
         """Ouvre la webcam, chauffe 3 frames, capture, ferme. Zéro fichier disque."""
         try:
             import cv2  # type: ignore[import-untyped]
-            from PIL import Image  # type: ignore[import-untyped]
         except ImportError as e:
             logger.error(
                 "Vision: dépendance manquante", error=str(e), hint="uv add opencv-python pillow"
@@ -284,12 +283,6 @@ class VisionTool(Tool):
     def _capture_screen_pil(self) -> bytes | None:
         """PIL.ImageGrab — fallback cross-platform."""
         try:
-            from PIL import Image, ImageGrab  # type: ignore[import-untyped]
-        except ImportError as e:
-            logger.error("Vision: Pillow non installé", error=str(e), hint="uv add pillow")
-            return None
-
-        try:
             screenshot = ImageGrab.grab()
             max_w = settings.vision_screen_max_width
             if screenshot.width > max_w:
@@ -313,7 +306,6 @@ class VisionTool(Tool):
     def _resize_jpeg(self, jpeg_bytes: bytes) -> bytes:
         """Redimensionne un JPEG si l'écran dépasse vision_screen_max_width."""
         try:
-            from PIL import Image  # type: ignore[import-untyped]
 
             img = Image.open(io.BytesIO(jpeg_bytes))
             max_w = settings.vision_screen_max_width

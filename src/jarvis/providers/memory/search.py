@@ -4,13 +4,12 @@ import asyncio
 import json
 import sqlite3
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 from loguru import logger
 
-if TYPE_CHECKING:
-    from jarvis.providers.memory.topics import TopicStore
+from jarvis.providers.memory.topics import TopicStore
 
 _DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 _CHUNK_TOKENS = 500

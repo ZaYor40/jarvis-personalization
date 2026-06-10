@@ -12,7 +12,8 @@ import os
 import sys
 import warnings
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
+from livekit import rtc as lk_rtc
 from livekit.agents import (
     Agent,
     AgentSession,
@@ -26,6 +27,9 @@ from livekit.agents.voice.room_io import AudioInputOptions, RoomOptions
 from livekit.plugins import deepgram, elevenlabs, silero
 from livekit.plugins import google as lk_google
 
+from config.settings import settings
+from jarvis.bootstrap import build
+from jarvis.capabilities.skills.registry import SkillRegistry
 from jarvis.kernel.paths import PROJECT_ROOT  # noqa: E402
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -78,7 +82,6 @@ Réponds en français sauf si Barth parle en anglais.
 def _build_voice_instructions() -> str:
     """Prompt système = base + SYSTEM_PROMPT de chaque skill actif."""
     try:
-        from jarvis.capabilities.skills.registry import SkillRegistry
 
         reg = SkillRegistry.get_instance()
         skill_prompt = reg.get_combined_system_prompt()
@@ -112,7 +115,6 @@ def _voice_broadcast(event: dict) -> None:
     import urllib.request
 
     def _post() -> None:
-        from config.settings import settings
 
         url = f"http://localhost:{settings.port}/internal/broadcast"
         data = _json.dumps(event).encode()
@@ -146,7 +148,6 @@ def _build_voice_tools() -> list:
     l'élargissement (toutes les fonctions LiveKit sont déclarées, le LLM
     voix choisit lesquelles appeler selon le contexte).
     """
-    from jarvis.bootstrap import build
 
     # Container voix : SON PROPRE composition root (process séparé du process
     # API — ils partagent l'état via le SQLite WAL de MemoryKernel, cf.
@@ -201,8 +202,6 @@ def prewarm(proc: object) -> None:
 
 
 async def entrypoint(ctx: object) -> None:
-    from dotenv import dotenv_values
-    from livekit import rtc as lk_rtc
 
     _env = dotenv_values(PROJECT_ROOT / ".env")
 

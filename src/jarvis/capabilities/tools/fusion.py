@@ -17,6 +17,7 @@ from loguru import logger
 
 from config.settings import settings
 from jarvis.capabilities.tools.base import Tool, ToolResult
+from jarvis.engine.approval_checker import get_approval_checker
 
 
 class _FusionClient:
@@ -262,7 +263,6 @@ Cut (CutFeatureOperation) : "Aucun corps cible" = sketch sur mauvais plan
                 is_error=True,
             )
 
-        from jarvis.engine.approval_checker import get_approval_checker
 
         # Approbation pour les scripts (modifications)
         if action == "execute_script":

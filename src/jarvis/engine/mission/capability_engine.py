@@ -28,18 +28,15 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import yaml
 from loguru import logger
 
 from jarvis.capabilities.skills.lab import SkillLab
 from jarvis.capabilities.skills.lifecycle import SkillRecord, SkillStatus
+from jarvis.capabilities.skills.registry import SkillRegistry
+from jarvis.capabilities.tools.registry import ToolRegistry
 from jarvis.providers.memory.kernel import MemoryKernel
-
-if TYPE_CHECKING:
-    from jarvis.capabilities.skills.registry import SkillRegistry
-    from jarvis.capabilities.tools.registry import ToolRegistry
 
 # Seuil heuristique de matching textuel (sur jaccard normalisé).
 # Bas pour MVP : on préfère détecter des matchs faibles plutôt que de

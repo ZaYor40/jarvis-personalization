@@ -8,7 +8,12 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from config.settings import settings
+from jarvis.engine.background.notifications import NotificationQueue
+from jarvis.engine.background.scheduler import Scheduler
+from jarvis.engine.background.worker import BackgroundWorker
 from jarvis.kernel.paths import PROJECT_ROOT, UI_STATIC_DIR
+from jarvis.providers.memory.sessions import SessionStore
 
 _PROJECT_ROOT = PROJECT_ROOT
 
@@ -57,7 +62,6 @@ class MemoryOverview(BaseModel):
 
 
 def _memory_dir(request: Request) -> Path:
-    from config.settings import settings
 
     return Path(settings.memory_dir)
 
@@ -67,7 +71,6 @@ def _memory_dir(request: Request) -> Path:
 
 @router.get("/sessions", response_model=list[SessionMeta])
 async def list_sessions(request: Request) -> list[SessionMeta]:
-    from jarvis.providers.memory.sessions import SessionStore
 
     store: SessionStore = SessionStore(_memory_dir(request) / "sessions")
     result = []
@@ -93,7 +96,6 @@ async def list_sessions(request: Request) -> list[SessionMeta]:
 
 @router.get("/sessions/{session_id}", response_model=list[SessionMessage])
 async def get_session(session_id: str, request: Request) -> list[SessionMessage]:
-    from jarvis.providers.memory.sessions import SessionStore
 
     store: SessionStore = SessionStore(_memory_dir(request) / "sessions")
     path = store._find(session_id)  # noqa: SLF001
@@ -206,8 +208,6 @@ async def delete_topic(filename: str, request: Request) -> dict:
 
 @router.get("/tasks")
 async def get_tasks(request: Request) -> dict:
-    from jarvis.engine.background.scheduler import Scheduler
-    from jarvis.engine.background.worker import BackgroundWorker
 
     scheduler: Scheduler = request.app.state.scheduler
     worker: BackgroundWorker = request.app.state.worker
@@ -281,7 +281,6 @@ async def system_update() -> dict:
 
 @router.get("/notifications")
 async def get_notifications(request: Request) -> dict:
-    from jarvis.engine.background.notifications import NotificationQueue
 
     queue: NotificationQueue = request.app.state.notifications
     return {

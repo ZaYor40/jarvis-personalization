@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from config.settings import settings
+from jarvis.kernel.contracts import UsageTracker
 from jarvis.providers.llm.api import get_api_provider
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.llm.local import OllamaProvider
-
-if TYPE_CHECKING:
-    from jarvis.kernel.contracts import UsageTracker
 
 
 def get_llm_provider(tracker: UsageTracker | None = None) -> LLMProvider:

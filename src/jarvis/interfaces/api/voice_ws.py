@@ -14,6 +14,7 @@ from jarvis.engine.background.worker import BackgroundTask, BackgroundWorker
 from jarvis.engine.gateway import _FALLBACK, Gateway
 from jarvis.engine.router import RouteEnum
 from jarvis.providers.audio.chunker import StreamChunker
+from jarvis.providers.audio.deepgram_receiver import DeepgramReceiver
 from jarvis.providers.audio.receiver import VoiceReceiver
 from jarvis.providers.audio.tts import tts_engine
 from jarvis.providers.memory.auto_dream import AutoDream
@@ -118,7 +119,6 @@ async def voice_ws(websocket: WebSocket) -> None:
 
     loop = asyncio.get_running_loop()
     if settings.stt_provider == "deepgram":
-        from jarvis.providers.audio.deepgram_receiver import DeepgramReceiver
 
         receiver: VoiceReceiver | DeepgramReceiver = DeepgramReceiver()
     else:

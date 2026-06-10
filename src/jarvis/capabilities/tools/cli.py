@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 from loguru import logger
 
+from config.settings import settings
 from jarvis.capabilities.tools.base import Tool, ToolResult
 
 # ── Whitelist binaires autorisés pour execute_cli ────────────────────────────
@@ -406,7 +407,6 @@ class ExecuteCLITool(Tool):
 
     async def _run(self, parts: list[str], cmd_str: str) -> ToolResult:
         """Exécute le subprocess, sandboxé par défaut."""
-        from config.settings import settings
 
         sandboxed = not getattr(settings, "allow_unsandboxed_exec", False)
         extra_kwargs: dict = {

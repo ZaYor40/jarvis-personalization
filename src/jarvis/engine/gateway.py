@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
@@ -11,10 +10,7 @@ from jarvis.engine.background.notifications import NotificationQueue
 from jarvis.engine.background.worker import BackgroundWorker
 from jarvis.engine.router import RouteEnum, SpeedRouter
 from jarvis.engine.session import Session, SessionManager
-
-if TYPE_CHECKING:
-    from jarvis.providers.memory.consolidation import CrossSessionRecall
-
+from jarvis.providers.memory.consolidation import CrossSessionRecall
 
 _FALLBACK = "Désolé chef, j'ai eu un souci — je regarde."
 

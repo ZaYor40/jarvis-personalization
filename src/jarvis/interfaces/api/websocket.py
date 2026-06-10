@@ -12,6 +12,7 @@ from jarvis.engine.background.notifications import NotificationQueue, ProactiveQ
 from jarvis.engine.background.worker import BackgroundTask, BackgroundWorker
 from jarvis.engine.gateway import _FALLBACK, Gateway
 from jarvis.engine.router import RouteEnum
+from jarvis.interfaces.api.http_logs import _log_buffer
 from jarvis.providers.memory.auto_dream import AutoDream
 from jarvis.providers.memory.consolidation import ConsolidationAgent
 from jarvis.providers.vision.objects_queue import get_vision_objects_queue
@@ -33,7 +34,6 @@ async def websocket_logs(websocket: WebSocket) -> None:
     """Streams the in-memory log ring buffer to the Système › Logs panel.
     Sends the last 50 entries on connect, then pushes new lines as they arrive.
     """
-    from jarvis.interfaces.api.http import _log_buffer
 
     await websocket.accept()
     last_sent = 0

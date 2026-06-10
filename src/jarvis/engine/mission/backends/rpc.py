@@ -23,13 +23,12 @@ import shutil
 import textwrap
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
-if TYPE_CHECKING:
-    from jarvis.capabilities.tools.registry import ToolRegistry
-    from jarvis.engine.mission.backends.base import ExecutionBackend
+from jarvis.capabilities.tools.registry import ToolRegistry
+from jarvis.engine.approval_checker import get_approval_checker
+from jarvis.engine.mission.backends.base import ExecutionBackend
 
 # Sous-ensemble d'outils exposés dans le sandbox RPC.
 # Intersection avec les outils enregistrés au moment de l'exécution.
@@ -154,7 +153,6 @@ class ScriptRPCRunner:
                         elif tool_call_count[0] >= self.MAX_TOOL_CALLS:
                             response = {"error": "Quota d'appels RPC atteint"}
                         else:
-                            from jarvis.engine.approval_checker import get_approval_checker
 
                             checker = get_approval_checker()
                             if checker:

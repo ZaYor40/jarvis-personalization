@@ -10,12 +10,8 @@ Promotion vers installed/ : EXIGE un humain (POST /api/skills/lab/{name}/promote
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from jarvis.capabilities.tools.base import Tool, ToolResult
-
-if TYPE_CHECKING:
-    from jarvis.engine.mission.capability_engine import CapabilityEngine
+from jarvis.engine.mission.capability_engine import CapabilityEngine
 
 
 class ReportMissingCapabilityTool(Tool):

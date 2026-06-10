@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 
 from loguru import logger
 
+from config.settings import settings
+
 
 @dataclass
 class Notification:
@@ -100,7 +102,6 @@ def get_broadcast_fn() -> object:
     import urllib.request
 
     def _http_broadcast(event: dict) -> None:
-        from config.settings import settings
 
         def _post() -> None:
             url = f"http://localhost:{settings.port}/internal/broadcast"

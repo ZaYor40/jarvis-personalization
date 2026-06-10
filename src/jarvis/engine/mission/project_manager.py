@@ -7,9 +7,11 @@ import re
 
 from loguru import logger
 
+from config.settings import settings
 from jarvis.engine.mission.project_store import ProjectStore
 from jarvis.engine.mission.schemas import Project, Step, StepStatus
 from jarvis.engine.vocab import AccessLevel
+from jarvis.providers.llm.api import AnthropicProvider
 
 _PLANNING_SYSTEM = """\
 Tu es un chef de projet expert. Analyse la demande utilisateur et décompose-la en étapes
@@ -99,8 +101,6 @@ class ProjectManager:
         self._store = ProjectStore()
 
     async def create_project(self, mission: str, timeout_minutes: int = 30) -> Project:
-        from config.settings import settings
-        from jarvis.providers.llm.api import AnthropicProvider
 
         llm = AnthropicProvider(max_tokens=2048, model=settings.voice_anthropic_model)
 

@@ -9,14 +9,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from jarvis.engine.gateway import Gateway as JarvisGateway
 from jarvis.interfaces.channels.base import ChannelAdapter, IncomingMessage, MessageTarget
-
-if TYPE_CHECKING:
-    from jarvis.engine.gateway import Gateway as JarvisGateway
 
 _SESSION_MAP_FILE = Path("memory/messaging_sessions.json")
 

@@ -1,6 +1,16 @@
 from __future__ import annotations
 
+from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException, Request
+
+from jarvis.capabilities.skills.app_checker import check_all_apps
+from jarvis.capabilities.skills.executor import PresetExecutor
+from jarvis.capabilities.skills.installer import skill_installer
+from jarvis.capabilities.skills.lifecycle import SkillStatus
+from jarvis.capabilities.skills.registry import skill_registry
+from jarvis.engine.background.notifications import broadcast_event
+from jarvis.kernel.paths import SKILLS_INSTALLED_DIR, UI_STATIC_DIR
+from jarvis.providers.audio.tts import tts_engine
 
 router = APIRouter()
 
@@ -48,7 +58,6 @@ async def list_lab_candidates(
     status ∈ {candidate, sandboxed_pass, sandboxed_fail, active, stale,
     archived, rejected}.
     """
-    from jarvis.capabilities.skills.lifecycle import SkillStatus
 
     lc = _lifecycle(request)
     if status is None:
@@ -119,7 +128,6 @@ async def trigger_lab_scan(request: Request) -> dict:
 @router.get("/api/skills/catalog")
 async def get_skills_catalog() -> dict:
     """Catalogue des skills disponibles (GitHub + état installé)."""
-    from jarvis.capabilities.skills.installer import skill_installer
 
     skills = await skill_installer.fetch_catalog()
     offline = any(s.get("offline") for s in skills)
@@ -129,10 +137,7 @@ async def get_skills_catalog() -> dict:
 @router.get("/api/skills/installed")
 async def get_installed_skills() -> dict:
     """Liste des skills installés, enrichie avec env_status, apps_status et capabilities."""
-    from dotenv import dotenv_values
 
-    from jarvis.capabilities.skills.app_checker import check_all_apps
-    from jarvis.capabilities.skills.registry import skill_registry
 
     env_values = dotenv_values(".env")
     enriched = []
@@ -176,9 +181,6 @@ async def get_installed_skills() -> dict:
 @router.post("/api/skills/install/{skill_name}")
 async def install_skill(skill_name: str, request: Request) -> dict:
     """Installe un skill depuis le repo jarvis-skills."""
-    from jarvis.capabilities.skills.installer import skill_installer
-    from jarvis.capabilities.skills.registry import skill_registry
-    from jarvis.engine.background.notifications import broadcast_event
 
     result = await skill_installer.install(skill_name)
     if result.get("success"):
@@ -192,9 +194,6 @@ async def install_skill(skill_name: str, request: Request) -> dict:
 @router.delete("/api/skills/uninstall/{skill_name}")
 async def uninstall_skill(skill_name: str, request: Request) -> dict:
     """Désinstalle un skill."""
-    from jarvis.capabilities.skills.installer import skill_installer
-    from jarvis.capabilities.skills.registry import skill_registry
-    from jarvis.engine.background.notifications import broadcast_event
 
     result = skill_installer.uninstall(skill_name)
     if result.get("success"):
@@ -212,7 +211,6 @@ async def get_view_scripts() -> dict:
 
     import yaml
 
-    from jarvis.kernel.paths import SKILLS_INSTALLED_DIR, UI_STATIC_DIR
 
     base = UI_STATIC_DIR / "skills"
     installed = SKILLS_INSTALLED_DIR
@@ -245,7 +243,6 @@ async def get_view_scripts() -> dict:
 @router.post("/api/skills/reload")
 async def reload_skills(request: Request) -> dict:
     """Recharge les skills et leurs outils sans redémarrer Jarvis."""
-    from jarvis.capabilities.skills.registry import skill_registry
 
     skill_registry.reload()
     tool_registry = getattr(request.app.state, "tool_registry", None)
@@ -263,7 +260,6 @@ async def reload_skills(request: Request) -> dict:
 @router.get("/api/presets")
 async def get_presets() -> dict:
     """Liste tous les presets installés."""
-    from jarvis.capabilities.skills.registry import skill_registry
 
     presets = skill_registry.get_presets()
     return {
@@ -284,10 +280,6 @@ async def get_presets() -> dict:
 @router.post("/api/presets/{preset_name}/execute")
 async def execute_preset_endpoint(preset_name: str, request: Request) -> dict:
     """Lance un preset depuis l'UI (bouton ▶)."""
-    from jarvis.capabilities.skills.executor import PresetExecutor
-    from jarvis.capabilities.skills.registry import skill_registry
-    from jarvis.engine.background.notifications import broadcast_event
-    from jarvis.providers.audio.tts import tts_engine
 
     preset = skill_registry.get_preset(preset_name)
     if not preset:

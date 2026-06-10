@@ -39,14 +39,14 @@ class TestGetBackend:
     def test_auto_avec_docker_executor_retourne_docker(self, tmp_path: Path) -> None:
         executor = MagicMock()
         with patch("config.backends.load_backends_config", return_value=BackendsConfig()):
-            with patch("config.settings.settings") as mock_settings:
+            with patch("config.backends.settings") as mock_settings:
                 mock_settings.docker_enabled = True
                 backend = get_backend(str(tmp_path), docker_executor=executor)
         assert isinstance(backend, DockerBackend)
 
     def test_auto_sans_docker_retourne_local(self, tmp_path: Path) -> None:
         with patch("config.backends.load_backends_config", return_value=BackendsConfig()):
-            with patch("config.settings.settings") as mock_settings:
+            with patch("config.backends.settings") as mock_settings:
                 mock_settings.docker_enabled = False
                 backend = get_backend(str(tmp_path), docker_executor=None)
         assert isinstance(backend, LocalBackend)
@@ -56,7 +56,7 @@ class TestGetBackend:
             "config.backends.load_backends_config",
             return_value=BackendsConfig(default_backend=BackendType.DOCKER),
         ):
-            with patch("config.settings.settings") as mock_settings:
+            with patch("config.backends.settings") as mock_settings:
                 mock_settings.docker_enabled = True
                 backend = get_backend(str(tmp_path), docker_executor=None)
         assert backend is None
@@ -112,7 +112,7 @@ class TestDockerBackend:
     async def test_is_available_respecte_docker_enabled(self) -> None:
         executor = MagicMock()
         backend = DockerBackend(executor)
-        with patch("config.settings.settings") as mock_settings:
+        with patch("jarvis.engine.mission.backends.docker.settings") as mock_settings:
             mock_settings.docker_enabled = False
             with patch(
                 "jarvis.engine.mission.docker_executor.DockerExecutor.is_available",
@@ -131,7 +131,7 @@ class TestRefusSansBackendSur:
     @pytest.mark.asyncio
     async def test_local_refuse_sans_optin(self, tmp_path: Path) -> None:
         backend = LocalBackend(str(tmp_path))
-        with patch("config.settings.settings") as mock_settings:
+        with patch("jarvis.engine.mission.backends.local.settings") as mock_settings:
             mock_settings.allow_unsandboxed_exec = False
             result = await backend.execute("echo test")
         assert result["success"] is False
@@ -140,7 +140,7 @@ class TestRefusSansBackendSur:
     @pytest.mark.asyncio
     async def test_local_is_available_false_sans_optin(self, tmp_path: Path) -> None:
         backend = LocalBackend(str(tmp_path))
-        with patch("config.settings.settings") as mock_settings:
+        with patch("jarvis.engine.mission.backends.local.settings") as mock_settings:
             mock_settings.allow_unsandboxed_exec = False
             assert await backend.is_available() is False
 
@@ -310,7 +310,7 @@ class TestWorkerCLIRouting:
         cli = WorkerCLITool(str(tmp_path), docker_executor=mock_docker)
 
         with patch("config.backends.load_backends_config", return_value=BackendsConfig()):
-            with patch("config.settings.settings") as s:
+            with patch("config.backends.settings") as s:
                 s.docker_enabled = True
                 result = await cli.execute("ls")
 
@@ -327,7 +327,7 @@ class TestWorkerCLIRouting:
             "config.backends.load_backends_config",
             return_value=BackendsConfig(default_backend=BackendType.DOCKER),
         ):
-            with patch("config.settings.settings") as s:
+            with patch("config.backends.settings") as s:
                 s.docker_enabled = True
                 # docker_executor=None + DOCKER explicite → get_backend retourne None
                 result = await cli.execute("ls")

@@ -5,15 +5,13 @@ from __future__ import annotations
 import re
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import yaml
 from loguru import logger
 
-if TYPE_CHECKING:
-    from jarvis.providers.llm.base import LLMProvider
-
 from jarvis.kernel.paths import SKILLS_CANDIDATES_DIR, SKILLS_INSTALLED_DIR  # noqa: F401, E402
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.llm.factory import get_llm_provider
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
@@ -111,7 +109,6 @@ class SkillSynthesizer:
 
     def __init__(self, llm: LLMProvider | None = None) -> None:
         if llm is None:
-            from jarvis.providers.llm.factory import get_llm_provider
 
             llm = get_llm_provider()
         self._llm = llm

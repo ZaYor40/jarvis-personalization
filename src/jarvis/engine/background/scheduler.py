@@ -4,11 +4,11 @@ import asyncio
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from jarvis.capabilities.tools.calendar import CalendarListTool
+from jarvis.capabilities.tools.notion import NotionTasksTool
 from jarvis.engine.background.notifications import ProactiveQueue
 from jarvis.engine.background.routines import (
     ROUTINES_ENABLED,
@@ -20,10 +20,8 @@ from jarvis.engine.background.routines import (
     fire_routine,
     next_cron_datetime,
 )
+from jarvis.kernel.settings import Settings
 from jarvis.providers.memory.auto_dream import AutoDream
-
-if TYPE_CHECKING:
-    from jarvis.kernel.settings import Settings
 
 
 def _next_datetime(hour: int) -> datetime:
@@ -214,7 +212,6 @@ class Scheduler:
             parts.append(f"Agenda indisponible ({e}).")
 
         try:
-            from jarvis.capabilities.tools.notion import NotionTasksTool
 
             tasks_result = await NotionTasksTool().execute()
             if not tasks_result.is_error and tasks_result.content:

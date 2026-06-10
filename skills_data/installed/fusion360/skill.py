@@ -30,6 +30,6 @@ Demander confirmation avant d'exécuter un script qui modifie la géométrie.
 """
 
     def get_tools(self) -> list:
-        from jarvis.capabilities.tools.fusion import FusionTool
+        from jarvis.capabilities.tools.fusion import FusionTool  # lazy: plugin
 
         return [FusionTool()]

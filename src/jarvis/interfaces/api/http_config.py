@@ -3,17 +3,25 @@ from __future__ import annotations
 import json as _json
 import os
 from collections.abc import AsyncIterator
+from dataclasses import asdict
 from datetime import UTC
+from datetime import datetime as _dt
 from pathlib import Path
 from typing import Any
 
 import httpx
+from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 
+from config.approvals import ApprovalMode, approval_config, save_approval_config
+from config.approvals import approval_config as _approval_cfg
+from config.settings import settings as _s
 from jarvis.engine.permissions import permissions as _perm_store
+from jarvis.hardware.macropad_2k.usb import usb_status
+from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
 
 router = APIRouter()
 
@@ -163,7 +171,6 @@ async def patch_permission(key: str, body: PermissionPatch) -> dict[str, object]
 @router.get("/api/settings/env-status")
 async def get_env_status(keys: str = Query("")) -> dict:
     """Retourne True/False par clé env — jamais les valeurs."""
-    from dotenv import dotenv_values
 
     env_values = dotenv_values(".env")
     key_list = [k.strip() for k in keys.split(",") if k.strip()]
@@ -174,8 +181,6 @@ async def get_env_status(keys: str = Query("")) -> dict:
 async def get_settings_endpoint() -> dict:
     import dataclasses as _dc
 
-    from config.approvals import approval_config as _approval_cfg
-    from config.settings import settings as _s
 
     env = _read_env()
 
@@ -265,7 +270,6 @@ class SettingUpdateBody(BaseModel):
 
 @router.post("/api/settings/update")
 async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
-    from config.settings import settings as _s
 
     env_key = body.key.upper()
     _write_env({env_key: body.value})
@@ -294,7 +298,6 @@ async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
     # Hot-swap LLM provider sans redémarrage (LLM_PROVIDER, API_BACKEND, OLLAMA_MODEL…)
     if env_key in _LLM_HOT_SWAP_KEYS:
         try:
-            from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
 
             new_llm = get_llm_provider()
             new_bg_llm = create_background_llm()
@@ -375,7 +378,6 @@ async def get_llm_status(request: Request) -> dict:
     vgw = getattr(request.app.state, "voice_gateway", None)
     worker = getattr(request.app.state, "worker", None)
 
-    from config.settings import settings as _s
 
     result: dict[str, object] = {
         "setting": _s.llm_provider,
@@ -400,7 +402,6 @@ async def get_llm_status(request: Request) -> dict:
 @router.get("/api/ollama/models")
 async def get_ollama_models() -> dict:
     """Liste les modèles téléchargés sur le serveur Ollama local."""
-    from config.settings import settings as _s
 
     base_url = _s.ollama_base_url.rstrip("/")
     try:
@@ -420,7 +421,6 @@ class OllamaPullBody(BaseModel):
 @router.post("/api/ollama/pull")
 async def pull_ollama_model(body: OllamaPullBody) -> StreamingResponse:
     """Télécharge un modèle Ollama en streaming SSE (progress events)."""
-    from config.settings import settings as _s
 
     base_url = _s.ollama_base_url.rstrip("/")
 
@@ -632,7 +632,6 @@ async def get_devices() -> list:
     )
 
     try:
-        from jarvis.hardware.macropad_2k.usb import usb_status
 
         st = usb_status()
         hid = bool(st.get("hidPresent"))
@@ -705,7 +704,6 @@ async def get_connectors() -> list:
             data = _json.loads(p.read_text())
             expiry = data.get("expiry") or data.get("expires_at")
             if expiry:
-                from datetime import datetime as _dt
 
                 exp = _dt.fromisoformat(expiry.replace("Z", "+00:00"))
                 if exp < _dt.now(UTC):
@@ -714,7 +712,6 @@ async def get_connectors() -> list:
         except Exception:
             return "on"
 
-    from config.settings import settings as _s
 
     connectors = [
         {
@@ -900,9 +897,7 @@ async def test_api_key(body: TestKeyBody) -> dict:
 @router.get("/api/approvals/config")
 async def get_approvals_config() -> dict:
     """Retourne la configuration courante des approbations."""
-    from dataclasses import asdict
 
-    from config.approvals import approval_config
 
     return asdict(approval_config)
 
@@ -914,7 +909,6 @@ class ApprovalCategoryUpdate(BaseModel):
 @router.patch("/api/approvals/config/{category}")
 async def update_approval_category(category: str, body: ApprovalCategoryUpdate) -> dict:
     """Met à jour le mode d'une catégorie d'approbation."""
-    from config.approvals import ApprovalMode, approval_config, save_approval_config
 
     if not hasattr(approval_config, category):
         raise HTTPException(404, f"Catégorie inconnue: {category}")

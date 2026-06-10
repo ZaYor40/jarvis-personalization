@@ -27,48 +27,71 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from jarvis.capabilities.skills.lab import SkillLab
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle
+from jarvis.capabilities.skills.registry import skill_registry
+from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
+from jarvis.capabilities.tools.browser import BrowserTool
+from jarvis.capabilities.tools.calendar import CalendarCreateTool, CalendarListTool
+from jarvis.capabilities.tools.capability import ReportMissingCapabilityTool
+from jarvis.capabilities.tools.cli import CLIRunnerTool, ExecuteCLITool
+from jarvis.capabilities.tools.filesystem import FindFilesTool, ReadFileTool
+from jarvis.capabilities.tools.gmail import GmailListTool
+from jarvis.capabilities.tools.memory import (
+    CrossSessionRecallTool,
+    MemoryLoadTopicTool,
+    MemorySearchTool,
+    MemoryTopicWriteTool,
+)
+from jarvis.capabilities.tools.notion import NotionTasksTool
+from jarvis.capabilities.tools.preset import ExecutePresetTool
+from jarvis.capabilities.tools.registry import ToolRegistry
+from jarvis.capabilities.tools.show_view import ShowViewTool
+from jarvis.capabilities.tools.skills import SkillCreateTool, SkillImproveTool, SkillListTool
+from jarvis.capabilities.tools.spotify import SpotifyTool
+from jarvis.capabilities.tools.subagent import ScriptRPCTool, SpawnSubagentTool
+from jarvis.capabilities.tools.vision import VisionTool
+from jarvis.capabilities.tools.weather import WeatherTool
+from jarvis.engine.agent import Agent
+from jarvis.engine.approval_checker import ApprovalChecker
+from jarvis.engine.background.notifications import NotificationQueue, ProactiveQueue
+from jarvis.engine.background.scheduler import Scheduler
+from jarvis.engine.background.worker import BackgroundWorker
+from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.gateway import Gateway
+from jarvis.engine.mission.capability_engine import CapabilityEngine, Whitelist
+from jarvis.engine.mission.orchestrator import ProjectOrchestrator
+from jarvis.engine.mission.project_manager import ProjectManager
+from jarvis.engine.mission.project_store import ProjectStore
+from jarvis.engine.mission.reflexion import Reflexion
+from jarvis.engine.proactive.command_center import CommandCenter
+from jarvis.engine.proactive.context_builder import ContextBuilder
+from jarvis.engine.proactive.curator import Curator
+from jarvis.engine.proactive.engine import ProactiveEngine
+from jarvis.engine.proactive.executor import InitiativeExecutor
+from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
+from jarvis.engine.proactive.store import InitiativeStore
+from jarvis.engine.session import SessionManager
+from jarvis.engine.tracking import UsageEntry, UsageTracker
 from jarvis.kernel.events import EventBus
 from jarvis.kernel.paths import CONFIG_DIR
 from jarvis.kernel.settings import Settings
 from jarvis.kernel.settings import settings as _default_settings
-
-if TYPE_CHECKING:
-    # Imports différés autorisés (TYPE_CHECKING) — pas de cycle, pas de coût runtime.
-    from jarvis.capabilities.skills.lab import SkillLab
-    from jarvis.capabilities.skills.lifecycle import SkillLifecycle
-    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
-    from jarvis.capabilities.tools.calendar import CalendarListTool
-    from jarvis.capabilities.tools.registry import ToolRegistry
-    from jarvis.engine.agent import Agent
-    from jarvis.engine.approval_checker import ApprovalChecker
-    from jarvis.engine.background.notifications import NotificationQueue, ProactiveQueue
-    from jarvis.engine.background.scheduler import Scheduler
-    from jarvis.engine.background.worker import BackgroundWorker
-    from jarvis.engine.budget import BudgetGuard
-    from jarvis.engine.gateway import Gateway
-    from jarvis.engine.mission.capability_engine import CapabilityEngine
-    from jarvis.engine.mission.orchestrator import ProjectOrchestrator
-    from jarvis.engine.mission.reflexion import Reflexion
-    from jarvis.engine.proactive.command_center import CommandCenter
-    from jarvis.engine.proactive.curator import Curator
-    from jarvis.engine.proactive.engine import ProactiveEngine
-    from jarvis.engine.proactive.executor import InitiativeExecutor
-    from jarvis.engine.proactive.store import InitiativeStore
-    from jarvis.engine.session import SessionManager
-    from jarvis.engine.tracking import UsageEntry, UsageTracker
-    from jarvis.providers.llm.base import LLMProvider
-    from jarvis.providers.memory.auto_dream import AutoDream
-    from jarvis.providers.memory.consolidation import ConsolidationAgent, CrossSessionRecall
-    from jarvis.providers.memory.index import MemoryIndex
-    from jarvis.providers.memory.ingest import MemoryIngest
-    from jarvis.providers.memory.kernel import MemoryKernel
-    from jarvis.providers.memory.mirror import MemoryMirror
-    from jarvis.providers.memory.search import FTSIndex, VectorIndex
-    from jarvis.providers.memory.sessions import SessionStore
-    from jarvis.providers.memory.topics import TopicStore
-    from jarvis.providers.memory.user_model import UserModel
+from jarvis.providers.audio.tts import tts_engine
+from jarvis.providers.llm.api import AnthropicProvider
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
+from jarvis.providers.memory.auto_dream import AutoDream
+from jarvis.providers.memory.consolidation import ConsolidationAgent, CrossSessionRecall
+from jarvis.providers.memory.index import MemoryIndex
+from jarvis.providers.memory.ingest import MemoryIngest
+from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.providers.memory.mirror import MemoryMirror
+from jarvis.providers.memory.search import FTSIndex, VectorIndex
+from jarvis.providers.memory.sessions import SessionStore
+from jarvis.providers.memory.topics import TopicStore
+from jarvis.providers.memory.user_model import UserModel
 
 
 @dataclass
@@ -166,15 +189,6 @@ def build(settings: Settings | None = None) -> Container:
     bus = EventBus()
 
     # ── 3. Providers L1 — Memory ───────────────────────────────────────────
-    from jarvis.providers.memory.consolidation import ConsolidationAgent, CrossSessionRecall
-    from jarvis.providers.memory.index import MemoryIndex
-    from jarvis.providers.memory.ingest import MemoryIngest
-    from jarvis.providers.memory.kernel import MemoryKernel
-    from jarvis.providers.memory.mirror import MemoryMirror
-    from jarvis.providers.memory.search import FTSIndex, VectorIndex
-    from jarvis.providers.memory.sessions import SessionStore
-    from jarvis.providers.memory.topics import TopicStore
-    from jarvis.providers.memory.user_model import UserModel
 
     memory_dir = Path(settings.memory_dir)
     session_store = SessionStore(memory_dir / "sessions")
@@ -188,13 +202,10 @@ def build(settings: Settings | None = None) -> Container:
     memory_mirror = MemoryMirror(memory_kernel, memory_dir / "mirror")
 
     # ── 4. Engine L2 — UsageTracker (créé tôt pour injection dans les providers) ─
-    from jarvis.engine.tracking import UsageTracker
 
     tracker = UsageTracker(on_usage_callback=None)
 
     # ── 4bis. Providers L1 — LLM ───────────────────────────────────────────
-    from jarvis.providers.llm.api import AnthropicProvider
-    from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
 
     llm = get_llm_provider(tracker=tracker)
     background_llm = create_background_llm(tracker=tracker)
@@ -207,7 +218,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 4ter. Providers L1 — TTS (singleton module-level — set_tracker post-construction) ─
-    from jarvis.providers.audio.tts import tts_engine
 
     tts_engine.set_tracker(tracker)
 
@@ -224,7 +234,6 @@ def build(settings: Settings | None = None) -> Container:
     )
     _deep_ingest = memory_ingest if settings.ingest_deep_enabled else None
 
-    from jarvis.providers.memory.auto_dream import AutoDream
 
     auto_dream = AutoDream(
         llm=background_llm,
@@ -235,33 +244,9 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 5. Capabilities L1 — Skill registry + Tools ─────────────────────────
-    from jarvis.capabilities.skills.registry import skill_registry
 
     skill_registry.reload()
 
-    from jarvis.capabilities.tools.browser import BrowserTool
-    from jarvis.capabilities.tools.calendar import (
-        CalendarCreateTool,
-        CalendarListTool,
-    )
-    from jarvis.capabilities.tools.capability import ReportMissingCapabilityTool
-    from jarvis.capabilities.tools.cli import CLIRunnerTool, ExecuteCLITool
-    from jarvis.capabilities.tools.filesystem import FindFilesTool, ReadFileTool
-    from jarvis.capabilities.tools.gmail import GmailListTool
-    from jarvis.capabilities.tools.memory import (
-        CrossSessionRecallTool,
-        MemoryLoadTopicTool,
-        MemorySearchTool,
-        MemoryTopicWriteTool,
-    )
-    from jarvis.capabilities.tools.notion import NotionTasksTool
-    from jarvis.capabilities.tools.preset import ExecutePresetTool
-    from jarvis.capabilities.tools.registry import ToolRegistry
-    from jarvis.capabilities.tools.show_view import ShowViewTool
-    from jarvis.capabilities.tools.spotify import SpotifyTool
-    from jarvis.capabilities.tools.subagent import SpawnSubagentTool
-    from jarvis.capabilities.tools.vision import VisionTool
-    from jarvis.capabilities.tools.weather import WeatherTool
 
     _root = CONFIG_DIR.parent  # PROJECT_ROOT
     _google_creds = (_root / settings.google_credentials_path).resolve()
@@ -296,8 +281,6 @@ def build(settings: Settings | None = None) -> Container:
     tool_registry.replace_skill_tools(*skill_registry.get_all_tools())
 
     # ── 6. Engine L2 — budget (tracker créé en section 4 ; two-phase setup) ─
-    from jarvis.engine.background.notifications import NotificationQueue, ProactiveQueue
-    from jarvis.engine.budget import BudgetGuard
 
     notifications = NotificationQueue()
     proactive_queue = ProactiveQueue()
@@ -313,19 +296,10 @@ def build(settings: Settings | None = None) -> Container:
     tracker.set_on_usage_callback(_make_budget_callback(budget))
 
     # ── 7. Engine L2 — session ─────────────────────────────────────────────
-    from jarvis.engine.session import SessionManager
 
     session_manager = SessionManager(store=session_store)
 
     # ── 8. Engine L2 — Skills (Lab + Lifecycle + Synth) ────────────────────
-    from jarvis.capabilities.skills.lab import SkillLab
-    from jarvis.capabilities.skills.lifecycle import SkillLifecycle
-    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
-    from jarvis.capabilities.tools.skills import (
-        SkillCreateTool,
-        SkillImproveTool,
-        SkillListTool,
-    )
 
     skill_synthesizer = SkillSynthesizer(llm=llm)
     skill_lifecycle = SkillLifecycle(db_path=memory_dir / "jarvis_memory.db")
@@ -342,7 +316,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 9. Engine L2 — Capability Engine ───────────────────────────────────
-    from jarvis.engine.mission.capability_engine import CapabilityEngine, Whitelist
 
     _whitelist = Whitelist.load(CONFIG_DIR / "permissions.yaml")
     capability_engine = CapabilityEngine(
@@ -356,7 +329,6 @@ def build(settings: Settings | None = None) -> Container:
     tool_registry.register(ReportMissingCapabilityTool(engine=capability_engine))
 
     # ── 10. Engine L2 — Agents ─────────────────────────────────────────────
-    from jarvis.engine.agent import Agent
 
     agent = Agent(
         settings=settings,
@@ -380,7 +352,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # SpawnSubagentTool référence agent → enregistré après création.
-    from jarvis.capabilities.tools.subagent import ScriptRPCTool
 
     tool_registry.register(
         SpawnSubagentTool(agent=agent),
@@ -391,8 +362,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 11. Engine L2 — Background ─────────────────────────────────────────
-    from jarvis.engine.approval_checker import ApprovalChecker
-    from jarvis.engine.background.worker import BackgroundWorker
 
     approval_checker = ApprovalChecker(broadcast_event=proactive_queue.broadcast_event)
     worker = BackgroundWorker(
@@ -400,10 +369,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 12. Engine L2 — Mission (orchestrator + reflexion) ─────────────────
-    from jarvis.engine.mission.orchestrator import ProjectOrchestrator
-    from jarvis.engine.mission.project_manager import ProjectManager
-    from jarvis.engine.mission.project_store import ProjectStore
-    from jarvis.engine.mission.reflexion import Reflexion
 
     reflexion = Reflexion(
         llm=background_llm, kernel=memory_kernel, memory_ingest=memory_ingest
@@ -417,7 +382,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 13. Engine L2 — Gateway ────────────────────────────────────────────
-    from jarvis.engine.gateway import Gateway
 
     gateway = Gateway(
         session_manager=session_manager,
@@ -435,13 +399,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 14. Engine L2 — Proactive (initiatives + curator + command center) ─
-    from jarvis.engine.proactive.command_center import CommandCenter
-    from jarvis.engine.proactive.context_builder import ContextBuilder
-    from jarvis.engine.proactive.curator import Curator
-    from jarvis.engine.proactive.engine import ProactiveEngine
-    from jarvis.engine.proactive.executor import InitiativeExecutor
-    from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
-    from jarvis.engine.proactive.store import InitiativeStore
 
     initiative_store = InitiativeStore()
     initiative_executor = InitiativeExecutor(
@@ -474,7 +431,6 @@ def build(settings: Settings | None = None) -> Container:
     )
 
     # ── 15. Engine L2 — Scheduler ──────────────────────────────────────────
-    from jarvis.engine.background.scheduler import Scheduler
 
     scheduler = Scheduler(
         proactive=proactive_queue,

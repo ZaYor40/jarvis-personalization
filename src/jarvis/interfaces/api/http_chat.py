@@ -4,7 +4,19 @@ from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
+from livekit.api import (
+    AccessToken,
+    CreateAgentDispatchRequest,
+    CreateRoomRequest,
+    LiveKitAPI,
+    VideoGrants,
+)
 from pydantic import BaseModel
+
+from jarvis.engine.background.notifications import broadcast_event
+from jarvis.engine.background.worker import BackgroundTask
+from jarvis.engine.router import RouteEnum
+from jarvis.providers.audio.tts import tts_engine
 
 router = APIRouter()
 
@@ -54,7 +66,6 @@ async def voice_speak(body: dict) -> dict:
     if not text:
         return {"status": "error", "audio_b64": None}
 
-    from jarvis.providers.audio.tts import tts_engine
 
     audio_bytes = await tts_engine.synthesize(text)
     return {
@@ -76,8 +87,6 @@ async def voice_generate(body: VoiceGenerateRequest, request: Request) -> Stream
     """
     import asyncio
 
-    from jarvis.engine.background.worker import BackgroundTask
-    from jarvis.engine.router import RouteEnum
 
     gateway = request.app.state.voice_gateway
     worker = request.app.state.worker
@@ -144,13 +153,6 @@ async def get_voice_token(session_id: str | None = None) -> dict:  # noqa: ARG00
     import os
     import uuid
 
-    from livekit.api import (
-        AccessToken,
-        CreateAgentDispatchRequest,
-        CreateRoomRequest,
-        LiveKitAPI,
-        VideoGrants,
-    )
 
     api_key = os.getenv("LIVEKIT_API_KEY")
     api_secret = os.getenv("LIVEKIT_API_SECRET")
@@ -188,7 +190,6 @@ async def get_voice_token(session_id: str | None = None) -> dict:  # noqa: ARG00
 @router.post("/internal/broadcast", include_in_schema=False)
 async def internal_broadcast(request: Request) -> dict:
     """Endpoint interne utilisé par le voice agent pour envoyer des événements UI."""
-    from jarvis.engine.background.notifications import broadcast_event
 
     event = await request.json()
     await broadcast_event(event)

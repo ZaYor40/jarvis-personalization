@@ -4,22 +4,18 @@ import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from jarvis.capabilities.skills.registry import SkillRegistry
+from jarvis.capabilities.tools.registry import ToolRegistry
 from jarvis.engine.session import Session
-from jarvis.kernel.schemas import ToolCapture
-from jarvis.providers.llm.base import LLMProvider
-
-if TYPE_CHECKING:
-    from jarvis.capabilities.skills.registry import SkillRegistry
-    from jarvis.capabilities.tools.registry import ToolRegistry
-    from jarvis.kernel.settings import Settings
-    from jarvis.providers.memory.index import MemoryIndex
-    from jarvis.providers.memory.topics import TopicStore
-
 from jarvis.kernel.paths import PROMPTS_DIR  # noqa: E402
+from jarvis.kernel.schemas import ToolCapture
+from jarvis.kernel.settings import Settings
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.memory.index import MemoryIndex
+from jarvis.providers.memory.topics import TopicStore
 
 _STATIC_PROMPT_PATH = PROMPTS_DIR / "system_static.md"
 

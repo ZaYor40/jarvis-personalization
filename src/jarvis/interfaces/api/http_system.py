@@ -7,11 +7,15 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 
+from config.settings import settings
+from jarvis.capabilities.skills.registry import skill_registry
+from jarvis.engine.mission.project_store import WORKSPACE_DIR
+from jarvis.kernel.paths import MEMORY_DATA_DIR
+
 router = APIRouter()
 
 
 def _mem_dir(request: Request) -> Path:  # noqa: ARG001 — request ignoré, conservé pour signature API
-    from config.settings import settings
 
     return Path(settings.memory_dir)
 
@@ -87,14 +91,12 @@ async def jarvis_doctor() -> dict:
     except Exception:
         checks["docker"] = {"status": "error", "detail": "Non installé"}
 
-    from jarvis.kernel.paths import MEMORY_DATA_DIR
 
     mem_topics = MEMORY_DATA_DIR / "topics"
     topics = list(mem_topics.glob("*.md")) if mem_topics.exists() else []
     checks["memory"] = {"status": "ok", "detail": f"{len(topics)} topics"}
 
     try:
-        from jarvis.capabilities.skills.registry import skill_registry
 
         skills = skill_registry.list_installed()
         checks["skills"] = {"status": "ok", "detail": f"{len(skills)} installés"}
@@ -110,15 +112,12 @@ async def jarvis_doctor() -> dict:
 @router.get("/api/wakeup/status")
 async def wakeup_status() -> dict:
     """Retourne si la séquence wake up est activée (contrôlé via WAKEUP_ENABLED dans .env)."""
-    from config.settings import settings
 
     return {"enabled": settings.wakeup_enabled, "user_firstname": settings.user_firstname}
 
 
 @router.get("/api/system/stats")
 async def system_stats(request: Request) -> dict:
-    from config.settings import settings
-    from jarvis.engine.mission.project_store import WORKSPACE_DIR
 
     mem_dir = _mem_dir(request)
     topics_dir = mem_dir / "topics"
@@ -223,7 +222,6 @@ async def retry_project(project_id: str, request: Request) -> dict:
 
 @router.delete("/api/system/projects/done")
 async def cleanup_done_projects(request: Request) -> dict:  # noqa: ARG001
-    from jarvis.engine.mission.project_store import WORKSPACE_DIR
 
     removed = 0
     for state_file in list(WORKSPACE_DIR.glob("*/.jarvis/state.json")):

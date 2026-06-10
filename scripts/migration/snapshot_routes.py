@@ -9,9 +9,9 @@ la baseline capturée en Phase A — sortie vide exigée.
 from __future__ import annotations
 
 try:
-    from jarvis.app import app  # à partir de la Phase B
+    from jarvis.app import app  # lazy: fallback main pour compat Phase A
 except ImportError:
-    from main import app  # Phase A
+    from main import app  # lazy: fallback main pour compat Phase A
 
 rows: list[str] = []
 for r in app.routes:

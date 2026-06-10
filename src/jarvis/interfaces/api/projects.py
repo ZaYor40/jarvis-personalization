@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+
+from jarvis.engine.mission.project_store import WORKSPACE_DIR
 
 router = APIRouter()
 
@@ -94,7 +98,6 @@ async def reset_steps(project_id: str, body: ResetStepsBody, request: Request) -
     """Remet des étapes spécifiques en pending (sans relancer le worker)."""
     import json
 
-    from jarvis.engine.mission.project_store import WORKSPACE_DIR
 
     state_file = WORKSPACE_DIR / project_id / ".jarvis" / "state.json"
     if not state_file.exists():
@@ -141,7 +144,6 @@ async def read_file(project_id: str, path: str, request: Request) -> dict:
 @router.delete("/api/projects/{project_id}")
 async def delete_project(project_id: str, request: Request) -> dict:
     import shutil
-    from pathlib import Path
 
     orch = _orch(request)
     project = orch.get_project(project_id)

@@ -3,15 +3,12 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from jarvis.providers.llm.base import LLMProvider
-
-if TYPE_CHECKING:
-    from jarvis.providers.memory.ingest import IngestResult, MemoryIngest
-    from jarvis.providers.memory.mirror import MemoryMirror
+from jarvis.providers.memory.ingest import IngestResult, MemoryIngest
+from jarvis.providers.memory.mirror import MemoryMirror
 
 # Plafond du nombre de sessions ingérées par run deep (la plus récente d'abord).
 _MAX_SESSIONS_PER_DEEP = 5

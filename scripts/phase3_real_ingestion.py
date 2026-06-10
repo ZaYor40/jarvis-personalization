@@ -22,6 +22,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from config.settings import settings
+from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.memory.ingest import MemoryIngest  # noqa: E402
 from jarvis.providers.memory.kernel import MemoryKernel  # noqa: E402
 from jarvis.providers.memory.mirror import MemoryMirror  # noqa: E402
@@ -79,8 +81,6 @@ async def main() -> int:
     print(f"  Échanges à ingérer : {len(SCENARIO)}\n")
 
     # Vrai LLM (Anthropic Haiku par défaut)
-    from config.settings import settings
-    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
 

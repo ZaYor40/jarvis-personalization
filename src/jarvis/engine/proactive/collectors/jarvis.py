@@ -8,6 +8,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from config.settings import settings
+from jarvis.engine.mission.project_store import ProjectStore
 from jarvis.engine.proactive.collectors.base import CollectorBase
 from jarvis.engine.proactive.schemas import ContextItem, ItemType, Priority
 
@@ -22,7 +24,6 @@ class JarvisCollector(CollectorBase):
         return items
 
     def _collect_missions(self) -> list[ContextItem]:
-        from jarvis.engine.mission.project_store import ProjectStore
 
         store = ProjectStore()
         projects = store.list_projects()
@@ -49,7 +50,6 @@ class JarvisCollector(CollectorBase):
         return items
 
     def _collect_memory_summary(self) -> list[ContextItem]:
-        from config.settings import settings
 
         memory_file = Path(settings.memory_dir) / "MEMORY.md"
         if not memory_file.exists():

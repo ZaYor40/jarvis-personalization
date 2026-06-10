@@ -11,7 +11,12 @@ from pathlib import Path
 
 from loguru import logger
 
+from config.approvals import approval_config
+from config.settings import settings
+from jarvis.capabilities.tools.fusion import FusionTool
+from jarvis.engine.audit import AuditLog
 from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.mission.docker_executor import DockerExecutor
 from jarvis.engine.mission.file_tool import SandboxedFileTool
 from jarvis.engine.mission.governance import GateContext, GateDecision, Governance
 from jarvis.engine.mission.project_store import ProjectStore
@@ -21,6 +26,8 @@ from jarvis.engine.mission.schemas import LogEntry, Project, ProjectStatus, Step
 from jarvis.engine.mission.verifier import Verifier
 from jarvis.engine.mission.worker_cli import WorkerCLITool
 from jarvis.engine.vocab import AccessLevel
+from jarvis.kernel.paths import PROMPTS_DIR
+from jarvis.providers.llm.api import AnthropicProvider
 
 # ── Constantes PHASE 1 ─────────────────────────────────────────────────────────
 
@@ -46,8 +53,6 @@ _TOOL_CATEGORY: dict[str, str] = {
     "execute_cli": "agent_mission",
     "fusion_360": "agent_mission",
 }
-
-from jarvis.kernel.paths import PROMPTS_DIR  # noqa: E402
 
 _QUALITY_RULES_PATH = PROMPTS_DIR / "worker_system.md"
 try:
@@ -246,8 +251,6 @@ class WorkerAgent:
         if self._governance is not None:
             return
 
-        from config.approvals import approval_config
-        from jarvis.engine.audit import AuditLog
 
         audit_path = Path(self._project.workspace_path) / ".jarvis" / "audit.jsonl"
         self._governance = Governance(
@@ -260,8 +263,6 @@ class WorkerAgent:
         """Construit un Verifier par défaut si non injecté (LLM Anthropic Haiku)."""
         if self._verifier is not None:
             return
-        from config.settings import settings
-        from jarvis.providers.llm.api import AnthropicProvider
 
         llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
         self._verifier = Verifier(
@@ -272,14 +273,12 @@ class WorkerAgent:
 
     async def _setup_environment(self) -> None:
         """Configure l'environnement d'exécution : Docker V2 ou direct V1."""
-        from config.settings import settings
 
         self._ensure_governance()
         # Le verifier doit utiliser le _cli_tool ACTUEL (potentiellement Dockerisé).
         # On le construit après la sélection du backend pour qu'il pointe sur le bon CLI.
 
         if settings.docker_enabled:
-            from jarvis.engine.mission.docker_executor import DockerExecutor
 
             available = await DockerExecutor.is_available()
             if not available:
@@ -581,8 +580,6 @@ class WorkerAgent:
         prev_issues: list[str] | None = None,
         attempt: int = 0,
     ) -> str:
-        from config.settings import settings
-        from jarvis.providers.llm.api import AnthropicProvider
 
         # Vérification budget avant l'appel LLM (estimation conservatrice : 0.02 USD / step)
         _est_usd = 0.02
@@ -696,7 +693,6 @@ class WorkerAgent:
                 return f"ERREUR (rc={res['returncode']}) : {res['stderr']}"
 
             if name == "fusion_360":
-                from jarvis.capabilities.tools.fusion import FusionTool
 
                 action = inputs.get("action", "")
                 await self._log("tool", f"fusion_360: {action}", data={"inputs": str(inputs)[:120]})

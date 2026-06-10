@@ -80,7 +80,7 @@ def list_installed_skills() -> tuple[int, list[str]]:
     # On veut PROUVER que les skills se chargent — pas juste qu'ils existent.
     sys.path.insert(0, str(ROOT))
     try:
-        from jarvis.capabilities.skills.registry import SkillRegistry
+        from jarvis.capabilities.skills.registry import SkillRegistry  # lazy: diagnostic
 
         reg = SkillRegistry()
         reg.load_all()

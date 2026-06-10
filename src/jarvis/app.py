@@ -17,10 +17,18 @@ from loguru import logger
 
 import jarvis.interfaces.channels.telegram_bot as _tg_module
 from config.settings import settings
+from jarvis.analytics.registry import analytics_registry as _analytics_registry
+from jarvis.bootstrap import build
+from jarvis.capabilities.skills.dev_extensions import mount_dev_views
 from jarvis.capabilities.skills.registry import skill_registry
+from jarvis.engine.approval_checker import set_approval_checker
 from jarvis.engine.auth import verify_api_token  # ── [AUTH] ──
+from jarvis.engine.background.notifications import set_proactive_queue
+from jarvis.engine.background.routines import ROUTINES_ENABLED, Routine, RoutineStore
+from jarvis.engine.connectivity import is_offline_mode
 from jarvis.interfaces.api.admin import _ui_router as admin_ui_router
 from jarvis.interfaces.api.admin import router as admin_router
+from jarvis.interfaces.api.channels import router as channels_router
 from jarvis.interfaces.api.deezer import router as deezer_router
 from jarvis.interfaces.api.globe import router as globe_router
 from jarvis.interfaces.api.google_oauth import router as google_oauth_router
@@ -37,9 +45,13 @@ from jarvis.interfaces.api.spotify import router as spotify_router
 from jarvis.interfaces.api.voice_ws import router as voice_router
 from jarvis.interfaces.api.websocket import router as ws_router
 from jarvis.interfaces.api.widgets import router as widgets_router
+from jarvis.interfaces.channels.discord_bot import DiscordChannel
+from jarvis.interfaces.channels.gateway import MessagingGateway
 from jarvis.interfaces.channels.telegram_bot import TelegramChannel, get_telegram_channel
 from jarvis.kernel.paths import UI_STATIC_DIR
+from jarvis.providers.audio.clap_detector import ClapDetector
 from jarvis.providers.memory.search import FTSIndex
+from jarvis.providers.vision.daemon import run_vision_daemon
 
 # load_dotenv() doit tourner avant toute logique module-level qui consomme os.environ
 load_dotenv()
@@ -65,7 +77,6 @@ async def _fts_rebuild_if_empty(fts_index: FTSIndex, sessions_dir: Path) -> None
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Phase C — Étape 2 (a) : app.py utilise bootstrap.build() pour construire
     # le graphe complet. Plus aucune instanciation directe ici.
-    from jarvis.bootstrap import build
 
     container = build(settings=settings)
     app.state.container = container
@@ -107,8 +118,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     #  - `tracker` (jarvis.engine.tracking) reste module-level pour cette étape
     #    (b) et bascule en injection constructeur dans l'étape (d) qui touche
     #    providers/llm/api.py + providers/audio/tts.py (commit isolé pour bisect).
-    from jarvis.engine.approval_checker import set_approval_checker
-    from jarvis.engine.background.notifications import set_proactive_queue
 
     set_proactive_queue(container.proactive_queue)
     set_approval_checker(container.approval_checker)
@@ -157,12 +166,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
 
     if settings.vision_object_detection:
-        from jarvis.providers.vision.daemon import run_vision_daemon
 
         asyncio.create_task(run_vision_daemon(), name="vision-daemon")
 
     if settings.clap_detection_enabled:
-        from jarvis.providers.audio.clap_detector import ClapDetector
 
         async def _on_clap() -> None:
             container.proactive_queue.broadcast_event({"type": "wake_up", "trigger": "clap"})
@@ -176,11 +183,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     container.scheduler.start()
 
     # Routines
-    from jarvis.engine.background.routines import (
-        ROUTINES_ENABLED,
-        Routine,
-        RoutineStore,
-    )
 
     if ROUTINES_ENABLED:
         _routine_store = RoutineStore()
@@ -198,15 +200,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     asyncio.create_task(container.proactive_engine.start(), name="proactive-engine")
 
     # AnalyticsRegistry (charge la config sauvegardée)
-    from jarvis.analytics.registry import analytics_registry as _analytics_registry
 
     logger.info("AnalyticsRegistry initialisé", widgets=len(_analytics_registry.get_active()))
 
     # ── Channels (Telegram/Discord) — hors-Container par design (interfaces L3) ─
-    from jarvis.engine.connectivity import is_offline_mode
-    from jarvis.interfaces.api.channels import router as channels_router
-    from jarvis.interfaces.channels.discord_bot import DiscordChannel
-    from jarvis.interfaces.channels.gateway import MessagingGateway
 
     _messaging_gw: MessagingGateway | None = None
     _telegram_enabled = os.getenv("TELEGRAM_ENABLED", "false").lower() == "true"
@@ -339,8 +336,6 @@ async def mapbox_style() -> FileResponse:
 
 # Vues dev (extensions liées) montées AVANT le mount global pour les servir
 # en priorité sous /static/skills/<name>. Inerte si la zone n'existe pas.
-from jarvis.capabilities.skills.dev_extensions import mount_dev_views  # noqa: E402
-
 mount_dev_views(app)
 
 # UI statique montée en dernier pour ne pas masquer les routes API

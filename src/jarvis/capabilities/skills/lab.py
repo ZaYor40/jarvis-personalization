@@ -37,6 +37,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from config.settings import settings
 from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillRecord, SkillStatus
 from jarvis.capabilities.skills.synthesizer import (
     SKILLS_CANDIDATES_DIR,
@@ -114,7 +115,7 @@ _SANDBOX_TEST_SCRIPT = textwrap.dedent(
     # skills réels étaient alors rejetés à la couche import.)
     sys.path.insert(0, "/jarvis_src")
     try:
-        from jarvis.capabilities.skills.base import SkillBase
+        from jarvis.capabilities.skills.base import SkillBase  # lazy: sandbox path
     except Exception as exc:
         _fail("import", f"SkillBase indisponible dans la sandbox : {exc!r}")
 
@@ -429,7 +430,6 @@ class SkillLab:
     async def _run_sandbox_test(self, cand_dir: Path) -> SandboxTestResult:
         """Crée un container Docker temporaire, monte candidates/{name}/
         en read-only, exécute le test générique, parse la sortie JSON."""
-        from config.settings import settings
 
         if not settings.docker_enabled:
             return await self._run_direct_test(cand_dir)

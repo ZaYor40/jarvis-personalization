@@ -27,6 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from config.settings import settings
 from jarvis.capabilities.skills.lab import SkillLab  # noqa: E402
 from jarvis.capabilities.skills.lifecycle import (  # noqa: E402
     SkillLifecycle,
@@ -34,6 +35,7 @@ from jarvis.capabilities.skills.lifecycle import (  # noqa: E402
     SkillStatus,
 )
 from jarvis.capabilities.skills.synthesizer import SkillSynthesizer  # noqa: E402
+from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.memory.kernel import MemoryKernel  # noqa: E402
 
 
@@ -106,8 +108,6 @@ async def cas_nominal(workspace: Path) -> bool:
     if inst_dir.exists():
         shutil.rmtree(inst_dir)
 
-    from config.settings import settings
-    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=2048, model=settings.voice_anthropic_model)
     synth = SkillSynthesizer(llm=llm)
@@ -175,8 +175,6 @@ async def cas_rejet(workspace: Path) -> bool:
     if cand_dir.exists():
         shutil.rmtree(cand_dir)
 
-    from config.settings import settings
-    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=512, model=settings.voice_anthropic_model)
     synth = SkillSynthesizer(llm=llm)

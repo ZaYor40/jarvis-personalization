@@ -12,11 +12,16 @@ Variables d'environnement requises :
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from jarvis.interfaces.channels.base import ChannelAdapter, IncomingMessage, MessageTarget, Platform
+from jarvis.interfaces.channels.base import (
+    ChannelAdapter,
+    DispatchCallback,
+    IncomingMessage,
+    MessageTarget,
+    Platform,
+)
 
 try:
     import discord
@@ -25,8 +30,6 @@ try:
 except ImportError:
     DISCORD_AVAILABLE = False
 
-if TYPE_CHECKING:
-    from jarvis.interfaces.channels.base import DispatchCallback
 
 
 class DiscordChannel(ChannelAdapter):

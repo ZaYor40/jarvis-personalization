@@ -103,7 +103,7 @@ async def test_osascript_confirmed_executes(
     """osascript avec confirmed=True est bien soumis à exécution (mocké)."""
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = False
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(return_value=(b"result", b""))
@@ -232,7 +232,7 @@ async def test_sandbox_active_by_default(
 
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = False
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     with patch("asyncio.create_subprocess_exec", side_effect=mock_exec):
         await tool.execute(command="ffmpeg -version")
@@ -260,7 +260,7 @@ async def test_sandbox_disabled_with_opt_in(
 
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = True
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     with patch("asyncio.create_subprocess_exec", side_effect=mock_exec):
         await tool.execute(command="ffmpeg -version")
@@ -281,7 +281,7 @@ async def _run_legit(
     """Utilitaire : vérifie qu'une commande légitime n'est pas bloquée."""
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = False
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))

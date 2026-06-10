@@ -7,6 +7,9 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from config.settings import settings
+from jarvis.providers.memory.schemas import FactStatus
+
 router = APIRouter()
 
 
@@ -23,7 +26,6 @@ class _CorrectionBody(BaseModel):
 
 
 def _mem_dir(request: Request) -> Path:  # noqa: ARG001
-    from config.settings import settings
 
     return Path(settings.memory_dir)
 
@@ -133,7 +135,6 @@ async def list_memory_facts(
     pour l'UI Atelier/Mémoire. Lecture seule — la correction passe par
     POST /api/memory/correct.
     """
-    from jarvis.providers.memory.schemas import FactStatus
 
     kernel = getattr(request.app.state, "memory_kernel", None)
     if kernel is None:
@@ -174,7 +175,6 @@ async def correct_memory_fact(body: _CorrectionBody, request: Request) -> dict:
     en audit immuable et met à jour le fact. C'est l'UNIQUE chemin d'écriture
     légitime sur la mémoire depuis l'UI — le miroir Markdown reste lecture seule.
     """
-    from jarvis.providers.memory.schemas import FactStatus
 
     kernel = getattr(request.app.state, "memory_kernel", None)
     if kernel is None:
@@ -242,7 +242,6 @@ async def trigger_deep(request: Request) -> dict:
     DOIT PAS contourner le flag de bascule, sinon on crée une porte
     d'ingestion qui shunte l'interrupteur principal.
     """
-    from config.settings import settings
 
     if not settings.ingest_deep_enabled:
         raise HTTPException(
