@@ -11,13 +11,13 @@ Patterns inspirés de Paperclip (MIT) — voir notices/budget-cost.md.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from datetime import date, timedelta
 from typing import Literal
 
 from loguru import logger
 
 from jarvis.engine.tracking import UsageTracker
+from jarvis.kernel.events import BudgetThresholdReached, EventBus
 from jarvis.kernel.settings import Settings
 
 BudgetStatus = Literal["ok", "warning", "hard_stop"]
@@ -36,14 +36,14 @@ class BudgetGuard:
         self,
         settings: Settings,
         tracker: UsageTracker,
-        notify_callback: Callable[[dict], None] | None = None,
+        bus: EventBus | None = None,
     ) -> None:
         self._enabled = settings.budget_enabled
         self._monthly_usd = settings.budget_monthly_usd
         self._per_project = settings.budget_per_project_usd
         self._warn_ratio = settings.budget_warn_pct / 100.0
         self._tracker = tracker
-        self._notify = notify_callback or (lambda _: None)
+        self._bus = bus
         self._lock = asyncio.Lock()
 
         # Accumulateurs in-memory (projet et run)
@@ -134,29 +134,27 @@ class BudgetGuard:
                     limit=limit,
                     estimated=estimated_usd,
                 )
-                self._notify(
-                    {
-                        "type": "budget_hard_stop",
-                        "scope": scope,
-                        "spent_usd": round(spent, 6),
-                        "limit_usd": limit,
-                        "estimated_usd": estimated_usd,
-                    }
-                )
+                if self._bus is not None:
+                    await self._bus.publish(
+                        BudgetThresholdReached(
+                            ratio=1.0,
+                            provider="mission" if scope.startswith("project:") else "global",
+                            scope=scope,
+                        )
+                    )
                 return False
 
             # Alerte warn (une seule fois par scope par session)
             if self._scope_status(scope, projected) == "warning" and scope not in self._warned:
                 self._warned.add(scope)
-                self._notify(
-                    {
-                        "type": "budget_warning",
-                        "scope": scope,
-                        "spent_usd": round(projected, 6),
-                        "limit_usd": limit,
-                        "warn_pct": self._warn_ratio * 100,
-                    }
-                )
+                if self._bus is not None:
+                    await self._bus.publish(
+                        BudgetThresholdReached(
+                            ratio=projected / limit if limit > 0 else 0.0,
+                            provider="mission" if scope.startswith("project:") else "global",
+                            scope=scope,
+                        )
+                    )
                 logger.info(
                     "BudgetGuard: alerte warn",
                     scope=scope,

@@ -26,6 +26,7 @@ from jarvis.engine.mission.verifier import Verifier
 from jarvis.engine.mission.worker_cli import WorkerCLITool
 from jarvis.engine.vocab import AccessLevel
 from jarvis.kernel.contracts import LLMProvider
+from jarvis.kernel.events import EventBus, MissionCompleted
 from jarvis.kernel.paths import PROMPTS_DIR
 
 # ── Constantes PHASE 1 ─────────────────────────────────────────────────────────
@@ -221,6 +222,7 @@ class WorkerAgent:
         governance: Governance | None = None,
         verifier: Verifier | None = None,
         reflexion: Reflexion | None = None,
+        bus: EventBus | None = None,
     ) -> None:
         self._project = project
         self._store = store
@@ -241,7 +243,11 @@ class WorkerAgent:
         self._verifier = verifier
         # PHASE 2 — reflexion post-mission (injection optionnelle).
         # Si None, aucune leçon n'est produite (mode dégradé silencieux).
+        # Phase D — la Reflexion canonique est désormais abonnée à
+        # `MissionCompleted` via le bus ; on garde le paramètre pour les
+        # tests legacy qui appellent _maybe_reflect directement.
         self._reflexion = reflexion
+        self._bus = bus
 
     def kill(self) -> None:
         self._killed = True
@@ -360,7 +366,27 @@ class WorkerAgent:
         finally:
             # PHASE 2 §5.1 — réflexion post-mission sur statut terminal.
             # PAUSED est exclu (mission reprenable). Best-effort, jamais bloquant.
-            await self._maybe_reflect()
+            # Phase D : la Reflexion canonique est branchée via le bus
+            # (`MissionCompleted` → handler `_on_mission_completed` dans
+            # bootstrap). Le call direct `_maybe_reflect` reste pour les tests
+            # legacy qui injectent `reflexion=` mais pas `bus=`.
+            if self._bus is not None and project.status in (
+                ProjectStatus.DONE,
+                ProjectStatus.FAILED,
+                ProjectStatus.KILLED,
+            ):
+                await self._bus.publish(
+                    MissionCompleted(
+                        mission_id=project.id,
+                        verdict={
+                            ProjectStatus.DONE: "success",
+                            ProjectStatus.FAILED: "failure",
+                            ProjectStatus.KILLED: "killed",
+                        }.get(project.status, "failure"),
+                    )
+                )
+            elif self._reflexion is not None:
+                await self._maybe_reflect()
 
             if self._docker:
                 await self._docker.stop()

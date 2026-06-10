@@ -21,6 +21,7 @@ from jarvis.engine.mission.schemas import (
 )
 from jarvis.engine.mission.worker_agent import WorkerAgent
 from jarvis.kernel.contracts import LLMProvider
+from jarvis.kernel.events import EventBus
 
 
 class ProjectOrchestrator:
@@ -41,13 +42,15 @@ class ProjectOrchestrator:
         worker_llm: LLMProvider,
         budget_guard: BudgetGuard | None = None,
         reflexion: Reflexion | None = None,
+        bus: EventBus | None = None,
     ) -> None:
         self._broadcast = broadcast_event
         self._budget = budget_guard
-        self._reflexion = reflexion  # PHASE 2 — partagée entre tous les workers
+        self._reflexion = reflexion  # PHASE 2 — gardée pour le code legacy (cf. WorkerAgent)
         self._store = store
         self._manager = manager
         self._worker_llm = worker_llm
+        self._bus = bus
         self._workers: dict[str, WorkerAgent] = {}
         self._pending_approvals: dict[str, asyncio.Future[bool]] = {}
 
@@ -90,6 +93,7 @@ class ProjectOrchestrator:
             llm=self._worker_llm,
             budget_guard=self._budget,
             reflexion=self._reflexion,
+            bus=self._bus,
         )
         self._workers[project.id] = worker
 
@@ -154,6 +158,7 @@ class ProjectOrchestrator:
             llm=self._worker_llm,
             budget_guard=self._budget,
             reflexion=self._reflexion,
+            bus=self._bus,
         )
         self._workers[project_id] = worker
 
@@ -202,6 +207,7 @@ class ProjectOrchestrator:
             llm=self._worker_llm,
             budget_guard=self._budget,
             reflexion=self._reflexion,
+            bus=self._bus,
         )
         self._workers[project_id] = worker
 

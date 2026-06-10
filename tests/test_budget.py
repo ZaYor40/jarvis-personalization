@@ -50,22 +50,35 @@ def make_guard(
 ) -> tuple[object, list[dict]]:
     """Fabrique un BudgetGuard isolé.
 
-    Phase C : `settings` et `tracker` sont INJECTÉS au constructeur. Plus
-    besoin de patch global sur `config.settings.settings` ni de mock du
-    seeder : un fake tracker (`_read_day` → []) suffit à éviter la lecture
-    disque. C'est le payoff du motif d'injection — les tests deviennent
-    plus simples et n'ont plus besoin de connaître les détails internes
-    du module testé.
+    Phase D : la notif passe par le bus d'événements
+    `BudgetThresholdReached`. Le helper capture les événements publiés
+    dans la liste `notifications` — la forme est convertie en dict pour
+    rester compatible avec les assertions existantes (`type`, `scope`, …).
     """
     notifications: list[dict] = [] if notify is None else notify
     settings_mock = _make_settings(enabled, monthly_usd, per_project, warn_pct)
 
     from jarvis.engine.budget import BudgetGuard
+    from jarvis.kernel.events import BudgetThresholdReached, EventBus
+
+    bus = EventBus()
+
+    async def _capture(event: BudgetThresholdReached) -> None:
+        notifications.append(
+            {
+                "type": "budget_hard_stop" if event.ratio >= 1.0 else "budget_warning",
+                "scope": event.scope,
+                "ratio": event.ratio,
+                "provider": event.provider,
+            }
+        )
+
+    bus.subscribe(BudgetThresholdReached, _capture)
 
     guard = BudgetGuard(
         settings=settings_mock,
         tracker=_make_fake_tracker(),
-        notify_callback=notifications.append,
+        bus=bus,
     )
 
     return guard, notifications

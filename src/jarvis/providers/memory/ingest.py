@@ -26,6 +26,7 @@ from typing import Any
 
 from loguru import logger
 
+from jarvis.kernel.events import EventBus, MemoryIngested
 from jarvis.kernel.vocab import CATEGORIES, PREDICATES
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.memory.kernel import MemoryKernel, _new_id, normalize
@@ -218,9 +219,15 @@ class MemoryIngest:
     Exposé pour télémétrie/coût (cf. cas "match partiel" §6.4 étape 5 — v2).
     """
 
-    def __init__(self, kernel: MemoryKernel, llm: LLMProvider) -> None:
+    def __init__(
+        self,
+        kernel: MemoryKernel,
+        llm: LLMProvider,
+        bus: EventBus | None = None,
+    ) -> None:
         self._kernel = kernel
         self._llm = llm
+        self._bus = bus
         # Compteur d'appels au LLM arbitre (étape 2 du matcher v2).
         self.arbiter_calls = 0
 
@@ -253,7 +260,7 @@ class MemoryIngest:
             elif outcome.kind == "needs_review":
                 needs_review.append(outcome.fact)
 
-        return IngestResult(
+        result = IngestResult(
             event=evt,
             confirmed=confirmed,
             superseded_pairs=superseded_pairs,
@@ -261,6 +268,17 @@ class MemoryIngest:
             needs_review=needs_review,
             raw_extracted_count=len(candidates),
         )
+
+        if self._bus is not None:
+            await self._bus.publish(
+                MemoryIngested(
+                    event_id=evt.id,
+                    fact_count=len(confirmed) + len(new_facts),
+                    source=source,
+                )
+            )
+
+        return result
 
     # ── Étape 2 : extraction LLM ──────────────────────────────────────────────
 

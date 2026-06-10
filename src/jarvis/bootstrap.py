@@ -74,7 +74,13 @@ from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
 from jarvis.engine.proactive.store import InitiativeStore
 from jarvis.engine.session import SessionManager
 from jarvis.engine.tracking import UsageEntry, UsageTracker
-from jarvis.kernel.events import EventBus
+from jarvis.kernel.events import (
+    BudgetThresholdReached,
+    EventBus,
+    MemoryIngested,
+    MissionCompleted,
+    NotificationRequested,
+)
 from jarvis.kernel.paths import CONFIG_DIR
 from jarvis.kernel.settings import Settings
 from jarvis.kernel.settings import settings as _default_settings
@@ -221,7 +227,7 @@ def build(settings: Settings | None = None) -> Container:
 
     tts_engine.set_tracker(tracker)
 
-    memory_ingest = MemoryIngest(kernel=memory_kernel, llm=background_llm)
+    memory_ingest = MemoryIngest(kernel=memory_kernel, llm=background_llm, bus=bus)
     user_model = UserModel(llm=background_llm, model_path=user_model_path)
     cross_recall = CrossSessionRecall(
         llm=background_llm, fts_index=fts_index, vector_index=vector_index
@@ -292,7 +298,7 @@ def build(settings: Settings | None = None) -> Container:
     budget = BudgetGuard(
         settings=settings,
         tracker=tracker,
-        notify_callback=proactive_queue.broadcast_event,
+        bus=bus,
     )
     tracker.set_on_usage_callback(_make_budget_callback(budget))
 
@@ -381,6 +387,7 @@ def build(settings: Settings | None = None) -> Container:
         worker_llm=voice_llm,
         budget_guard=budget,
         reflexion=reflexion,
+        bus=bus,
     )
 
     # ── 13. Engine L2 — Gateway ────────────────────────────────────────────
@@ -446,6 +453,17 @@ def build(settings: Settings | None = None) -> Container:
         notion_tool=notion_tasks_tool,
         skill_lab=skill_lab,
         curator=curator,
+    )
+
+    # ── 16. Câblage des événements (Phase D — kernel.events.bus) ───────────
+    # Les abonnements sont EXPLICITES ici (pas d'auto-découverte). Chaque
+    # paire (Event → handler) est documentée dans docs/architecture/events.md.
+    _wire_events(
+        bus=bus,
+        proactive_queue=proactive_queue,
+        notifications=notifications,
+        reflexion=reflexion,
+        project_store=orchestrator._store,
     )
 
     return Container(
@@ -519,5 +537,91 @@ def _make_budget_callback(budget: BudgetGuard) -> Callable[[UsageEntry], None]:
             budget.record(f"project:{project_id}", entry.cost_usd)
 
     return callback
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Câblage des événements — bus pub/sub kernel.events (CDC §6 D.1 point 2)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Pour chaque type d'événement défini dans kernel/events.py, on enregistre ici
+# le ou les handlers EXPLICITEMENT — pas d'auto-découverte. La table complète
+# des paires (Émetteur → Event → Abonné) vit dans docs/architecture/events.md
+# et doit y être tenue à jour à chaque ajout (gate D2).
+
+
+def _wire_events(
+    *,
+    bus: EventBus,
+    proactive_queue: ProactiveQueue,
+    notifications: NotificationQueue,
+    reflexion: Reflexion,
+    project_store: ProjectStore,
+) -> None:
+    """Enregistre les handlers des 4 événements Phase D sur le bus.
+
+    Émetteurs :
+      - BudgetGuard.reserve()    → BudgetThresholdReached
+      - WorkerAgent (fin de mission) → MissionCompleted
+      - MemoryIngest.ingest()    → MemoryIngested
+      - (toute couche basse)     → NotificationRequested
+
+    Abonnés :
+      - BudgetThresholdReached   → broadcast UI + notification user
+      - MissionCompleted         → Reflexion.reflect(project)
+      - MemoryIngested           → broadcast UI (compteur facts)
+      - NotificationRequested    → broadcast UI ou queue notifications
+    """
+
+    async def _on_budget_threshold(event: BudgetThresholdReached) -> None:
+        """Budget approche ou dépasse un seuil → broadcast UI + notif."""
+        is_hard_stop = event.ratio >= 1.0
+        proactive_queue.broadcast_event(
+            {
+                "type": "budget_hard_stop" if is_hard_stop else "budget_warning",
+                "scope": event.scope,
+                "ratio": event.ratio,
+                "provider": event.provider,
+            }
+        )
+        if is_hard_stop:
+            notifications.add(f"Budget {event.scope} atteint — arrêt automatique.")
+
+    async def _on_mission_completed(event: MissionCompleted) -> None:
+        """Mission terminée → Reflexion produit une leçon depuis le project_store."""
+        project = project_store.load_project(event.mission_id)
+        if project is None:
+            return
+        try:
+            await reflexion.reflect(project)
+        except Exception as exc:  # noqa: BLE001 — la mission est close, on dégrade
+            from loguru import logger as _lg
+
+            _lg.warning("Reflexion handler échec", error=str(exc))
+
+    async def _on_memory_ingested(event: MemoryIngested) -> None:
+        """Fact ingéré → broadcast UI (compteur, surface mémoire)."""
+        proactive_queue.broadcast_event(
+            {
+                "type": "memory_ingested",
+                "event_id": event.event_id,
+                "fact_count": event.fact_count,
+                "source": event.source,
+            }
+        )
+
+    async def _on_notification_requested(event: NotificationRequested) -> None:
+        """Couche basse demande notification UI/canal."""
+        if event.channel == "websocket":
+            proactive_queue.broadcast_event(event.payload)
+        else:
+            # Texte simple pour les canaux non-WS (telegram, mémoire user, …)
+            content = event.payload.get("content", "")
+            if content:
+                notifications.add(content)
+
+    bus.subscribe(BudgetThresholdReached, _on_budget_threshold)
+    bus.subscribe(MissionCompleted, _on_mission_completed)
+    bus.subscribe(MemoryIngested, _on_memory_ingested)
+    bus.subscribe(NotificationRequested, _on_notification_requested)
 
 
