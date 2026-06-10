@@ -30,7 +30,7 @@ models/
 # ── Données personnelles de Jarvis ───────────────────────────
 memory_data/
 workspace/
-vision/faces/
+vision_data/faces/
 
 # ── Skills générées par le Lab (artefacts run, regénérables) ─
 skills/candidates/

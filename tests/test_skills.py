@@ -347,8 +347,8 @@ async def test_skill_create_tool_succes(tmp_path: Path) -> None:
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)
-    kernel = MemoryKernel(db_path=tmp_path / "jarvis.providers.memory.db")
-    lifecycle = SkillLifecycle(db_path=tmp_path / "jarvis.providers.memory.db")
+    kernel = MemoryKernel(db_path=tmp_path / "memory.db")
+    lifecycle = SkillLifecycle(db_path=tmp_path / "memory.db")
     lab = SkillLab(
         kernel=kernel,
         lifecycle=lifecycle,

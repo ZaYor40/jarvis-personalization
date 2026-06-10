@@ -88,12 +88,12 @@ def workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def kernel(workspace: Path) -> MemoryKernel:
-    return MemoryKernel(workspace / "jarvis.providers.memory.db")
+    return MemoryKernel(workspace / "memory.db")
 
 
 @pytest.fixture
 def lifecycle(workspace: Path) -> SkillLifecycle:
-    return SkillLifecycle(db_path=workspace / "jarvis.providers.memory.db")
+    return SkillLifecycle(db_path=workspace / "memory.db")
 
 
 def _make_lab(

@@ -18,7 +18,7 @@ async def verify_face() -> dict:
     """
     import asyncio
 
-    from vision.daemon import get_face_recognizer
+    from jarvis.providers.vision.daemon import get_face_recognizer
 
     recognizer = get_face_recognizer()
 
@@ -48,7 +48,7 @@ async def verify_face() -> dict:
         cap.release()
         if not ret:
             return {"recognized": False, "name": "error", "confidence": 0.0}
-        from vision.face_recognizer import FaceRecognizer
+        from jarvis.providers.vision.face_recognizer import FaceRecognizer
 
         res = FaceRecognizer().process(frame)
         return {
@@ -70,7 +70,7 @@ async def add_face(request: Request) -> dict:
     if not name or not path:
         raise HTTPException(400, "name et path requis")
 
-    from vision.daemon import get_face_recognizer
+    from jarvis.providers.vision.daemon import get_face_recognizer
 
     recognizer = get_face_recognizer()
     if recognizer is None:

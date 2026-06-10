@@ -82,12 +82,12 @@ def _make_fact(
 
 @pytest.fixture
 def kernel(tmp_path: Path) -> MemoryKernel:
-    return MemoryKernel(tmp_path / "jarvis.providers.memory.db")
+    return MemoryKernel(tmp_path / "memory.db")
 
 
 @pytest.fixture
 def lifecycle(tmp_path: Path) -> SkillLifecycle:
-    return SkillLifecycle(db_path=tmp_path / "jarvis.providers.memory.db")
+    return SkillLifecycle(db_path=tmp_path / "memory.db")
 
 
 @pytest.fixture

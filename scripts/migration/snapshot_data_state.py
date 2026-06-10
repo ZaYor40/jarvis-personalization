@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Baseline de l'état runtime sur disque — CDC §A.1.4.
 
-L'état runtime (memory_data/, config/*.json, skills/installed/, vision/faces/)
+L'état runtime (memory_data/, config/*.json, skills/installed/, vision_data/faces/)
 est gitignoré : invisible à git, aux tests automatiques et à tous les gates
 de pré-commit. Seule une comparaison explicite contre une baseline capturée
 en début de migration peut prouver qu'aucune donnée utilisateur ne s'est
@@ -91,7 +91,7 @@ def list_installed_skills() -> tuple[int, list[str]]:
 
 
 def count_faces() -> int:
-    d = ROOT / "vision" / "faces"
+    d = ROOT / "vision_data" / "faces"
     if not d.exists():
         return 0
     return sum(1 for p in d.iterdir() if p.is_file() and not p.name.startswith("."))
@@ -122,7 +122,7 @@ def main() -> None:
         f"skills.installed.dirs = {sk_count}",
         f"skills.installed.loaded_by_registry = {sk_loaded}",
         "",
-        f"vision.faces.files = {faces}",
+        f"vision_data.faces.files = {faces}",
     ]
 
     OUT.parent.mkdir(parents=True, exist_ok=True)

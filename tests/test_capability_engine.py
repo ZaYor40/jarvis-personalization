@@ -100,7 +100,7 @@ def _make_engine(
 
     Renvoie (engine, kernel, lifecycle, installed_dir).
     """
-    db_path = tmp_path / "jarvis.providers.memory.db"
+    db_path = tmp_path / "memory.db"
     cand_dir = tmp_path / "candidates"
     installed_dir = tmp_path / "installed"
     llm = _FakeLLM(skill_md=skill_md)

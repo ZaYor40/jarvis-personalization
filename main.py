@@ -445,7 +445,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     worker_task = asyncio.create_task(worker.run_loop(), name="background-worker")
 
     if settings.vision_object_detection:
-        from vision.daemon import run_vision_daemon
+        from jarvis.providers.vision.daemon import run_vision_daemon
 
         asyncio.create_task(run_vision_daemon(), name="vision-daemon")
 

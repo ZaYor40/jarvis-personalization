@@ -253,7 +253,7 @@ echo -e "  ${TC_CYAN}${BOLD}Photo de référence (reconnaissance faciale)${RESET
 echo -e "  ${TC_GRAY}Si tu veux activer la séquence de scan biométrique, place une photo de toi${RESET}"
 echo -e "  ${TC_GRAY}(format JPG, visage bien visible) dans :${RESET}"
 nl
-echo -e "  ${TC_WHITE}    vision/faces/référence.jpg${RESET}"
+echo -e "  ${TC_WHITE}    vision_data/faces/référence.jpg${RESET}"
 nl
 echo -e "  ${TC_GRAY}Sans cette photo, le scan s'exécutera mais ne pourra pas t'identifier.${RESET}"
 badge_info "Tu peux ajouter la photo après l'installation."
@@ -393,7 +393,7 @@ step "Génération de l'environnement"
 
 mkdir -p memory_data/sessions memory_data/topics memory_data/conso memory_data/initiatives
 mkdir -p workspace/projects
-mkdir -p vision/faces
+mkdir -p vision_data/faces
 badge_ok "Dossiers runtime créés"
 
 # Écriture du .env

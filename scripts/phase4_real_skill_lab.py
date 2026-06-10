@@ -92,7 +92,7 @@ async def cas_nominal(workspace: Path) -> bool:
     print("  CAS NOMINAL — pattern 'génération d'articles markdown'")
     print("=" * 70)
 
-    db_path = workspace / "jarvis.providers.memory.db"
+    db_path = workspace / "memory.db"
     if db_path.exists():
         db_path.unlink()
     cand_dir = workspace / "candidates"

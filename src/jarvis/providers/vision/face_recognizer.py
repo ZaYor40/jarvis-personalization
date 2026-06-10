@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from loguru import logger
 
-FACES_DIR = Path("vision/faces")
+FACES_DIR = Path("vision_data/faces")
 
 
 @dataclass
@@ -26,7 +26,7 @@ class RecognitionResult:
 class FaceRecognizer:
     """
     Compare les frames webcam avec les visages de référence.
-    Charge toutes les images dans vision/faces/ au démarrage.
+    Charge toutes les images dans vision_data/faces/ au démarrage.
     """
 
     RECOGNITION_THRESHOLD = 0.45  # Distance max pour une correspondance (plus bas = plus strict)
@@ -48,7 +48,7 @@ class FaceRecognizer:
             return False
 
         if not FACES_DIR.exists():
-            logger.warning("FaceRecognizer: dossier vision/faces/ absent")
+            logger.warning("FaceRecognizer: dossier vision_data/faces/ absent")
             return True
 
         for img_path in FACES_DIR.glob("*.jpg"):
