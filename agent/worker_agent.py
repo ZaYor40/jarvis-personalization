@@ -260,7 +260,7 @@ class WorkerAgent:
         if self._verifier is not None:
             return
         from config.settings import settings
-        from llm.api import AnthropicProvider
+        from jarvis.providers.llm.api import AnthropicProvider
 
         llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
         self._verifier = Verifier(
@@ -581,7 +581,7 @@ class WorkerAgent:
         attempt: int = 0,
     ) -> str:
         from config.settings import settings
-        from llm.api import AnthropicProvider
+        from jarvis.providers.llm.api import AnthropicProvider
 
         # Vérification budget avant l'appel LLM (estimation conservatrice : 0.02 USD / step)
         _est_usd = 0.02

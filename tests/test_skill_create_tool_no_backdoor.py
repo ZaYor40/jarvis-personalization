@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.kernel import MemoryKernel
 from skills.lab import SkillLab
 from skills.lifecycle import SkillLifecycle, SkillStatus

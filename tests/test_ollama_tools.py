@@ -72,7 +72,7 @@ def _text_response(content: str) -> dict:
 
 def test_supports_tools_true() -> None:
     """OllamaProvider.supports_tools doit valoir True (function calling activé)."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     provider = OllamaProvider()
     assert provider.supports_tools is True
@@ -83,7 +83,7 @@ def test_supports_tools_true() -> None:
 
 def test_payload_includes_tools_when_provided() -> None:
     """_payload inclut le champ 'tools' au format Ollama/OpenAI quand des outils sont fournis."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     provider = OllamaProvider()
     payload = provider._payload(
@@ -106,7 +106,7 @@ def test_payload_includes_tools_when_provided() -> None:
 
 def test_payload_no_tools_key_when_none() -> None:
     """_payload n'ajoute pas le champ 'tools' quand tools=None."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     provider = OllamaProvider()
     payload = provider._payload(
@@ -120,7 +120,7 @@ def test_payload_no_tools_key_when_none() -> None:
 
 def test_payload_tools_schema_maps_input_schema() -> None:
     """_payload convertit input_schema (Claude) vers parameters (OpenAI/Ollama)."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     provider = OllamaProvider()
     tool = {
@@ -144,13 +144,13 @@ def test_payload_tools_schema_maps_input_schema() -> None:
 @pytest.mark.asyncio
 async def test_tool_loop_simple_call() -> None:
     """tool_loop : outil détecté, executor appelé, résultat réinjecté, texte final retourné."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     resp1 = _tool_call_response("get_weather", {"city": "Paris"})
     resp2 = _text_response("Il fait 25°C à Paris.")
     mock_ctx, mock_client = _make_httpx_mock(resp1, resp2)
 
-    with patch("llm.local.httpx.AsyncClient", return_value=mock_ctx):
+    with patch("jarvis.providers.llm.local.httpx.AsyncClient", return_value=mock_ctx):
         provider = OllamaProvider()
         executed: list[str] = []
 
@@ -178,7 +178,7 @@ async def test_tool_loop_simple_call() -> None:
 @pytest.mark.asyncio
 async def test_tool_loop_args_as_dict() -> None:
     """tool_loop gère les arguments dict (format natif Ollama pour certains modèles)."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     resp1 = _tool_call_response("get_weather", {"city": "Lyon"})
     resp2 = _text_response("Nuageux à Lyon.")
@@ -190,7 +190,7 @@ async def test_tool_loop_args_as_dict() -> None:
         received_args.append(args)
         return "nuageux"
 
-    with patch("llm.local.httpx.AsyncClient", return_value=mock_ctx):
+    with patch("jarvis.providers.llm.local.httpx.AsyncClient", return_value=mock_ctx):
         provider = OllamaProvider()
         await provider.tool_loop(
             messages=[{"role": "user", "content": "Météo Lyon ?"}],
@@ -205,7 +205,7 @@ async def test_tool_loop_args_as_dict() -> None:
 @pytest.mark.asyncio
 async def test_tool_loop_args_as_json_string() -> None:
     """tool_loop parse les arguments en string JSON (certains modèles locaux sérialisent en str)."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     # Arguments en string JSON, pas en dict
     resp1 = _tool_call_response("get_weather", json.dumps({"city": "Marseille"}))
@@ -218,7 +218,7 @@ async def test_tool_loop_args_as_json_string() -> None:
         received_args.append(args)
         return "ensoleillé"
 
-    with patch("llm.local.httpx.AsyncClient", return_value=mock_ctx):
+    with patch("jarvis.providers.llm.local.httpx.AsyncClient", return_value=mock_ctx):
         provider = OllamaProvider()
         await provider.tool_loop(
             messages=[{"role": "user", "content": "Météo Marseille ?"}],
@@ -238,7 +238,7 @@ async def test_tool_loop_args_as_json_string() -> None:
 @pytest.mark.asyncio
 async def test_tool_loop_unknown_tool_no_crash() -> None:
     """tool_loop : un tool_call vers un outil inexistant injecte une erreur sans crasher."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     resp1 = _tool_call_response("outil_qui_nexiste_pas", {"param": "val"})
     resp2 = _text_response("Je ne peux pas utiliser cet outil.")
@@ -251,7 +251,7 @@ async def test_tool_loop_unknown_tool_no_crash() -> None:
         executor_called = True
         return "ne devrait pas être appelé"
 
-    with patch("llm.local.httpx.AsyncClient", return_value=mock_ctx):
+    with patch("jarvis.providers.llm.local.httpx.AsyncClient", return_value=mock_ctx):
         provider = OllamaProvider()
         result = await provider.tool_loop(
             messages=[{"role": "user", "content": "Fais quelque chose."}],
@@ -275,7 +275,7 @@ async def test_tool_loop_unknown_tool_no_crash() -> None:
 @pytest.mark.asyncio
 async def test_tool_loop_executor_exception_no_crash() -> None:
     """tool_loop : une exception dans l'executor est capturée et renvoyée comme erreur."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     resp1 = _tool_call_response("get_weather", {"city": "Bordeaux"})
     resp2 = _text_response("Je n'ai pas pu obtenir la météo.")
@@ -284,7 +284,7 @@ async def test_tool_loop_executor_exception_no_crash() -> None:
     async def failing_executor(name: str, args: dict) -> str:
         raise RuntimeError("Service météo indisponible")
 
-    with patch("llm.local.httpx.AsyncClient", return_value=mock_ctx):
+    with patch("jarvis.providers.llm.local.httpx.AsyncClient", return_value=mock_ctx):
         provider = OllamaProvider()
         result = await provider.tool_loop(
             messages=[{"role": "user", "content": "Météo Bordeaux ?"}],
@@ -304,7 +304,7 @@ async def test_tool_loop_executor_exception_no_crash() -> None:
 @pytest.mark.asyncio
 async def test_tool_loop_max_iterations_respected() -> None:
     """tool_loop respecte _MAX_TOOL_ITERATIONS et retourne un message d'échec lisible."""
-    from llm.local import _MAX_TOOL_ITERATIONS, OllamaProvider
+    from jarvis.providers.llm.local import _MAX_TOOL_ITERATIONS, OllamaProvider
 
     always_tool_call = _tool_call_response("echo", {"text": "ping"})
     mock_ctx, mock_client = _make_httpx_mock(*([always_tool_call] * (_MAX_TOOL_ITERATIONS + 1)))
@@ -312,7 +312,7 @@ async def test_tool_loop_max_iterations_respected() -> None:
     async def mock_executor(name: str, args: dict) -> str:
         return "pong"
 
-    with patch("llm.local.httpx.AsyncClient", return_value=mock_ctx):
+    with patch("jarvis.providers.llm.local.httpx.AsyncClient", return_value=mock_ctx):
         provider = OllamaProvider()
         result = await provider.tool_loop(
             messages=[{"role": "user", "content": "ping"}],

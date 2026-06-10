@@ -13,9 +13,9 @@ from background.worker import BackgroundWorker
 from core.agent import Agent
 from core.gateway import Gateway
 from core.session import SessionManager
-from llm.api import AnthropicProvider
-from llm.base import LLMProvider
-from llm.local import OllamaProvider
+from jarvis.providers.llm.api import AnthropicProvider
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.llm.local import OllamaProvider
 from memory.consolidation import CrossSessionRecall
 
 # ── Fixtures de mode ──────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ def test_online_mode_when_api(api_mode: None) -> None:
 
 def test_gateway_uses_ollama_in_local_mode(local_mode: None) -> None:
     """En mode local, get_llm_provider() doit retourner OllamaProvider."""
-    from llm.factory import get_llm_provider
+    from jarvis.providers.llm.factory import get_llm_provider
 
     provider = get_llm_provider()
     assert isinstance(provider, OllamaProvider), (
@@ -104,7 +104,7 @@ def test_gateway_uses_ollama_in_local_mode(local_mode: None) -> None:
 
 def test_background_llm_not_anthropic_in_local_mode(local_mode: None) -> None:
     """create_background_llm() ne renvoie pas AnthropicProvider en mode local."""
-    from llm.factory import create_background_llm
+    from jarvis.providers.llm.factory import create_background_llm
 
     bg_llm = create_background_llm()
     assert not isinstance(bg_llm, AnthropicProvider)
@@ -130,7 +130,7 @@ def test_hot_swap_updates_gateway_and_voice_gateway(local_mode: None) -> None:
     )
 
     # Simule le hot-swap (même logique que http_config.update_setting)
-    from llm.factory import get_llm_provider
+    from jarvis.providers.llm.factory import get_llm_provider
 
     new_llm = get_llm_provider()
     object.__setattr__(gw._agent, "_llm", new_llm)

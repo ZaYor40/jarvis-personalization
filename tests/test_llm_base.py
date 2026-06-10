@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from llm.base import LLMProvider
-from llm.factory import get_llm_provider
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.llm.factory import get_llm_provider
 
 
 def test_factory_returns_provider() -> None:

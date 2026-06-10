@@ -24,7 +24,7 @@ import pytest
 from agent.reflexion import Reflexion
 from agent.schemas import Project, ProjectStatus, Step, StepStatus
 from core.vocab import AccessLevel
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.ingest import MemoryIngest
 from memory.kernel import MemoryKernel
 from memory.schemas import FactStatus

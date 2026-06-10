@@ -15,7 +15,7 @@ from openai import AsyncOpenAI
 
 from config.settings import settings
 from core.tracking import UsageEntry, calculate_cost, tracker
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 
 _MAX_TOOL_ITERATIONS = 20
 

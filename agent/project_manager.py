@@ -100,7 +100,7 @@ class ProjectManager:
 
     async def create_project(self, mission: str, timeout_minutes: int = 30) -> Project:
         from config.settings import settings
-        from llm.api import AnthropicProvider
+        from jarvis.providers.llm.api import AnthropicProvider
 
         llm = AnthropicProvider(max_tokens=2048, model=settings.voice_anthropic_model)
 

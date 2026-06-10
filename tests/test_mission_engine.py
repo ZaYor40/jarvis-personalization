@@ -30,7 +30,7 @@ from agent.worker_agent import WorkerAgent
 from config.approvals import ApprovalConfig, ApprovalMode
 from core.audit import AuditLog
 from core.vocab import AccessLevel
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────
 

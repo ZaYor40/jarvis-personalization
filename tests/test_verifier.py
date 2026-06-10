@@ -20,7 +20,7 @@ import pytest
 from agent.quality_checker import QualityChecker
 from agent.schemas import Project, Step
 from agent.verifier import Verifier
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────
 

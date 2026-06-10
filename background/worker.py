@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from background.notifications import NotificationQueue
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 
 if TYPE_CHECKING:
     from tools.registry import ToolRegistry

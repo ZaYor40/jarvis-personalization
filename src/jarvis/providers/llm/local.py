@@ -9,7 +9,7 @@ import httpx
 from loguru import logger
 
 from config.settings import settings
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 
 # Strip <think>...</think> au cas où Ollama les laisse passer (fallback)
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)

@@ -22,7 +22,7 @@ from agent.capability_engine import (
     _looks_dangerous,
     _tokenize,
 )
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.kernel import MemoryKernel
 from skills.lab import SkillLab
 from skills.lifecycle import SkillLifecycle, SkillStatus

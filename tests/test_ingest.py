@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.ingest import (
     CONFIDENCE_EXPLICIT,
     CONFIDENCE_INFERENCE,

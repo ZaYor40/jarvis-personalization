@@ -87,7 +87,7 @@ async def cas_nominal(workspace: Path) -> bool:
         shutil.rmtree(inst_dir)
 
     from config.settings import settings
-    from llm.api import AnthropicProvider
+    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=2048, model=settings.voice_anthropic_model)
     synth = SkillSynthesizer(llm=llm)
@@ -168,7 +168,7 @@ async def cas_refus_auto_install(workspace: Path) -> bool:
         shutil.rmtree(inst_dir)
 
     from config.settings import settings
-    from llm.api import AnthropicProvider
+    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=2048, model=settings.voice_anthropic_model)
     synth = SkillSynthesizer(llm=llm)
@@ -258,7 +258,7 @@ async def cas_dangerous(workspace: Path) -> bool:
         shutil.rmtree(inst_dir)
 
     from config.settings import settings
-    from llm.api import AnthropicProvider
+    from jarvis.providers.llm.api import AnthropicProvider
 
     # On COMPTE les appels LLM pour prouver qu'aucun n'est fait
     llm = AnthropicProvider(max_tokens=512, model=settings.voice_anthropic_model)

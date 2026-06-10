@@ -11,8 +11,8 @@ import uuid
 from loguru import logger
 
 from config.settings import settings
-from llm.api import AnthropicProvider
-from llm.local import OllamaProvider
+from jarvis.providers.llm.api import AnthropicProvider
+from jarvis.providers.llm.local import OllamaProvider
 from proactive.context_builder import WorldState
 from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
 

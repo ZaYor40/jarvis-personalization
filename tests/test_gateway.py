@@ -8,7 +8,7 @@ from core.agent import Agent
 from core.gateway import Gateway
 from core.router import RouteEnum
 from core.session import Session, SessionManager
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 
 
 class _MockLLM(LLMProvider):

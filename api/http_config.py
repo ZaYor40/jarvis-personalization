@@ -294,7 +294,7 @@ async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
     # Hot-swap LLM provider sans redémarrage (LLM_PROVIDER, API_BACKEND, OLLAMA_MODEL…)
     if env_key in _LLM_HOT_SWAP_KEYS:
         try:
-            from llm.factory import create_background_llm, get_llm_provider
+            from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
 
             new_llm = get_llm_provider()
             new_bg_llm = create_background_llm()

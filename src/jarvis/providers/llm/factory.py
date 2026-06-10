@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from config.settings import settings
-from llm.api import get_api_provider
-from llm.base import LLMProvider
-from llm.local import OllamaProvider
+from jarvis.providers.llm.api import get_api_provider
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.llm.local import OllamaProvider
 
 
 def get_llm_provider() -> LLMProvider:

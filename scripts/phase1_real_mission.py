@@ -194,7 +194,7 @@ async def _trap_test(project: Project) -> None:
     from agent.quality_checker import QualityChecker
     from agent.verifier import Verifier
     from config.settings import settings
-    from llm.api import AnthropicProvider
+    from jarvis.providers.llm.api import AnthropicProvider
 
     print("\n=== TRAP TEST — artefact plausible mais faux ===")
     ws = Path(project.workspace_path)

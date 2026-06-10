@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.index import MemoryIndex
 from memory.topics import TopicStore
 

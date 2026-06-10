@@ -80,7 +80,7 @@ async def main() -> int:
 
     # Vrai LLM (Anthropic Haiku par défaut)
     from config.settings import settings
-    from llm.api import AnthropicProvider
+    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
 

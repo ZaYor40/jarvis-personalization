@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from loguru import logger
 
 from agent.schemas import Project, ProjectStatus, StepStatus
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.ingest import MemoryIngest
 from memory.kernel import MemoryKernel
 

@@ -11,7 +11,7 @@ import yaml
 from loguru import logger
 
 if TYPE_CHECKING:
-    from llm.base import LLMProvider
+    from jarvis.providers.llm.base import LLMProvider
 
 SKILLS_INSTALLED_DIR = Path("skills/installed")
 SKILLS_CANDIDATES_DIR = Path("skills/candidates")
@@ -112,7 +112,7 @@ class SkillSynthesizer:
 
     def __init__(self, llm: LLMProvider | None = None) -> None:
         if llm is None:
-            from llm.factory import get_llm_provider
+            from jarvis.providers.llm.factory import get_llm_provider
 
             llm = get_llm_provider()
         self._llm = llm

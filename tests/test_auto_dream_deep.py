@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.auto_dream import AutoDream
 from memory.ingest import MemoryIngest
 from memory.kernel import MemoryKernel

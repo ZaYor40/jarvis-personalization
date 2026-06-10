@@ -46,8 +46,8 @@ from core.approval_checker import ApprovalChecker
 from core.auth import verify_api_token  # ── [AUTH] ──
 from core.gateway import Gateway
 from core.session import SessionManager
-from llm.api import AnthropicProvider
-from llm.factory import create_background_llm, get_llm_provider
+from jarvis.providers.llm.api import AnthropicProvider
+from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
 from memory.auto_dream import AutoDream
 from memory.consolidation import ConsolidationAgent, CrossSessionRecall
 from memory.index import MemoryIndex

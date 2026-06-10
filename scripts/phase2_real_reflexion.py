@@ -166,7 +166,7 @@ async def main() -> int:
         db_path.unlink()
 
     from config.settings import settings
-    from llm.api import AnthropicProvider
+    from jarvis.providers.llm.api import AnthropicProvider
 
     llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
     kernel = MemoryKernel(db_path)

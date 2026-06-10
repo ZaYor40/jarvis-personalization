@@ -12,7 +12,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 
 _MAX_MODEL_WORDS = 300
 

@@ -27,7 +27,7 @@ from typing import Any
 from loguru import logger
 
 from core.vocab import CATEGORIES, PREDICATES
-from llm.base import LLMProvider
+from jarvis.providers.llm.base import LLMProvider
 from memory.kernel import MemoryKernel, _new_id, normalize
 from memory.schemas import (
     DecayPolicy,

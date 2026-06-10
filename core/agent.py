@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from core.session import Session
-from llm.api import ToolCapture
-from llm.base import LLMProvider
+from jarvis.providers.llm.api import ToolCapture
+from jarvis.providers.llm.base import LLMProvider
 
 if TYPE_CHECKING:
     from memory.index import MemoryIndex
