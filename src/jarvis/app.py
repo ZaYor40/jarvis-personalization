@@ -419,8 +419,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         memory_ingest=_memory_ingest,
     )
 
+    from jarvis.engine.mission.project_manager import ProjectManager
+    from jarvis.engine.mission.project_store import ProjectStore
+
     orchestrator = ProjectOrchestrator(
         broadcast_event=proactive_queue.broadcast_event,
+        store=ProjectStore(),
+        manager=ProjectManager(),
         budget_guard=_budget_guard,
         reflexion=_reflexion,
     )

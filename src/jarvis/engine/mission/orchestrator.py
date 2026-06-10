@@ -16,19 +16,28 @@ from jarvis.engine.mission.worker_agent import WorkerAgent
 
 
 class ProjectOrchestrator:
-    """Gère le cycle de vie complet des projets agents."""
+    """Gère le cycle de vie complet des projets agents.
+
+    Phase C : `store` et `manager` injectés au constructeur (auparavant
+    `ProjectStore()` et `ProjectManager()` instanciés en interne).
+    `broadcast_event`, `budget_guard`, `reflexion` étaient déjà injectés
+    en pré-C. `WorkerAgent(...)` et `SandboxedFileTool(...)` restent
+    instanciés par-projet (pas des dépendances globales — légitime).
+    """
 
     def __init__(
         self,
         broadcast_event: Callable[[dict], None],
+        store: ProjectStore,
+        manager: ProjectManager,
         budget_guard: BudgetGuard | None = None,
         reflexion: Reflexion | None = None,
     ) -> None:
         self._broadcast = broadcast_event
         self._budget = budget_guard
         self._reflexion = reflexion  # PHASE 2 — partagée entre tous les workers
-        self._store = ProjectStore()
-        self._manager = ProjectManager()
+        self._store = store
+        self._manager = manager
         self._workers: dict[str, WorkerAgent] = {}
         self._pending_approvals: dict[str, asyncio.Future[bool]] = {}
 
