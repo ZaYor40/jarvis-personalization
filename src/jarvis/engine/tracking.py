@@ -2,76 +2,16 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import date, timedelta
 
 from jarvis.kernel.paths import MEMORY_DATA_DIR
 
-
-@dataclass
-class UsageEntry:
-    timestamp: str
-    provider: str  # "anthropic", "elevenlabs", "openai", "deepgram"
-    model: str  # "claude-sonnet-4-6", "eleven_turbo_v2_5", etc.
-    input_tokens: int = 0
-    output_tokens: int = 0
-    characters: int = 0  # Pour TTS
-    audio_minutes: float = 0  # Pour STT
-    images: int = 0  # Pour Vision
-    cost_usd: float = 0.0
-    context: str = ""  # "conversation", "memory", "proactive", "mission:<id>"
-
-
-# Tarifs au 2026-05 (à mettre à jour selon les changements de pricing)
-PRICING: dict[str, dict[str, dict[str, float]]] = {
-    "anthropic": {
-        "claude-sonnet-4-6": {"input_per_1m": 3.00, "output_per_1m": 15.00},
-        "claude-sonnet-4-5": {"input_per_1m": 3.00, "output_per_1m": 15.00},
-        "claude-haiku-4-5-20251001": {"input_per_1m": 0.25, "output_per_1m": 1.25},
-        "claude-haiku-4-5": {"input_per_1m": 0.25, "output_per_1m": 1.25},
-        "claude-opus-4-7": {"input_per_1m": 15.00, "output_per_1m": 75.00},
-        "claude-opus-4-5": {"input_per_1m": 15.00, "output_per_1m": 75.00},
-    },
-    "elevenlabs": {
-        "eleven_turbo_v2_5": {"per_1k_chars": 0.18},
-        "eleven_flash_v2_5": {"per_1k_chars": 0.18},
-        "eleven_multilingual_v2": {"per_1k_chars": 0.30},
-    },
-    "openai": {
-        "gpt-4o": {"input_per_1m": 2.50, "output_per_1m": 10.00, "per_image": 0.002},
-        "gpt-4o-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60},
-    },
-    "deepgram": {
-        "nova-2": {"per_minute": 0.0059},
-        "nova-3": {"per_minute": 0.0059},
-    },
-}
-
-
-def calculate_cost(provider: str, model: str, **kwargs: float) -> float:
-    """Calcule le coût en USD pour un usage donné."""
-    pricing = PRICING.get(provider, {})
-    p = pricing.get(model)
-    if p is None:
-        for key in pricing:
-            if model.startswith(key) or key.startswith(model):
-                p = pricing[key]
-                break
-    if p is None:
-        return 0.0
-
-    cost = 0.0
-    if "input_tokens" in kwargs and "input_per_1m" in p:
-        cost += kwargs["input_tokens"] / 1_000_000 * p["input_per_1m"]
-    if "output_tokens" in kwargs and "output_per_1m" in p:
-        cost += kwargs["output_tokens"] / 1_000_000 * p["output_per_1m"]
-    if "characters" in kwargs and "per_1k_chars" in p:
-        cost += kwargs["characters"] / 1000 * p["per_1k_chars"]
-    if "audio_minutes" in kwargs and "per_minute" in p:
-        cost += kwargs["audio_minutes"] * p["per_minute"]
-    if "images" in kwargs and "per_image" in p:
-        cost += kwargs["images"] * p["per_image"]
-    return round(cost, 6)
+# UsageEntry, PRICING et calculate_cost descendus dans kernel/schemas.py
+# en C.1.3 (cassure CYCLE 1). Ré-exportés ici pour ne pas casser les
+# call-sites historiques (providers/llm, providers/audio, http_system, etc.)
+# qui font encore `from jarvis.engine.tracking import UsageEntry, ...`.
+# Élimination en C9 « zéro ré-export » + bascule app.py → bootstrap.
+from jarvis.kernel.schemas import PRICING, UsageEntry, calculate_cost  # noqa: F401
 
 
 class UsageTracker:

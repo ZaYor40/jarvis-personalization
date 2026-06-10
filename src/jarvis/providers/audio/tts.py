@@ -9,7 +9,8 @@ import httpx
 from loguru import logger
 
 from config.settings import settings
-from jarvis.engine.tracking import UsageEntry, calculate_cost, tracker
+from jarvis.engine.tracking import tracker
+from jarvis.kernel.schemas import UsageEntry, calculate_cost
 
 
 class TTSEngine:

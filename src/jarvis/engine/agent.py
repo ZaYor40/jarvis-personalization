@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from jarvis.engine.session import Session
-from jarvis.providers.llm.api import ToolCapture
+from jarvis.kernel.schemas import ToolCapture
 from jarvis.providers.llm.base import LLMProvider
 
 if TYPE_CHECKING:

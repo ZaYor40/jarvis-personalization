@@ -323,3 +323,104 @@ def needs_human_validation(initiative: Initiative) -> bool:
     if initiative.autonomy_level == AutonomyLevel.EXTERNAL_ACTION:
         return True
     return initiative.requires_validation
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Section 4 — LLM Tool Capture (ex-providers/llm/api.py)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Descendu en kernel pour casser le CYCLE 1 (engine ↔ llm, CDC §C.1.3).
+# Anciennement : `from jarvis.providers.llm.api import ToolCapture` dans
+# engine/agent.py — engine importait providers. Maintenant : la dataclass
+# partagée vit dans kernel. Plus aucun import engine → providers (GATE C1).
+
+
+@dataclass
+class ToolCapture:
+    """Collecte les tool_use blocks émis pendant un stream LLM.
+
+    Utilisé par les providers LLM qui supportent le tool use (Anthropic,
+    Mistral, Gemini, OpenAI) — peuple `calls` au fur et à mesure du
+    streaming. Consommé par engine.agent et engine.gateway pour exécuter
+    les outils en parallèle de la suite du streaming texte.
+    """
+
+    calls: list[tuple[str, str, dict]] = field(default_factory=list)
+    stop_reason: str = "end_turn"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Section 5 — Usage Tracking & Pricing (ex-engine/tracking.py)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Descendu en kernel pour permettre à providers/llm/api.py et providers/
+# audio/tts.py d'enregistrer des entrées d'usage SANS importer engine
+# (CYCLE 1, CDC §C.1.3). UsageEntry et PRICING sont des données pures.
+
+
+@dataclass
+class UsageEntry:
+    """Une entrée de consommation provider (LLM, TTS, STT, Vision)."""
+
+    timestamp: str
+    provider: str  # "anthropic", "elevenlabs", "openai", "deepgram"
+    model: str  # "claude-sonnet-4-6", "eleven_turbo_v2_5", etc.
+    input_tokens: int = 0
+    output_tokens: int = 0
+    characters: int = 0  # Pour TTS
+    audio_minutes: float = 0  # Pour STT
+    images: int = 0  # Pour Vision
+    cost_usd: float = 0.0
+    context: str = ""  # "conversation", "memory", "proactive", "mission:<id>"
+
+
+# Tarifs au 2026-05 (à mettre à jour selon les changements de pricing).
+PRICING: dict[str, dict[str, dict[str, float]]] = {
+    "anthropic": {
+        "claude-sonnet-4-6": {"input_per_1m": 3.00, "output_per_1m": 15.00},
+        "claude-sonnet-4-5": {"input_per_1m": 3.00, "output_per_1m": 15.00},
+        "claude-haiku-4-5-20251001": {"input_per_1m": 0.25, "output_per_1m": 1.25},
+        "claude-haiku-4-5": {"input_per_1m": 0.25, "output_per_1m": 1.25},
+        "claude-opus-4-7": {"input_per_1m": 15.00, "output_per_1m": 75.00},
+        "claude-opus-4-5": {"input_per_1m": 15.00, "output_per_1m": 75.00},
+    },
+    "elevenlabs": {
+        "eleven_turbo_v2_5": {"per_1k_chars": 0.18},
+        "eleven_flash_v2_5": {"per_1k_chars": 0.18},
+        "eleven_multilingual_v2": {"per_1k_chars": 0.30},
+    },
+    "openai": {
+        "gpt-4o": {"input_per_1m": 2.50, "output_per_1m": 10.00, "per_image": 0.002},
+        "gpt-4o-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60},
+    },
+    "deepgram": {
+        "nova-2": {"per_minute": 0.0059},
+        "nova-3": {"per_minute": 0.0059},
+    },
+}
+
+
+def calculate_cost(provider: str, model: str, **kwargs: float) -> float:
+    """Calcule le coût en USD pour un usage donné."""
+    pricing = PRICING.get(provider, {})
+    p = pricing.get(model)
+    if p is None:
+        for key in pricing:
+            if model.startswith(key) or key.startswith(model):
+                p = pricing[key]
+                break
+    if p is None:
+        return 0.0
+
+    cost = 0.0
+    if "input_tokens" in kwargs and "input_per_1m" in p:
+        cost += kwargs["input_tokens"] / 1_000_000 * p["input_per_1m"]
+    if "output_tokens" in kwargs and "output_per_1m" in p:
+        cost += kwargs["output_tokens"] / 1_000_000 * p["output_per_1m"]
+    if "characters" in kwargs and "per_1k_chars" in p:
+        cost += kwargs["characters"] / 1000 * p["per_1k_chars"]
+    if "audio_minutes" in kwargs and "per_minute" in p:
+        cost += kwargs["audio_minutes"] * p["per_minute"]
+    if "images" in kwargs and "per_image" in p:
+        cost += kwargs["images"] * p["per_image"]
+    return round(cost, 6)

@@ -26,7 +26,7 @@ from typing import Any
 
 from loguru import logger
 
-from jarvis.engine.vocab import CATEGORIES, PREDICATES
+from jarvis.kernel.vocab import CATEGORIES, PREDICATES
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.memory.kernel import MemoryKernel, _new_id, normalize
 from jarvis.providers.memory.schemas import (

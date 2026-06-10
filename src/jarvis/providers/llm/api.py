@@ -5,7 +5,6 @@ import json as _json
 import os
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -14,18 +13,19 @@ from loguru import logger
 from openai import AsyncOpenAI
 
 from config.settings import settings
-from jarvis.engine.tracking import UsageEntry, calculate_cost, tracker
+from jarvis.engine.tracking import tracker
+from jarvis.kernel.schemas import ToolCapture, UsageEntry, calculate_cost
 from jarvis.providers.llm.base import LLMProvider
 
 _MAX_TOOL_ITERATIONS = 20
 
-
-@dataclass
-class ToolCapture:
-    """Collecte les tool_use blocks émis pendant un stream."""
-
-    calls: list[tuple[str, str, dict]] = field(default_factory=list)
-    stop_reason: str = "end_turn"
+# NB CYCLE 1 (CDC §C.1.3) : `from jarvis.engine.tracking import tracker`
+# subsiste pour réutiliser le singleton module-level (utilisé par tous les
+# providers pour `tracker.track(UsageEntry(...))`). Ce singleton sera
+# éliminé à la bascule app.py → bootstrap.build() (élimination groupée
+# avec _guard et _tool_registry_instance, conformément à la directive
+# « éviter l'état hybride »). À ce moment-là, ce dernier import engine→
+# providers disparaîtra aussi.
 
 
 # ── Helpers de conversion de format ──────────────────────────────────────────
