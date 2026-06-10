@@ -14,7 +14,7 @@ _(à venir)_
 
 ## Phase C
 
-_(à venir)_
+- **Bug PRÉ-EXISTANT dans `src/jarvis/app.py` lifespan shutdown** : `await telegram.stop()` (l.611) est appelé même quand l'updater Telegram n'a jamais démarré (cas typique : TELEGRAM_BOT_TOKEN défini mais polling non lancé en TestClient). Lève `RuntimeError("This Updater is not running!")`. À résoudre en C.1 (refactor du lifespan vers bootstrap.build()) : vérifier `_app.updater.running` avant de stop(), ou capturer proprement l'exception. Découvert par B7b qui est le 1er test à fermer proprement le lifespan via TestClient.
 
 ## Phase D
 

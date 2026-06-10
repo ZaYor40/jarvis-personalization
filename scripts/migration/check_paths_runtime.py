@@ -82,8 +82,16 @@ def check_3_ui_static_dir() -> tuple[bool, str]:
     """Le code réel sert un asset statique via l'app FastAPI.
 
     On instancie l'app via `from jarvis.app import app` (le vrai composition
-    root actuel) et on requête /static/_shared.js via TestClient — exerce
-    le mount `app.mount("/", StaticFiles(directory=str(UI_STATIC_DIR)))`.
+    root actuel) et on requête /_shared.js via TestClient — exerce le mount
+    `app.mount("/", StaticFiles(directory=str(UI_STATIC_DIR)))`.
+
+    Note : on N'UTILISE PAS `with TestClient(app) as client:` (qui démarre
+    le lifespan) parce qu'il existe un bug PRÉ-EXISTANT (cf. BACKLOG Phase C)
+    dans le shutdown du lifespan : `telegram.stop()` est appelé même quand
+    l'updater n'a jamais démarré → `RuntimeError("This Updater is not
+    running!")`. Le mount StaticFiles est défini au TOP-LEVEL de l'app
+    (hors lifespan), donc TestClient(app) sans context manager suffit à
+    vérifier que UI_STATIC_DIR résout vers un fichier servi.
     """
     try:
         from fastapi.testclient import TestClient
@@ -93,8 +101,8 @@ def check_3_ui_static_dir() -> tuple[bool, str]:
         return False, f"import app a levé : {e!r}"
 
     try:
-        with TestClient(app) as client:
-            r = client.get("/_shared.js")
+        client = TestClient(app)
+        r = client.get("/_shared.js")
     except Exception as e:
         return False, f"TestClient /_shared.js a levé : {e!r}"
 
