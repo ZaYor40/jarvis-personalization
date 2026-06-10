@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from loguru import logger
 
-from agent.schemas import Project, ProjectStatus, StepStatus
+from jarvis.engine.mission.schemas import Project, ProjectStatus, StepStatus
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.memory.ingest import MemoryIngest
 from jarvis.providers.memory.kernel import MemoryKernel

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from agent.worker_cli import WorkerCLITool
+from jarvis.engine.mission.worker_cli import WorkerCLITool
 
 
 @pytest.fixture

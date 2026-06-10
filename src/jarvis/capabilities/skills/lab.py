@@ -37,13 +37,13 @@ from pathlib import Path
 
 from loguru import logger
 
-from agent.docker_executor import DockerExecutor
 from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillRecord, SkillStatus
 from jarvis.capabilities.skills.synthesizer import (
     SKILLS_CANDIDATES_DIR,
     SKILLS_INSTALLED_DIR,
     SkillSynthesizer,
 )
+from jarvis.engine.mission.docker_executor import DockerExecutor
 from jarvis.kernel.paths import PROJECT_ROOT
 from jarvis.providers.memory.kernel import MemoryKernel
 

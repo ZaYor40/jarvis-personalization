@@ -94,7 +94,7 @@ async def reset_steps(project_id: str, body: ResetStepsBody, request: Request) -
     """Remet des étapes spécifiques en pending (sans relancer le worker)."""
     import json
 
-    from agent.project_store import WORKSPACE_DIR
+    from jarvis.engine.mission.project_store import WORKSPACE_DIR
 
     state_file = WORKSPACE_DIR / project_id / ".jarvis" / "state.json"
     if not state_file.exists():

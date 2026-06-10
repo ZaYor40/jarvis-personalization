@@ -7,8 +7,8 @@ import re
 
 from loguru import logger
 
-from agent.project_store import ProjectStore
-from agent.schemas import Project, Step, StepStatus
+from jarvis.engine.mission.project_store import ProjectStore
+from jarvis.engine.mission.schemas import Project, Step, StepStatus
 from jarvis.engine.vocab import AccessLevel
 
 _PLANNING_SYSTEM = """\

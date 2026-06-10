@@ -128,9 +128,9 @@ class ScriptRPCTool(Tool):
         self._workspace_path = workspace_path
 
     async def execute(self, script: str, timeout: int = 300) -> ToolResult:  # type: ignore[override]  # noqa: ASYNC109
-        from agent.backends.rpc import ScriptRPCRunner
         from config.backends import get_backend
         from jarvis.engine.approval_checker import get_approval_checker
+        from jarvis.engine.mission.backends.rpc import ScriptRPCRunner
 
         checker = get_approval_checker()
         if checker:

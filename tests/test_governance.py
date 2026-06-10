@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from agent.governance import GateContext, GateDecision, Governance
 from config.approvals import ApprovalConfig, ApprovalMode
 from jarvis.engine.audit import AuditLog
+from jarvis.engine.mission.governance import GateContext, GateDecision, Governance
 from jarvis.engine.vocab import AccessLevel
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────

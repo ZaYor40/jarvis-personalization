@@ -115,8 +115,8 @@ async def wakeup_status() -> dict:
 
 @router.get("/api/system/stats")
 async def system_stats(request: Request) -> dict:
-    from agent.project_store import WORKSPACE_DIR
     from config.settings import settings
+    from jarvis.engine.mission.project_store import WORKSPACE_DIR
 
     mem_dir = _mem_dir(request)
     topics_dir = mem_dir / "topics"
@@ -221,7 +221,7 @@ async def retry_project(project_id: str, request: Request) -> dict:
 
 @router.delete("/api/system/projects/done")
 async def cleanup_done_projects(request: Request) -> dict:  # noqa: ARG001
-    from agent.project_store import WORKSPACE_DIR
+    from jarvis.engine.mission.project_store import WORKSPACE_DIR
 
     removed = 0
     for state_file in list(WORKSPACE_DIR.glob("*/.jarvis/state.json")):

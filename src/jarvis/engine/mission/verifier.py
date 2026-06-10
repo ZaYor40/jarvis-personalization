@@ -18,8 +18,8 @@ from pathlib import Path
 
 from loguru import logger
 
-from agent.quality_checker import QualityChecker
-from agent.schemas import Project, Step
+from jarvis.engine.mission.quality_checker import QualityChecker
+from jarvis.engine.mission.schemas import Project, Step
 from jarvis.providers.llm.base import LLMProvider
 
 # Plafond de contenu inclus dans le prompt sémantique (caractères).

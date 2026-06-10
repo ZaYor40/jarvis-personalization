@@ -97,8 +97,13 @@ def get_backend(
     Retourne None si aucun backend sûr n'est disponible.
     Le docker_executor (si fourni) doit être déjà démarré (DockerExecutor.start() appelé).
     """
-    from agent.backends import DockerBackend, LocalBackend, RemoteBackend, SSHBackend
     from config.settings import settings
+    from jarvis.engine.mission.backends import (
+        DockerBackend,
+        LocalBackend,
+        RemoteBackend,
+        SSHBackend,
+    )
 
     config = load_backends_config()
 

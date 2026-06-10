@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from agent.quality_checker import QualityChecker
-from agent.schemas import Project, Step
-from agent.verifier import Verifier
+from jarvis.engine.mission.quality_checker import QualityChecker
+from jarvis.engine.mission.schemas import Project, Step
+from jarvis.engine.mission.verifier import Verifier
 from jarvis.providers.llm.base import LLMProvider
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────

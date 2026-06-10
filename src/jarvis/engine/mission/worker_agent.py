@@ -11,15 +11,15 @@ from pathlib import Path
 
 from loguru import logger
 
-from agent.file_tool import SandboxedFileTool
-from agent.governance import GateContext, GateDecision, Governance
-from agent.project_store import ProjectStore
-from agent.quality_checker import QualityChecker
-from agent.reflexion import Reflexion
-from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
-from agent.verifier import Verifier
-from agent.worker_cli import WorkerCLITool
 from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.mission.file_tool import SandboxedFileTool
+from jarvis.engine.mission.governance import GateContext, GateDecision, Governance
+from jarvis.engine.mission.project_store import ProjectStore
+from jarvis.engine.mission.quality_checker import QualityChecker
+from jarvis.engine.mission.reflexion import Reflexion
+from jarvis.engine.mission.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
+from jarvis.engine.mission.verifier import Verifier
+from jarvis.engine.mission.worker_cli import WorkerCLITool
 from jarvis.engine.vocab import AccessLevel
 
 # ── Constantes PHASE 1 ─────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ class WorkerAgent:
         # On le construit après la sélection du backend pour qu'il pointe sur le bon CLI.
 
         if settings.docker_enabled:
-            from agent.docker_executor import DockerExecutor
+            from jarvis.engine.mission.docker_executor import DockerExecutor
 
             available = await DockerExecutor.is_available()
             if not available:

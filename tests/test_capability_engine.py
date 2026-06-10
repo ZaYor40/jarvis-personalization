@@ -13,7 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from agent.capability_engine import (
+from jarvis.capabilities.skills.lab import SkillLab
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
+from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
+from jarvis.engine.mission.capability_engine import (
     CapabilityEngine,
     ResolutionKind,
     Whitelist,
@@ -22,9 +25,6 @@ from agent.capability_engine import (
     _looks_dangerous,
     _tokenize,
 )
-from jarvis.capabilities.skills.lab import SkillLab
-from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
-from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.memory.kernel import MemoryKernel
 

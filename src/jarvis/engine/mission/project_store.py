@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
+from jarvis.engine.mission.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
 from jarvis.engine.vocab import AccessLevel
 
 WORKSPACE_DIR = Path("workspace/projects")

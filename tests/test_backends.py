@@ -9,13 +9,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.backends.base import ExecutionBackend
-from agent.backends.docker import DockerBackend
-from agent.backends.local import LocalBackend
-from agent.backends.remote import RemoteBackend
-from agent.backends.rpc import ScriptRPCRunner, _build_stub
-from agent.backends.ssh import SSHBackend
 from config.backends import BackendsConfig, BackendType, SSHConfig, get_backend
+from jarvis.engine.mission.backends.base import ExecutionBackend
+from jarvis.engine.mission.backends.docker import DockerBackend
+from jarvis.engine.mission.backends.local import LocalBackend
+from jarvis.engine.mission.backends.remote import RemoteBackend
+from jarvis.engine.mission.backends.rpc import ScriptRPCRunner, _build_stub
+from jarvis.engine.mission.backends.ssh import SSHBackend
 
 pytestmark = pytest.mark.integration  # CDC §A.1.5 — exercice Docker backend
 
@@ -115,7 +115,7 @@ class TestDockerBackend:
         with patch("config.settings.settings") as mock_settings:
             mock_settings.docker_enabled = False
             with patch(
-                "agent.docker_executor.DockerExecutor.is_available",
+                "jarvis.engine.mission.docker_executor.DockerExecutor.is_available",
                 new_callable=AsyncMock,
                 return_value=True,
             ):
@@ -302,7 +302,7 @@ class TestWorkerCLIRouting:
 
     @pytest.mark.asyncio
     async def test_route_vers_docker_si_dispo(self, tmp_path: Path) -> None:
-        from agent.worker_cli import WorkerCLITool
+        from jarvis.engine.mission.worker_cli import WorkerCLITool
 
         mock_docker = MagicMock()
         mock_docker.execute = AsyncMock(return_value=_ok("via docker"))
@@ -319,7 +319,7 @@ class TestWorkerCLIRouting:
 
     @pytest.mark.asyncio
     async def test_refuse_si_aucun_backend(self, tmp_path: Path) -> None:
-        from agent.worker_cli import WorkerCLITool
+        from jarvis.engine.mission.worker_cli import WorkerCLITool
 
         cli = WorkerCLITool(str(tmp_path))
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from agent.backends.base import BackendResult, ExecutionBackend
+from jarvis.engine.mission.backends.base import BackendResult, ExecutionBackend
 
 
 class RemoteBackend(ExecutionBackend):

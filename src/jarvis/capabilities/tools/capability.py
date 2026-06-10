@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from jarvis.capabilities.tools.base import Tool, ToolResult
 
 if TYPE_CHECKING:
-    from agent.capability_engine import CapabilityEngine
+    from jarvis.engine.mission.capability_engine import CapabilityEngine
 
 
 class ReportMissingCapabilityTool(Tool):

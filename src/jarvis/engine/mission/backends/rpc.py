@@ -28,8 +28,8 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 if TYPE_CHECKING:
-    from agent.backends.base import ExecutionBackend
     from jarvis.capabilities.tools.registry import ToolRegistry
+    from jarvis.engine.mission.backends.base import ExecutionBackend
 
 # Sous-ensemble d'outils exposés dans le sandbox RPC.
 # Intersection avec les outils enregistrés au moment de l'exécution.

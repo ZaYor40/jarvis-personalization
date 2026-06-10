@@ -22,7 +22,7 @@ class JarvisCollector(CollectorBase):
         return items
 
     def _collect_missions(self) -> list[ContextItem]:
-        from agent.project_store import ProjectStore
+        from jarvis.engine.mission.project_store import ProjectStore
 
         store = ProjectStore()
         projects = store.list_projects()

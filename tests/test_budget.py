@@ -179,13 +179,13 @@ async def test_warn_pas_declenche_sous_seuil() -> None:
 
 def test_claim_step_premier_worker_gagne() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
-        import agent.project_store as ps_mod
+        import jarvis.engine.mission.project_store as ps_mod
 
         original = ps_mod.WORKSPACE_DIR
         ps_mod.WORKSPACE_DIR = Path(tmpdir)
         try:
             (Path(tmpdir) / "proj1" / ".jarvis").mkdir(parents=True, exist_ok=True)
-            from agent.project_store import ProjectStore
+            from jarvis.engine.mission.project_store import ProjectStore
 
             store = ProjectStore()
 
@@ -200,13 +200,13 @@ def test_claim_step_premier_worker_gagne() -> None:
 
 def test_claim_step_deux_etapes_differentes() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
-        import agent.project_store as ps_mod
+        import jarvis.engine.mission.project_store as ps_mod
 
         original = ps_mod.WORKSPACE_DIR
         ps_mod.WORKSPACE_DIR = Path(tmpdir)
         try:
             (Path(tmpdir) / "proj2" / ".jarvis").mkdir(parents=True, exist_ok=True)
-            from agent.project_store import ProjectStore
+            from jarvis.engine.mission.project_store import ProjectStore
 
             store = ProjectStore()
 
@@ -220,13 +220,13 @@ def test_claim_step_deux_etapes_differentes() -> None:
 
 def test_release_step_claim_permet_re_claim() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
-        import agent.project_store as ps_mod
+        import jarvis.engine.mission.project_store as ps_mod
 
         original = ps_mod.WORKSPACE_DIR
         ps_mod.WORKSPACE_DIR = Path(tmpdir)
         try:
             (Path(tmpdir) / "proj3" / ".jarvis").mkdir(parents=True, exist_ok=True)
-            from agent.project_store import ProjectStore
+            from jarvis.engine.mission.project_store import ProjectStore
 
             store = ProjectStore()
 
@@ -242,7 +242,7 @@ def test_release_step_claim_permet_re_claim() -> None:
 
 
 def _make_project(tmpdir: str, project_id: str = "proj_test", n_steps: int = 3) -> object:
-    from agent.schemas import Project, ProjectStatus, Step, StepStatus
+    from jarvis.engine.mission.schemas import Project, ProjectStatus, Step, StepStatus
 
     workspace = str(Path(tmpdir) / project_id)
     steps = [Step(id=f"s{i}", title=f"Step {i}", description=f"desc {i}") for i in range(n_steps)]
@@ -261,7 +261,7 @@ def _make_project(tmpdir: str, project_id: str = "proj_test", n_steps: int = 3) 
 
 def test_pause_for_budget_met_running_en_pending() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
-        import agent.project_store as ps_mod
+        import jarvis.engine.mission.project_store as ps_mod
 
         original = ps_mod.WORKSPACE_DIR
         ps_mod.WORKSPACE_DIR = Path(tmpdir)
@@ -270,8 +270,8 @@ def test_pause_for_budget_met_running_en_pending() -> None:
             ws = Path(project.workspace_path)
             (ws / ".jarvis").mkdir(parents=True, exist_ok=True)
 
-            from agent.project_store import ProjectStore
-            from agent.schemas import ProjectStatus, StepStatus
+            from jarvis.engine.mission.project_store import ProjectStore
+            from jarvis.engine.mission.schemas import ProjectStatus, StepStatus
 
             store = ProjectStore()
 
@@ -292,7 +292,7 @@ def test_pause_for_budget_met_running_en_pending() -> None:
 
 def test_is_resumable_vrai_si_paused_avec_pending() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
-        import agent.project_store as ps_mod
+        import jarvis.engine.mission.project_store as ps_mod
 
         original = ps_mod.WORKSPACE_DIR
         ps_mod.WORKSPACE_DIR = Path(tmpdir)
@@ -301,7 +301,7 @@ def test_is_resumable_vrai_si_paused_avec_pending() -> None:
             ws = Path(project.workspace_path)
             (ws / ".jarvis").mkdir(parents=True, exist_ok=True)
 
-            from agent.project_store import ProjectStore
+            from jarvis.engine.mission.project_store import ProjectStore
 
             store = ProjectStore()
             store.pause_for_budget(project, "s1")
@@ -312,8 +312,8 @@ def test_is_resumable_vrai_si_paused_avec_pending() -> None:
 
 
 def test_is_resumable_faux_si_running() -> None:
-    import agent.project_store as ps_mod
-    from agent.schemas import ProjectStatus
+    import jarvis.engine.mission.project_store as ps_mod
+    from jarvis.engine.mission.schemas import ProjectStatus
 
     project = _make_project("/tmp", "proj_run")
     project.status = ProjectStatus.RUNNING
@@ -324,10 +324,10 @@ def test_is_resumable_faux_si_running() -> None:
 
 def test_projet_pause_reprise_reprend_etapes_pending() -> None:
     """Un worker qui reprend un projet PAUSED doit sauter DONE et traiter PENDING."""
-    from agent.schemas import StepStatus
+    from jarvis.engine.mission.schemas import StepStatus
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        import agent.project_store as ps_mod
+        import jarvis.engine.mission.project_store as ps_mod
 
         original = ps_mod.WORKSPACE_DIR
         ps_mod.WORKSPACE_DIR = Path(tmpdir)
@@ -336,7 +336,7 @@ def test_projet_pause_reprise_reprend_etapes_pending() -> None:
             ws = Path(project.workspace_path)
             (ws / ".jarvis").mkdir(parents=True, exist_ok=True)
 
-            from agent.project_store import ProjectStore
+            from jarvis.engine.mission.project_store import ProjectStore
 
             store = ProjectStore()
             store.pause_for_budget(project, "s1")

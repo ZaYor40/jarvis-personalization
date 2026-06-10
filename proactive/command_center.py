@@ -23,9 +23,9 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 if TYPE_CHECKING:
-    from agent.project_store import ProjectStore
     from jarvis.capabilities.skills.lifecycle import SkillLifecycle
     from jarvis.engine.budget import BudgetGuard
+    from jarvis.engine.mission.project_store import ProjectStore
     from proactive.store import InitiativeStore
 
 
@@ -178,7 +178,7 @@ class CommandCenter:
 
     @staticmethod
     def _project_to_summary(p: object) -> MissionSummary:
-        from agent.schemas import StepStatus
+        from jarvis.engine.mission.schemas import StepStatus
 
         steps = p.steps  # type: ignore[attr-defined]
         return MissionSummary(

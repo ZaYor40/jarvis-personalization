@@ -74,8 +74,8 @@ _PROTECTED_PATHS: list[str] = [
     "config/backends.py",
     "src/jarvis/engine/vocab.py",  # vocabulaires fermés PHASE 0
     "src/jarvis/engine/audit.py",  # audit log gate
-    "agent/governance.py",  # gate composite
-    "agent/schemas.py",  # contrat de données
+    "src/jarvis/engine/mission/governance.py",  # gate composite
+    "src/jarvis/engine/mission/schemas.py",  # contrat de données
     "memory/schemas.py",
     "main.py",  # bootstrap
     "CDC_jarvis_evolution.md",  # cahier des charges

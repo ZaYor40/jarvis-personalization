@@ -42,8 +42,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agent.project_store import ProjectStore  # noqa: E402
 from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus  # noqa: E402
+from jarvis.engine.mission.project_store import ProjectStore  # noqa: E402
 from jarvis.engine.vocab import AutonomyLevel  # noqa: E402
 from jarvis.providers.memory.kernel import MemoryKernel  # noqa: E402
 from jarvis.providers.memory.schemas import DecayPolicy, Fact, FactStatus  # noqa: E402

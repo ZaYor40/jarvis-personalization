@@ -16,8 +16,6 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 import channels.telegram_bot as _tg_module
-from agent.orchestrator import ProjectOrchestrator
-from agent.reflexion import Reflexion
 from api.admin import _ui_router as admin_ui_router
 from api.admin import router as admin_router
 from api.deezer import router as deezer_router
@@ -65,6 +63,8 @@ from jarvis.engine.agent import Agent
 from jarvis.engine.approval_checker import ApprovalChecker
 from jarvis.engine.auth import verify_api_token  # ── [AUTH] ──
 from jarvis.engine.gateway import Gateway
+from jarvis.engine.mission.orchestrator import ProjectOrchestrator
+from jarvis.engine.mission.reflexion import Reflexion
 from jarvis.engine.session import SessionManager
 from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
@@ -330,8 +330,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Détecte les gaps signalés par l'agent et délègue au Skill Lab. AUCUNE
     # auto-installation en MVP (cf. CDC §8) : toute candidate exige promote()
     # humain, peu importe le verdict sandbox ou la whitelist.
-    from agent.capability_engine import CapabilityEngine, Whitelist
     from jarvis.capabilities.tools.capability import ReportMissingCapabilityTool
+    from jarvis.engine.mission.capability_engine import CapabilityEngine, Whitelist
 
     _whitelist = Whitelist.load(Path("config/permissions.yaml"))
     _capability_engine = CapabilityEngine(

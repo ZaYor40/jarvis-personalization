@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from agent.backends.base import BackendResult, ExecutionBackend
+from jarvis.engine.mission.backends.base import BackendResult, ExecutionBackend
 
 
 class DockerBackend(ExecutionBackend):
@@ -18,8 +18,8 @@ class DockerBackend(ExecutionBackend):
         self._executor = executor  # instance DockerExecutor
 
     async def is_available(self) -> bool:
-        from agent.docker_executor import DockerExecutor
         from config.settings import settings
+        from jarvis.engine.mission.docker_executor import DockerExecutor
 
         return settings.docker_enabled and await DockerExecutor.is_available()
 

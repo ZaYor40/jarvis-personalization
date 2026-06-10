@@ -30,7 +30,7 @@ async def get_jarvis_stats(days: int = 30) -> dict:
     # Projects / Missions
     mission_count = 0
     try:
-        from agent.project_store import ProjectStore
+        from jarvis.engine.mission.project_store import ProjectStore
 
         store = ProjectStore()
         projects = store.list_all() if hasattr(store, "list_all") else []

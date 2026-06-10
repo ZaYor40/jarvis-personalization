@@ -7,12 +7,12 @@ from collections.abc import Callable
 
 from loguru import logger
 
-from agent.project_manager import ProjectManager
-from agent.project_store import ProjectStore
-from agent.reflexion import Reflexion
-from agent.schemas import LogEntry, Project, validate_step
-from agent.worker_agent import WorkerAgent
 from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.mission.project_manager import ProjectManager
+from jarvis.engine.mission.project_store import ProjectStore
+from jarvis.engine.mission.reflexion import Reflexion
+from jarvis.engine.mission.schemas import LogEntry, Project, validate_step
+from jarvis.engine.mission.worker_agent import WorkerAgent
 
 
 class ProjectOrchestrator:
@@ -46,7 +46,7 @@ class ProjectOrchestrator:
             for step in project.steps:
                 validate_step(step)
         except ValueError as exc:
-            from agent.schemas import ProjectStatus
+            from jarvis.engine.mission.schemas import ProjectStatus
 
             project.status = ProjectStatus.FAILED
             self._store.save_project(project)
@@ -103,7 +103,7 @@ class ProjectOrchestrator:
 
     async def retry_project(self, project_id: str) -> Project | None:
         """Remet le projet en running depuis la première étape bloquée/failed."""
-        from agent.schemas import ProjectStatus, StepStatus
+        from jarvis.engine.mission.schemas import ProjectStatus, StepStatus
 
         # Tuer le worker actuel si encore vivant
         if w := self._workers.get(project_id):
@@ -160,7 +160,7 @@ class ProjectOrchestrator:
         Contrairement à retry_project, cette méthode ne touche pas aux étapes DONE/SKIPPED
         et ne réinitialise que le statut global du projet.
         """
-        from agent.schemas import ProjectStatus
+        from jarvis.engine.mission.schemas import ProjectStatus
 
         if w := self._workers.get(project_id):
             w.kill()
@@ -248,7 +248,7 @@ class ProjectOrchestrator:
         return self._store.get_logs(project, last_n)
 
     def get_workspace_files(self, project_id: str) -> list[str]:
-        from agent.file_tool import SandboxedFileTool
+        from jarvis.engine.mission.file_tool import SandboxedFileTool
 
         project = self._store.load_project(project_id)
         if not project:
@@ -256,7 +256,7 @@ class ProjectOrchestrator:
         return SandboxedFileTool(project.workspace_path).list_files()
 
     def read_workspace_file(self, project_id: str, path: str) -> str:
-        from agent.file_tool import SandboxedFileTool
+        from jarvis.engine.mission.file_tool import SandboxedFileTool
 
         project = self._store.load_project(project_id)
         if not project:

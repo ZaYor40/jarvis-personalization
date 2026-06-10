@@ -21,8 +21,8 @@ from pathlib import Path
 
 import pytest
 
-from agent.reflexion import Reflexion
-from agent.schemas import Project, ProjectStatus, Step, StepStatus
+from jarvis.engine.mission.reflexion import Reflexion
+from jarvis.engine.mission.schemas import Project, ProjectStatus, Step, StepStatus
 from jarvis.engine.vocab import AccessLevel
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.memory.ingest import MemoryIngest
