@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from jarvis.capabilities.tools.base import Tool, ToolResult
+
+if TYPE_CHECKING:
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
 
 class ExecutePresetTool(Tool):
@@ -16,7 +21,7 @@ class ExecutePresetTool(Tool):
         '- "mode travail" → execute_preset(preset_name="mode-travail")\n'
         '- "bonne nuit" → execute_preset(preset_name="mode-nuit")'
     )
-    input_schema = {
+    input_schema = {  # noqa: RUF012
         "type": "object",
         "properties": {
             "preset_name": {
@@ -27,11 +32,13 @@ class ExecutePresetTool(Tool):
         "required": ["preset_name"],
     }
 
+    def __init__(self, *, tool_registry: ToolRegistry) -> None:
+        self._tool_registry = tool_registry
+
     async def execute(self, preset_name: str, **_: object) -> ToolResult:
         from jarvis.capabilities.skills.executor import PresetExecutor
         from jarvis.capabilities.skills.registry import skill_registry
         from jarvis.engine.background.notifications import broadcast_event
-        from jarvis.engine.gateway import get_tool_registry
         from jarvis.providers.audio.tts import tts_engine
 
         preset = skill_registry.get_preset(preset_name)
@@ -43,7 +50,7 @@ class ExecutePresetTool(Tool):
             )
 
         executor = PresetExecutor(
-            tool_registry=get_tool_registry(),
+            tool_registry=self._tool_registry,
             tts_engine=tts_engine,
         )
 

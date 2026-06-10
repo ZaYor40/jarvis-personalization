@@ -278,7 +278,7 @@ def build(settings: Settings | None = None) -> Container:
         MemorySearchTool(vector_index=vector_index),
         SpotifyTool(),
         GmailListTool(credentials_path=_google_creds, token_path=_gmail_token),
-        ExecutePresetTool(),
+        ExecutePresetTool(tool_registry=tool_registry),
         CrossSessionRecallTool(fts_index=fts_index, vector_index=vector_index),
     )
     tool_registry.replace_skill_tools(*skill_registry.get_all_tools())

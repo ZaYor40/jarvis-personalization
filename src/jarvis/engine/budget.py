@@ -213,23 +213,3 @@ class BudgetGuard:
         }
 
 
-# ── Singleton ─────────────────────────────────────────────────────────────────
-# Initialisé à None ; remplacé dans main.py si budget_enabled=True.
-
-_guard: BudgetGuard | None = None
-
-
-def get_budget_guard() -> BudgetGuard | None:
-    """Retourne l'instance singleton de BudgetGuard (None si non initialisé)."""
-    return _guard
-
-
-def set_budget_guard(guard: BudgetGuard) -> None:
-    """Injecte le singleton BudgetGuard (appelé depuis main.py)."""
-    global _guard
-    _guard = guard
-    logger.info(
-        "BudgetGuard activé",
-        monthly_usd=guard._monthly_usd,
-        per_project_usd=guard._per_project,
-    )

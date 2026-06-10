@@ -251,57 +251,41 @@ async def restart_jarvis() -> dict:
 
 
 @router.get("/api/conso/session")
-async def conso_session() -> dict:
-    from jarvis.engine.tracking import tracker
-
-    return tracker.get_session_summary()
+async def conso_session(request: Request) -> dict:
+    return request.app.state.container.tracker.get_session_summary()
 
 
 @router.get("/api/conso/daily")
-async def conso_daily(days: int = 30) -> list[dict]:
-    from jarvis.engine.tracking import tracker
-
-    return tracker.get_daily_totals(days)
+async def conso_daily(request: Request, days: int = 30) -> list[dict]:
+    return request.app.state.container.tracker.get_daily_totals(days)
 
 
 @router.get("/api/conso/providers")
-async def conso_providers() -> dict:
-    from jarvis.engine.tracking import tracker
-
-    summary = tracker.get_session_summary()
+async def conso_providers(request: Request) -> dict:
+    summary = request.app.state.container.tracker.get_session_summary()
     return summary.get("providers", {})
 
 
 @router.get("/api/conso/calls")
-async def conso_calls() -> list[dict]:
-    from jarvis.engine.tracking import tracker
-
-    return tracker.get_recent_calls(200)
+async def conso_calls(request: Request) -> list[dict]:
+    return request.app.state.container.tracker.get_recent_calls(200)
 
 
 @router.get("/api/conso/daily_providers")
-async def conso_daily_providers() -> list[dict]:
-    from jarvis.engine.tracking import tracker
-
-    return tracker.get_daily_by_provider(7)
+async def conso_daily_providers(request: Request) -> list[dict]:
+    return request.app.state.container.tracker.get_daily_by_provider(7)
 
 
 @router.get("/api/conso/monthly")
-async def conso_monthly() -> dict:
-    from jarvis.engine.tracking import tracker
-
-    return tracker.get_monthly_totals()
+async def conso_monthly(request: Request) -> dict:
+    return request.app.state.container.tracker.get_monthly_totals()
 
 
 @router.get("/api/conso/by_model")
-async def conso_by_model() -> list[dict]:
-    from jarvis.engine.tracking import tracker
-
-    return tracker.get_monthly_by_model()
+async def conso_by_model(request: Request) -> list[dict]:
+    return request.app.state.container.tracker.get_monthly_by_model()
 
 
 @router.get("/api/conso/hourly")
-async def conso_hourly() -> list[float]:
-    from jarvis.engine.tracking import tracker
-
-    return tracker.get_today_hourly()
+async def conso_hourly(request: Request) -> list[float]:
+    return request.app.state.container.tracker.get_today_hourly()

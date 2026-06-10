@@ -10,7 +10,8 @@ Cas couverts :
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -21,10 +22,16 @@ from jarvis.interfaces.api.http_budget import router as budget_router
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _app_with_guard(guard: object) -> FastAPI:
-    """Monte le router budget sur une mini-app avec le guard mocké."""
+def _app_with_guard(guard: object | None) -> FastAPI:
+    """Monte le router budget sur une mini-app et installe un Container minimal.
+
+    Phase C — étape 2 (b+c+e) : les endpoints budget lisent `request.app.state
+    .container.budget` désormais ; on injecte un Container stub (SimpleNamespace)
+    plutôt que de patcher l'ancien singleton `get_budget_guard`.
+    """
     app = FastAPI()
     app.include_router(budget_router)
+    app.state.container = SimpleNamespace(budget=guard)
     return app
 
 
@@ -56,9 +63,8 @@ def test_status_quand_guard_actif() -> None:
     guard.status.return_value = _STATUS_PAYLOAD
     app = _app_with_guard(guard)
 
-    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
-        with TestClient(app) as c:
-            res = c.get("/api/budget/status")
+    with TestClient(app) as c:
+        res = c.get("/api/budget/status")
 
     assert res.status_code == 200
     data = res.json()
@@ -69,12 +75,11 @@ def test_status_quand_guard_actif() -> None:
 
 
 def test_status_quand_guard_absent() -> None:
-    """Quand get_budget_guard() retourne None, l'endpoint retourne enabled=false."""
+    """Quand container.budget est None, l'endpoint retourne enabled=false."""
     app = _app_with_guard(None)
 
-    with patch("jarvis.engine.budget.get_budget_guard", return_value=None):
-        with TestClient(app) as c:
-            res = c.get("/api/budget/status")
+    with TestClient(app) as c:
+        res = c.get("/api/budget/status")
 
     assert res.status_code == 200
     assert res.json() == {"enabled": False}
@@ -88,9 +93,8 @@ def test_remaining_scope_global() -> None:
     guard.remaining.return_value = 7.5
     app = _app_with_guard(guard)
 
-    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
-        with TestClient(app) as c:
-            res = c.get("/api/budget/remaining?scope=global")
+    with TestClient(app) as c:
+        res = c.get("/api/budget/remaining?scope=global")
 
     assert res.status_code == 200
     data = res.json()
@@ -106,9 +110,8 @@ def test_remaining_scope_illimite() -> None:
     guard.remaining.return_value = float("inf")
     app = _app_with_guard(guard)
 
-    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
-        with TestClient(app) as c:
-            res = c.get("/api/budget/remaining?scope=run%3Asome-run")
+    with TestClient(app) as c:
+        res = c.get("/api/budget/remaining?scope=run%3Asome-run")
 
     assert res.status_code == 200
     data = res.json()
@@ -118,9 +121,8 @@ def test_remaining_scope_illimite() -> None:
 def test_remaining_quand_desactive() -> None:
     app = _app_with_guard(None)
 
-    with patch("jarvis.engine.budget.get_budget_guard", return_value=None):
-        with TestClient(app) as c:
-            res = c.get("/api/budget/remaining?scope=global")
+    with TestClient(app) as c:
+        res = c.get("/api/budget/remaining?scope=global")
 
     assert res.status_code == 200
     data = res.json()
@@ -134,9 +136,8 @@ def test_remaining_scope_par_defaut_est_global() -> None:
     guard.remaining.return_value = 5.0
     app = _app_with_guard(guard)
 
-    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
-        with TestClient(app) as c:
-            res = c.get("/api/budget/remaining")
+    with TestClient(app) as c:
+        res = c.get("/api/budget/remaining")
 
     assert res.status_code == 200
     guard.remaining.assert_called_once_with("global")

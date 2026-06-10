@@ -101,20 +101,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.curator = container.curator
     app.state.command_center = container.command_center
 
-    # 3 singletons — CONSERVÉS pour cette étape (a), supprimés à l'étape (b)
-    # qui les remplace par container.X aux 4 call-sites triviaux (http_budget,
-    # http_skills, preset, http_system).
+    # Singletons résiduels post-étape 2 (b) :
+    #  - set_proactive_queue / set_approval_checker : routes ws_voice & ws_chat
+    #    n'ont pas (encore) accès à app.state.container — élimination en E.
+    #  - `tracker` (jarvis.engine.tracking) reste module-level pour cette étape
+    #    (b) et bascule en injection constructeur dans l'étape (d) qui touche
+    #    providers/llm/api.py + providers/audio/tts.py (commit isolé pour bisect).
     from jarvis.engine.approval_checker import set_approval_checker
     from jarvis.engine.background.notifications import set_proactive_queue
-    from jarvis.engine.gateway import set_tool_registry
 
     set_proactive_queue(container.proactive_queue)
-    set_tool_registry(container.tool_registry)
     set_approval_checker(container.approval_checker)
     if settings.budget_enabled:
-        from jarvis.engine.budget import set_budget_guard
-
-        set_budget_guard(container.budget)
         logger.info(
             "BudgetGuard activé",
             monthly_usd=settings.budget_monthly_usd,

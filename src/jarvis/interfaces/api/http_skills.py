@@ -287,15 +287,15 @@ async def execute_preset_endpoint(preset_name: str, request: Request) -> dict:
     from jarvis.capabilities.skills.executor import PresetExecutor
     from jarvis.capabilities.skills.registry import skill_registry
     from jarvis.engine.background.notifications import broadcast_event
-    from jarvis.engine.gateway import get_tool_registry
     from jarvis.providers.audio.tts import tts_engine
 
     preset = skill_registry.get_preset(preset_name)
     if not preset:
         return {"success": False, "message": f"Preset '{preset_name}' introuvable"}
 
+    container = request.app.state.container
     executor = PresetExecutor(
-        tool_registry=get_tool_registry(),
+        tool_registry=container.tool_registry,
         tts_engine=tts_engine,
     )
     results = await executor.execute(preset, broadcast_fn=broadcast_event)
