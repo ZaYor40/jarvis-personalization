@@ -15,6 +15,7 @@ wheels/
 # ── Fichiers de spécifications / cahiers des charges ─────────
 JARVIS_*.md
 AUDIO_OPTIM.md
+*_devlocal.md
 
 # ── Tokens et credentials OAuth ──────────────────────────────
 config/google_credentials.json
