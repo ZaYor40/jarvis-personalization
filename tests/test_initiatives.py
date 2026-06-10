@@ -243,8 +243,8 @@ class TestEngineRestore:
             engine = ProactiveEngine(
                 notification_queue=nq,
                 broadcast_event=events.append,
-                builder=ContextBuilder(),
-                generator=InitiativeGenerator(),
+                builder=ContextBuilder(calendar_tool=MagicMock(), notion_tool=MagicMock()),
+                generator=InitiativeGenerator(llm=MagicMock()),
                 store=InitiativeStore(),
                 interval_minutes=30,
             )
@@ -277,8 +277,8 @@ class TestEngineRestore:
             engine = ProactiveEngine(
                 notification_queue=NotificationQueue(),
                 broadcast_event=events.append,
-                builder=ContextBuilder(),
-                generator=InitiativeGenerator(),
+                builder=ContextBuilder(calendar_tool=MagicMock(), notion_tool=MagicMock()),
+                generator=InitiativeGenerator(llm=MagicMock()),
                 store=InitiativeStore(),
             )
             await engine._restore_pending()

@@ -121,14 +121,14 @@ async def reject_initiative(initiative_id: str) -> dict:
 
 
 @router.post("/api/initiatives/{initiative_id}/rectify")
-async def rectify_initiative(initiative_id: str, body: RectifyBody) -> dict:
+async def rectify_initiative(initiative_id: str, body: RectifyBody, request: Request) -> dict:
 
     store = InitiativeStore()
     init = store.get_by_id(initiative_id)
     if not init:
         raise HTTPException(404, "Initiative introuvable")
 
-    generator = InitiativeGenerator()
+    generator = InitiativeGenerator(llm=request.app.state.container.background_llm)
     new_init = await generator.rectify(init, body.correction)
     if not new_init:
         raise HTTPException(500, "Régénération échouée")

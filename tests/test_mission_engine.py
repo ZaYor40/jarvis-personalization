@@ -267,6 +267,7 @@ async def test_step_non_verifie_bloque_progression(tmp_path: Path) -> None:
             store=store,
             broadcast_event=_broadcast,
             approval_callback=_approval_cb,
+            llm=_NoOpLLM(),
             governance=_make_governance(tmp_path),
             verifier=_AlwaysFailVerifier(),
         )
@@ -323,6 +324,7 @@ async def test_step_modify_core_declenche_approval_systematique(tmp_path: Path) 
             store=store,
             broadcast_event=lambda _: None,
             approval_callback=_approval_cb,
+            llm=_NoOpLLM(),
             governance=_make_governance(tmp_path),
         )
 
@@ -366,6 +368,7 @@ async def test_step_never_categorie_failed_sans_demande(tmp_path: Path) -> None:
             store=store,
             broadcast_event=lambda _: None,
             approval_callback=_approval_cb,
+            llm=_NoOpLLM(),
             governance=gov,
         )
 
@@ -431,6 +434,7 @@ async def test_reprise_skip_steps_deja_done(tmp_path: Path) -> None:
             store=store,
             broadcast_event=lambda _: None,
             approval_callback=_no_approval_cb,
+            llm=_NoOpLLM(),
             governance=_make_governance(tmp_path),
             verifier=_AlwaysPassVerifier(),
         )

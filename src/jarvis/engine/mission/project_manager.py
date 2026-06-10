@@ -7,11 +7,10 @@ import re
 
 from loguru import logger
 
-from config.settings import settings
 from jarvis.engine.mission.project_store import ProjectStore
 from jarvis.engine.mission.schemas import Project, Step, StepStatus
 from jarvis.engine.vocab import AccessLevel
-from jarvis.providers.llm.api import AnthropicProvider
+from jarvis.kernel.contracts import LLMProvider
 
 _PLANNING_SYSTEM = """\
 Tu es un chef de projet expert. Analyse la demande utilisateur et décompose-la en étapes
@@ -97,16 +96,14 @@ Réponds UNIQUEMENT avec du JSON valide (sans markdown, sans commentaires) :
 
 
 class ProjectManager:
-    def __init__(self) -> None:
+    def __init__(self, llm: LLMProvider) -> None:
         self._store = ProjectStore()
+        self._llm = llm
 
     async def create_project(self, mission: str, timeout_minutes: int = 30) -> Project:
-
-        llm = AnthropicProvider(max_tokens=2048, model=settings.voice_anthropic_model)
-
         logger.info("ProjectManager planning", mission=mission[:80])
 
-        raw = await llm.complete(
+        raw = await self._llm.complete(
             messages=[{"role": "user", "content": f"Mission : {mission}"}],
             system=_PLANNING_SYSTEM,
             stream=False,

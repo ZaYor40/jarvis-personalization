@@ -162,6 +162,8 @@ def test_proactive_audit_event() -> None:
         def add(self, content: str) -> None:  # noqa: ANN001
             pass
 
+    from unittest.mock import MagicMock
+
     from jarvis.engine.proactive.context_builder import ContextBuilder
     from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
     from jarvis.engine.proactive.store import InitiativeStore
@@ -169,8 +171,8 @@ def test_proactive_audit_event() -> None:
     engine = ProactiveEngine(
         notification_queue=_Queue(),
         broadcast_event=broadcast_events.append,
-        builder=ContextBuilder(),
-        generator=InitiativeGenerator(),
+        builder=ContextBuilder(calendar_tool=MagicMock(), notion_tool=MagicMock()),
+        generator=InitiativeGenerator(llm=MagicMock()),
         store=InitiativeStore(),
         interval_minutes=30,
     )

@@ -26,9 +26,9 @@ from pathlib import Path
 
 from loguru import logger
 
-from jarvis.capabilities.tools.registry import ToolRegistry
 from jarvis.engine.approval_checker import get_approval_checker
 from jarvis.engine.mission.backends.base import ExecutionBackend
+from jarvis.kernel.contracts import ToolRegistry
 
 # Sous-ensemble d'outils exposés dans le sandbox RPC.
 # Intersection avec les outils enregistrés au moment de l'exécution.

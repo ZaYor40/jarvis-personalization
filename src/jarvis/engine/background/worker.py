@@ -7,9 +7,8 @@ from datetime import UTC, datetime
 
 from loguru import logger
 
-from jarvis.capabilities.tools.registry import ToolRegistry
 from jarvis.engine.background.notifications import NotificationQueue
-from jarvis.providers.llm.base import LLMProvider
+from jarvis.kernel.contracts import LLMProvider, ToolRegistry
 
 _BG_SYSTEM = (
     "Tu es Jarvis. Exécute la tâche demandée avec les outils disponibles. "

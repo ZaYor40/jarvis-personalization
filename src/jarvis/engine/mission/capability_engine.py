@@ -32,11 +32,15 @@ from pathlib import Path
 import yaml
 from loguru import logger
 
-from jarvis.capabilities.skills.lab import SkillLab
-from jarvis.capabilities.skills.lifecycle import SkillRecord, SkillStatus
-from jarvis.capabilities.skills.registry import SkillRegistry
-from jarvis.capabilities.tools.registry import ToolRegistry
-from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.kernel.contracts import (
+    MemoryStore as MemoryKernel,
+)
+from jarvis.kernel.contracts import (
+    SkillLab,
+    SkillRegistry,
+    ToolRegistry,
+)
+from jarvis.kernel.schemas import SkillRecord, SkillStatus
 
 # Seuil heuristique de matching textuel (sur jaccard normalisé).
 # Bas pour MVP : on préfère détecter des matchs faibles plutôt que de

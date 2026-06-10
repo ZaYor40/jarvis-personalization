@@ -13,7 +13,6 @@ from loguru import logger
 
 from config.approvals import approval_config
 from config.settings import settings
-from jarvis.capabilities.tools.fusion import FusionTool
 from jarvis.engine.audit import AuditLog
 from jarvis.engine.budget import BudgetGuard
 from jarvis.engine.mission.docker_executor import DockerExecutor
@@ -26,8 +25,8 @@ from jarvis.engine.mission.schemas import LogEntry, Project, ProjectStatus, Step
 from jarvis.engine.mission.verifier import Verifier
 from jarvis.engine.mission.worker_cli import WorkerCLITool
 from jarvis.engine.vocab import AccessLevel
+from jarvis.kernel.contracts import LLMProvider
 from jarvis.kernel.paths import PROMPTS_DIR
-from jarvis.providers.llm.api import AnthropicProvider
 
 # ── Constantes PHASE 1 ─────────────────────────────────────────────────────────
 
@@ -217,6 +216,7 @@ class WorkerAgent:
         store: ProjectStore,
         broadcast_event: Callable[[dict], None],
         approval_callback: Callable[[str, str, str], Awaitable[bool]],
+        llm: LLMProvider,
         budget_guard: BudgetGuard | None = None,
         governance: Governance | None = None,
         verifier: Verifier | None = None,
@@ -226,6 +226,7 @@ class WorkerAgent:
         self._store = store
         self._broadcast = broadcast_event
         self._approval_cb = approval_callback
+        self._llm = llm
         self._budget = budget_guard
         self._worker_id = uuid.uuid4().hex[:8]  # identifiant unique pour les claims
         self._file_tool = SandboxedFileTool(project.workspace_path)
@@ -264,10 +265,9 @@ class WorkerAgent:
         if self._verifier is not None:
             return
 
-        llm = AnthropicProvider(max_tokens=1024, model=settings.voice_anthropic_model)
         self._verifier = Verifier(
             quality_checker=self._quality,
-            llm=llm,
+            llm=self._llm,
             cli_executor=self._cli_tool.execute,
         )
 
@@ -592,11 +592,9 @@ class WorkerAgent:
                     f"project={'ok' if project_ok else 'stop'})"
                 )
 
-        # Haiku pour le worker : 20x moins cher que Sonnet, largement suffisant
-        llm = AnthropicProvider(
-            max_tokens=1024,
-            model=settings.voice_anthropic_model,  # claude-haiku-4-5-20251001
-        )
+        # Haiku pour le worker : 20x moins cher que Sonnet, largement suffisant.
+        # Le LLM est injecté en constructeur (bootstrap utilise voice_llm pour ça).
+        llm = self._llm
         self._project.llm_calls += 1
 
         existing = self._file_tool.list_files()
@@ -693,6 +691,7 @@ class WorkerAgent:
                 return f"ERREUR (rc={res['returncode']}) : {res['stderr']}"
 
             if name == "fusion_360":
+                from jarvis.capabilities.tools.fusion import FusionTool  # lazy: plugin Fusion
 
                 action = inputs.get("action", "")
                 await self._log("tool", f"fusion_360: {action}", data={"inputs": str(inputs)[:120]})

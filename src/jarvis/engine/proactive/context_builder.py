@@ -18,6 +18,7 @@ from jarvis.engine.proactive.collectors.news import NewsCollector
 from jarvis.engine.proactive.collectors.tasks import TaskCollector
 from jarvis.engine.proactive.collectors.weather import WeatherCollector
 from jarvis.engine.proactive.schemas import CollectionResult, ContextItem, ItemType, Priority
+from jarvis.kernel.contracts import CalendarReadTool, NotionReadTool
 
 
 @dataclass
@@ -62,11 +63,15 @@ class WorldState:
 
 
 class ContextBuilder:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        calendar_tool: CalendarReadTool,
+        notion_tool: NotionReadTool,
+    ) -> None:
         self._collectors = [
             EmailCollector(),
-            CalendarCollector(),
-            TaskCollector(),
+            CalendarCollector(calendar_tool=calendar_tool),
+            TaskCollector(notion_tool=notion_tool),
             NewsCollector(),
             JarvisCollector(),
             WeatherCollector(),

@@ -7,8 +7,6 @@ from datetime import UTC, datetime, timedelta
 
 from loguru import logger
 
-from jarvis.capabilities.tools.calendar import CalendarListTool
-from jarvis.capabilities.tools.notion import NotionTasksTool
 from jarvis.engine.background.notifications import ProactiveQueue
 from jarvis.engine.background.routines import (
     ROUTINES_ENABLED,
@@ -20,8 +18,12 @@ from jarvis.engine.background.routines import (
     fire_routine,
     next_cron_datetime,
 )
+from jarvis.kernel.contracts import (
+    AutoDreamer,
+    CalendarReadTool,
+    NotionReadTool,
+)
 from jarvis.kernel.settings import Settings
-from jarvis.providers.memory.auto_dream import AutoDream
 
 
 def _next_datetime(hour: int) -> datetime:
@@ -48,9 +50,10 @@ class Scheduler:
     def __init__(
         self,
         proactive: ProactiveQueue,
-        auto_dream: AutoDream,
-        calendar_tool: CalendarListTool,
+        auto_dream: AutoDreamer,
+        calendar_tool: CalendarReadTool,
         settings: Settings,
+        notion_tool: NotionReadTool | None = None,
         skill_lab: object | None = None,
         curator: object | None = None,
     ) -> None:
@@ -58,6 +61,7 @@ class Scheduler:
         self._auto_dream = auto_dream
         self._calendar_tool = calendar_tool
         self._settings = settings
+        self._notion_tool = notion_tool  # Phase D — injecté plutôt qu'instancié dans la boucle
         self._skill_lab = skill_lab  # PHASE 4 — SkillLab pour polling nocturne
         self._curator = curator  # PHASE 6 — Curator nocturne
         self._tasks: list[asyncio.Task] = []
@@ -211,13 +215,13 @@ class Scheduler:
         except Exception as e:
             parts.append(f"Agenda indisponible ({e}).")
 
-        try:
-
-            tasks_result = await NotionTasksTool().execute()
-            if not tasks_result.is_error and tasks_result.content:
-                parts.append(f"Tâches du jour :\n{tasks_result.content}")
-        except Exception as e:
-            logger.debug("Briefing Notion error", error=str(e))
+        if self._notion_tool is not None:
+            try:
+                tasks_result = await self._notion_tool.execute()
+                if not tasks_result.is_error and tasks_result.content:
+                    parts.append(f"Tâches du jour :\n{tasks_result.content}")
+            except Exception as e:
+                logger.debug("Briefing Notion error", error=str(e))
 
         self._proactive.broadcast("Briefing matinal — " + " | ".join(parts))
         logger.info("Briefing matinal envoyé")

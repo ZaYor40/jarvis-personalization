@@ -10,11 +10,9 @@ import uuid
 
 from loguru import logger
 
-from config.settings import settings
 from jarvis.engine.proactive.context_builder import WorldState
 from jarvis.engine.proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
-from jarvis.providers.llm.api import AnthropicProvider
-from jarvis.providers.llm.local import OllamaProvider
+from jarvis.kernel.contracts import LLMProvider
 
 MAX_INITIATIVES = 5
 MAX_HIGH = 3
@@ -207,11 +205,8 @@ Corps
 
 
 class InitiativeGenerator:
-    def __init__(self) -> None:
-        if settings.llm_provider == "local":
-            self._llm = OllamaProvider()
-        else:
-            self._llm = AnthropicProvider(max_tokens=4096)
+    def __init__(self, llm: LLMProvider) -> None:
+        self._llm = llm
 
     async def generate(self, state: WorldState) -> list[Initiative]:
         """Génère des initiatives à partir de l'état du monde."""

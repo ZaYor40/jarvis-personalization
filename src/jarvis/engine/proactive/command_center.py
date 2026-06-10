@@ -21,11 +21,12 @@ from datetime import datetime
 
 from loguru import logger
 
-from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
 from jarvis.engine.budget import BudgetGuard
 from jarvis.engine.mission.project_store import ProjectStore
 from jarvis.engine.mission.schemas import StepStatus
 from jarvis.engine.proactive.store import InitiativeStore
+from jarvis.kernel.contracts import SkillLifecycle
+from jarvis.kernel.schemas import SkillStatus
 
 
 @dataclass

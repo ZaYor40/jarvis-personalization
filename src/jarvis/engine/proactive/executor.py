@@ -17,18 +17,23 @@ GARDE-FOU CENTRAL :
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from loguru import logger
 
 from config.approvals import ApprovalMode, approval_config
 from config.settings import settings
-from jarvis.capabilities.tools.gmail import send_gmail_draft
 from jarvis.engine.proactive.schemas import Initiative, InitiativeType
 from jarvis.engine.proactive.store import InitiativeStore
+
+# Signature du callable d'envoi d'email injecté : reçoit le brouillon parsé et
+# les chemins credentials/token, retourne l'id du message envoyé. Le callable
+# concret vit en `capabilities/tools/gmail.py:send_gmail_draft`, câblé dans
+# bootstrap.py (cf. RÈGLE 3 — engine n'importe que kernel).
+SendGmailDraft = Callable[..., Awaitable[Any]]
 
 
 class _Orchestrator(Protocol):
@@ -52,12 +57,14 @@ class InitiativeExecutor:
         orchestrator: _Orchestrator | None = None,
         approval_checker: _ApprovalChecker | None = None,
         budget_guard: _BudgetGuard | None = None,
+        send_gmail_draft: SendGmailDraft | None = None,
     ) -> None:
         self._store = store
         self._broadcast = broadcast_event
         self._orchestrator = orchestrator
         self._checker = approval_checker
         self._budget = budget_guard
+        self._send_gmail_draft = send_gmail_draft
 
     # ── Étape 1 : Run ─────────────────────────────────────────────────────────
 
@@ -146,10 +153,15 @@ class InitiativeExecutor:
             self._store.update_status(init.id, "failed")
             return {"error": "Envoi mail désactivé (approbation : never)", "status": "blocked"}
 
+        if self._send_gmail_draft is None:
+            self._store.update_status(init.id, "done")
+            return {
+                "status": "draft_only",
+                "draft_content": init.draft_content or "",
+                "reason": "send_gmail_draft non injecté",
+            }
         try:
-
-
-            msg_id = await send_gmail_draft(
+            msg_id = await self._send_gmail_draft(
                 draft_content=init.draft_content or "",
                 credentials_path=Path(settings.google_credentials_path),
                 token_path=Path(settings.google_token_path).parent / "google_gmail_token.json",

@@ -22,9 +22,8 @@ from dataclasses import dataclass
 from loguru import logger
 
 from jarvis.engine.mission.schemas import Project, ProjectStatus, StepStatus
-from jarvis.providers.llm.base import LLMProvider
-from jarvis.providers.memory.ingest import MemoryIngest
-from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.kernel.contracts import LLMProvider, MemoryIngest
+from jarvis.kernel.contracts import MemoryStore as MemoryKernel
 
 # Statuts considérés comme "fin de mission" (§5.1).
 # PAUSED est exclu : la mission est reprenable, ce n'est pas une fin.

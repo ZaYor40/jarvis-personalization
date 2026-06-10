@@ -20,7 +20,7 @@ from loguru import logger
 
 from jarvis.engine.mission.quality_checker import QualityChecker
 from jarvis.engine.mission.schemas import Project, Step
-from jarvis.providers.llm.base import LLMProvider
+from jarvis.kernel.contracts import LLMProvider
 
 # Plafond de contenu inclus dans le prompt sémantique (caractères).
 # Au-dessus, on tronque pour ne pas exploser les tokens.

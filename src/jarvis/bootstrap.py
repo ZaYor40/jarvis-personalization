@@ -37,7 +37,7 @@ from jarvis.capabilities.tools.calendar import CalendarCreateTool, CalendarListT
 from jarvis.capabilities.tools.capability import ReportMissingCapabilityTool
 from jarvis.capabilities.tools.cli import CLIRunnerTool, ExecuteCLITool
 from jarvis.capabilities.tools.filesystem import FindFilesTool, ReadFileTool
-from jarvis.capabilities.tools.gmail import GmailListTool
+from jarvis.capabilities.tools.gmail import GmailListTool, send_gmail_draft
 from jarvis.capabilities.tools.memory import (
     CrossSessionRecallTool,
     MemoryLoadTopicTool,
@@ -257,6 +257,7 @@ def build(settings: Settings | None = None) -> Container:
     calendar_list_tool = CalendarListTool(
         credentials_path=_google_creds, token_path=_calendar_token
     )
+    notion_tasks_tool = NotionTasksTool()
 
     tool_registry = ToolRegistry()
     tool_registry.register(
@@ -269,7 +270,7 @@ def build(settings: Settings | None = None) -> Container:
         ExecuteCLITool(),
         calendar_list_tool,
         CalendarCreateTool(credentials_path=_google_creds, token_path=_calendar_token),
-        NotionTasksTool(),
+        notion_tasks_tool,
         MemoryTopicWriteTool(vector_index=vector_index),
         MemoryLoadTopicTool(),
         MemorySearchTool(vector_index=vector_index),
@@ -376,7 +377,8 @@ def build(settings: Settings | None = None) -> Container:
     orchestrator = ProjectOrchestrator(
         broadcast_event=proactive_queue.broadcast_event,
         store=ProjectStore(),
-        manager=ProjectManager(),
+        manager=ProjectManager(llm=voice_llm),
+        worker_llm=voice_llm,
         budget_guard=budget,
         reflexion=reflexion,
     )
@@ -407,6 +409,7 @@ def build(settings: Settings | None = None) -> Container:
         orchestrator=orchestrator,
         approval_checker=approval_checker,
         budget_guard=budget,
+        send_gmail_draft=send_gmail_draft,
     )
     curator = Curator(
         kernel=memory_kernel,
@@ -424,8 +427,11 @@ def build(settings: Settings | None = None) -> Container:
     proactive_engine = ProactiveEngine(
         notification_queue=notifications,
         broadcast_event=proactive_queue.broadcast_event,
-        builder=ContextBuilder(),
-        generator=InitiativeGenerator(),
+        builder=ContextBuilder(
+            calendar_tool=calendar_list_tool,
+            notion_tool=notion_tasks_tool,
+        ),
+        generator=InitiativeGenerator(llm=background_llm),
         store=initiative_store,
         interval_minutes=30,
     )
@@ -437,6 +443,7 @@ def build(settings: Settings | None = None) -> Container:
         auto_dream=auto_dream,
         calendar_tool=calendar_list_tool,
         settings=settings,
+        notion_tool=notion_tasks_tool,
         skill_lab=skill_lab,
         curator=curator,
     )

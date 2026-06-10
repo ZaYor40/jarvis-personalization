@@ -7,18 +7,19 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from jarvis.capabilities.tools.notion import NotionTasksTool
 from jarvis.engine.proactive.collectors.base import CollectorBase
 from jarvis.engine.proactive.schemas import ContextItem, ItemType, Priority
+from jarvis.kernel.contracts import NotionReadTool
 
 
 class TaskCollector(CollectorBase):
     name = "tasks"
 
-    async def _collect(self) -> list[ContextItem]:
+    def __init__(self, notion_tool: NotionReadTool) -> None:
+        self._notion_tool = notion_tool
 
-        tool = NotionTasksTool()
-        result = await tool.execute()
+    async def _collect(self) -> list[ContextItem]:
+        result = await self._notion_tool.execute()
 
         if result.is_error or not result.content:
             return []

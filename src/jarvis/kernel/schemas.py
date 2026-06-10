@@ -424,3 +424,44 @@ def calculate_cost(provider: str, model: str, **kwargs: float) -> float:
     if "images" in kwargs and "per_image" in p:
         cost += kwargs["images"] * p["per_image"]
     return round(cost, 6)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Section 6 — Skills lifecycle (ex-capabilities/skills/lifecycle.py)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Descendus en kernel en Phase D pour que `engine/proactive/curator.py` +
+# `command_center.py` + `engine/mission/capability_engine.py` puissent les
+# référencer sans importer depuis capabilities/ (RÈGLE 3).
+
+# Confiance initiale d'un skill juste promu.
+CONFIDENCE_INITIAL = 0.6
+
+
+class SkillStatus(StrEnum):
+    """Cycle de vie d'une skill (CDC §7.2)."""
+
+    CANDIDATE = "candidate"  # zone tampon : générée, en attente test sandbox / validation humaine
+    SANDBOXED_PASS = "sandboxed_pass"  # test sandbox vert, attend validation humaine
+    SANDBOXED_FAIL = "sandboxed_fail"  # test sandbox rouge → rejet automatique (audit)
+    ACTIVE = "active"  # validée + installée + utilisable
+    STALE = "stale"  # active mais non utilisée depuis longtemps (passe Curator)
+    ARCHIVED = "archived"  # retirée, conservée pour audit
+    REJECTED = "rejected"  # rejetée par l'humain (différent de sandboxed_fail)
+
+
+@dataclass
+class SkillRecord:
+    """Données du cycle de vie persisté pour une skill."""
+
+    name: str
+    status: SkillStatus
+    confidence: float = CONFIDENCE_INITIAL
+    support_count: int = 0
+    last_used_at: datetime | None = None
+    source_event_id: str | None = None  # event skill_candidate_proposal d'origine
+    sandbox_notes: str | None = None  # notes du test sandbox (stdout/stderr résumé)
+    created_at: datetime = field(default_factory=datetime.now)
+    promoted_at: datetime | None = None
+    archived_at: datetime | None = None
+    updated_at: datetime = field(default_factory=datetime.now)

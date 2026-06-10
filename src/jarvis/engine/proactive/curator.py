@@ -29,12 +29,12 @@ from pathlib import Path
 
 from loguru import logger
 
-from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
 from jarvis.engine.budget import BudgetGuard
 from jarvis.engine.proactive.store import InitiativeStore
+from jarvis.kernel.contracts import MemoryStore as MemoryKernel
+from jarvis.kernel.contracts import SkillLifecycle
 from jarvis.kernel.paths import MEMORY_DATA_DIR
-from jarvis.providers.memory.kernel import MemoryKernel
-from jarvis.providers.memory.schemas import DecayPolicy, Fact, FactStatus
+from jarvis.kernel.schemas import DecayPolicy, Fact, FactStatus, SkillStatus
 
 # ── Constantes ──────────────────────────────────────────────────────────────
 

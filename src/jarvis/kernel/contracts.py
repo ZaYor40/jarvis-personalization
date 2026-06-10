@@ -287,3 +287,109 @@ class UsageTracker(Protocol):
     """
 
     def track(self, entry: UsageEntry) -> None: ...
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# L1 — Memory operations (Phase D — CYCLE 4 / engine ne dépend que de kernel)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class CrossSessionRecall(Protocol):
+    """Rappel transversal de sessions (cf. providers/memory/consolidation.py).
+
+    Utilisé par `engine/gateway.py` au premier message d'une session pour
+    injecter un résumé des échanges passés pertinents.
+    """
+
+    async def recall(self, query: str, k: int = 8) -> str | None: ...
+
+
+@runtime_checkable
+class MemoryIngest(Protocol):
+    """Ingestion d'événements/faits dans la mémoire (cf. providers/memory/ingest.py).
+
+    Utilisé par `engine/mission/reflexion.py` après une mission pour écrire
+    les leçons apprises sous forme d'événement + facts extraits.
+    """
+
+    async def ingest(
+        self,
+        content: str,
+        source: str = ...,
+        event_type: str = ...,
+        metadata: dict[str, Any] | None = ...,
+    ) -> Any: ...  # noqa: ANN401 — IngestResult défini en providers/memory/ingest.py
+
+
+@runtime_checkable
+class AutoDreamer(Protocol):
+    """Analyse nocturne en profondeur (cf. providers/memory/auto_dream.py).
+
+    Utilisé par `engine/background/scheduler.py` pour planifier la passe
+    AutoDream deep à 3h du matin.
+    """
+
+    async def deep_analyze(self) -> None: ...
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# L1 — Skills lifecycle (Phase D — proactive/curator+command_center)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class SkillLifecycle(Protocol):
+    """Cycle de vie des skills candidats (cf. capabilities/skills/lifecycle.py).
+
+    Utilisé par `engine/proactive/curator.py` et `command_center.py` pour
+    consulter le statut des candidates (sandbox, promotion, archivage).
+    """
+
+    def list_all(self) -> list[Any]: ...  # noqa: ANN401 — SkillRecord (kernel.schemas)
+    def list_by_status(self, status: Any) -> list[Any]: ...  # noqa: ANN401 — SkillStatus enum
+    def get(self, name: str) -> Any | None: ...  # noqa: ANN401 — SkillRecord (kernel.schemas)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# L1 — Tools spécifiques injectés cross-couche (cf. background/scheduler.py)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Le Tool Protocol générique (au-dessus) ne convient pas pour les call-sites
+# qui ont besoin d'arguments précis (days_ahead, etc.). Plutôt qu'imposer
+# de typer `tool: object` côté engine, on déclare ici les contrats minimaux.
+
+
+@runtime_checkable
+class CalendarReadTool(Protocol):
+    """Lecture d'agenda (cf. capabilities/tools/calendar.py CalendarListTool).
+
+    Utilisé par `engine/background/scheduler.py` pour les rappels J/J+1.
+    """
+
+    async def execute(self, days_ahead: int = ..., **kwargs: object) -> Any: ...  # noqa: ANN401
+
+
+@runtime_checkable
+class NotionReadTool(Protocol):
+    """Lecture des tâches Notion (cf. capabilities/tools/notion.py NotionTasksTool).
+
+    Utilisé par `engine/background/scheduler.py` pour le briefing matinal.
+    """
+
+    async def execute(self, **kwargs: object) -> Any: ...  # noqa: ANN401
+
+
+@runtime_checkable
+class SkillLab(Protocol):
+    """Sandbox d'essai des skills candidats (cf. capabilities/skills/lab.py).
+
+    Utilisé par `engine/mission/capability_engine.py` pour générer puis
+    sandboxer une candidate quand le LLM signale une capacité manquante,
+    et par `engine/background/scheduler.py` pour les passes nocturnes.
+    """
+
+    async def scan_kernel(self) -> Any: ...  # noqa: ANN401 — LabScanResult (capabilities/skills/lab.py)
+    async def propose_from_trajectory(
+        self, trajectory: dict, source_event_id: str | None = ...
+    ) -> Any | None: ...  # noqa: ANN401 — SkillRecord (capabilities/skills/lifecycle.py)

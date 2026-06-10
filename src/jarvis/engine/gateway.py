@@ -10,7 +10,7 @@ from jarvis.engine.background.notifications import NotificationQueue
 from jarvis.engine.background.worker import BackgroundWorker
 from jarvis.engine.router import RouteEnum, SpeedRouter
 from jarvis.engine.session import Session, SessionManager
-from jarvis.providers.memory.consolidation import CrossSessionRecall
+from jarvis.kernel.contracts import CrossSessionRecall
 
 _FALLBACK = "Désolé chef, j'ai eu un souci — je regarde."
 

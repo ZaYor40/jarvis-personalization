@@ -19,49 +19,24 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum
 from pathlib import Path
 
 from loguru import logger
 
 # Initialisation paresseuse — confidence initiale d'une skill juste promue.
-CONFIDENCE_INITIAL = 0.6
-
-
-class SkillStatus(StrEnum):
-    """Cycle de vie d'une skill (§7.2)."""
-
-    CANDIDATE = "candidate"  # zone tampon : générée, en attente test sandbox / validation humaine
-    SANDBOXED_PASS = "sandboxed_pass"  # test sandbox vert, attend validation humaine
-    SANDBOXED_FAIL = "sandboxed_fail"  # test sandbox rouge → rejet automatique (audit)
-    ACTIVE = "active"  # validée + installée + utilisable
-    STALE = "stale"  # active mais non utilisée depuis longtemps (passe Curator)
-    ARCHIVED = "archived"  # retirée, conservée pour audit
-    REJECTED = "rejected"  # rejetée par l'humain (différent de sandboxed_fail)
-
+# SkillStatus et SkillRecord ont été descendus en kernel.schemas en Phase D
+# pour permettre à `engine/` de les référencer sans importer depuis
+# `capabilities/` (RÈGLE 3). Re-export ici pour compat des call-sites.
+from jarvis.kernel.schemas import (
+    CONFIDENCE_INITIAL,
+    SkillRecord,
+    SkillStatus,
+)
 
 _TERMINAL_STATUSES: frozenset[SkillStatus] = frozenset(
     {SkillStatus.ARCHIVED, SkillStatus.REJECTED, SkillStatus.SANDBOXED_FAIL}
 )
-
-
-@dataclass
-class SkillRecord:
-    """Données du cycle de vie persisté pour une skill."""
-
-    name: str
-    status: SkillStatus
-    confidence: float = CONFIDENCE_INITIAL
-    support_count: int = 0
-    last_used_at: datetime | None = None
-    source_event_id: str | None = None  # event skill_candidate_proposal d'origine
-    sandbox_notes: str | None = None  # notes du test sandbox (stdout/stderr résumé)
-    created_at: datetime = field(default_factory=datetime.now)
-    promoted_at: datetime | None = None
-    archived_at: datetime | None = None
-    updated_at: datetime = field(default_factory=datetime.now)
 
 
 # ── Schéma SQL ────────────────────────────────────────────────────────────────
