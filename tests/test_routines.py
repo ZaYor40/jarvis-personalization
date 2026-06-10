@@ -10,19 +10,13 @@ Cas couverts :
 
 from __future__ import annotations
 
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
-# Stubbe les dépendances LLM absentes de l'environnement de test.
-# ProactiveEngine n'exerce aucun chemin LLM dans ce fichier.
-for _dep in ("openai", "anthropic", "ollama", "google", "google.genai", "google.generativeai"):
-    if _dep not in sys.modules:
-        sys.modules[_dep] = MagicMock()  # type: ignore[assignment]
-
+# NB : stub historique de sys.modules retiré en Phase C étape 2 (a)
+# (cf. test_routines_api.py pour le contexte).
 from jarvis.engine.background.routines import (  # noqa: E402
     CatchUpPolicy,
     ConcurrencyPolicy,
