@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from audio.chunker import StreamChunker
-from audio.receiver import VoiceReceiver
-from audio.tts import tts_engine
+from jarvis.providers.audio.chunker import StreamChunker
+from jarvis.providers.audio.receiver import VoiceReceiver
+from jarvis.providers.audio.tts import tts_engine
 from background.notifications import ProactiveQueue
 from background.worker import BackgroundTask, BackgroundWorker
 from config.settings import settings
@@ -118,7 +118,7 @@ async def voice_ws(websocket: WebSocket) -> None:
 
     loop = asyncio.get_running_loop()
     if settings.stt_provider == "deepgram":
-        from audio.deepgram_receiver import DeepgramReceiver
+        from jarvis.providers.audio.deepgram_receiver import DeepgramReceiver
 
         receiver: VoiceReceiver | DeepgramReceiver = DeepgramReceiver()
     else:

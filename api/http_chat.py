@@ -54,7 +54,7 @@ async def voice_speak(body: dict) -> dict:
     if not text:
         return {"status": "error", "audio_b64": None}
 
-    from audio.tts import tts_engine
+    from jarvis.providers.audio.tts import tts_engine
 
     audio_bytes = await tts_engine.synthesize(text)
     return {

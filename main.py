@@ -450,7 +450,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         asyncio.create_task(run_vision_daemon(), name="vision-daemon")
 
     if settings.clap_detection_enabled:
-        from audio.clap_detector import ClapDetector
+        from jarvis.providers.audio.clap_detector import ClapDetector
 
         async def _on_clap() -> None:
             proactive_queue.broadcast_event({"type": "wake_up", "trigger": "clap"})
