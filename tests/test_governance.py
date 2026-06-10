@@ -16,8 +16,8 @@ import pytest
 
 from agent.governance import GateContext, GateDecision, Governance
 from config.approvals import ApprovalConfig, ApprovalMode
-from core.audit import AuditLog
-from core.vocab import AccessLevel
+from jarvis.engine.audit import AuditLog
+from jarvis.engine.vocab import AccessLevel
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────
 

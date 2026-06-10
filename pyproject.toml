@@ -83,6 +83,13 @@ ignore = [
     "ASYNC240",  # pathlib dans async OK — on est sur asyncio, pas trio/anyio
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# voice_agent.py contient 13 __import__("jarvis.capabilities.tools.X") en lambdas
+# (CDC §B.2 anticipation des migrations tools). Le namespace allongé fait dépasser
+# E501. Reformatage propre prévu lors de la migration voice_agent.py →
+# src/jarvis/interfaces/voice/agent.py.
+"voice_agent.py" = ["E501"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

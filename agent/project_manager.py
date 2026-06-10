@@ -9,7 +9,7 @@ from loguru import logger
 
 from agent.project_store import ProjectStore
 from agent.schemas import Project, Step, StepStatus
-from core.vocab import AccessLevel
+from jarvis.engine.vocab import AccessLevel
 
 _PLANNING_SYSTEM = """\
 Tu es un chef de projet expert. Analyse la demande utilisateur et décompose-la en étapes

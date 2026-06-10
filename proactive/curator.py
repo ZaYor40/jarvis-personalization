@@ -30,14 +30,14 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from jarvis.providers.memory.schemas import DecayPolicy, FactStatus
 from jarvis.capabilities.skills.lifecycle import SkillStatus
+from jarvis.providers.memory.schemas import DecayPolicy, FactStatus
 
 if TYPE_CHECKING:
-    from core.budget import BudgetGuard
+    from jarvis.capabilities.skills.lifecycle import SkillLifecycle
+    from jarvis.engine.budget import BudgetGuard
     from jarvis.providers.memory.kernel import MemoryKernel
     from proactive.store import InitiativeStore
-    from jarvis.capabilities.skills.lifecycle import SkillLifecycle
 
 
 # ── Constantes ──────────────────────────────────────────────────────────────
@@ -72,8 +72,8 @@ _PROTECTED_PATHS: list[str] = [
     "config/settings.py",  # règles de sécurité, plafonds, flags
     "config/approvals.py",
     "config/backends.py",
-    "core/vocab.py",  # vocabulaires fermés PHASE 0
-    "core/audit.py",  # audit log gate
+    "src/jarvis/engine/vocab.py",  # vocabulaires fermés PHASE 0
+    "src/jarvis/engine/audit.py",  # audit log gate
     "agent/governance.py",  # gate composite
     "agent/schemas.py",  # contrat de données
     "memory/schemas.py",

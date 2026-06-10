@@ -21,8 +21,8 @@ from loguru import logger
 from jarvis.capabilities.tools.base import Tool, ToolResult
 
 if TYPE_CHECKING:
-    from core.agent import Agent
     from jarvis.capabilities.tools.registry import ToolRegistry
+    from jarvis.engine.agent import Agent
 
 
 class SpawnSubagentTool(Tool):
@@ -61,7 +61,7 @@ class SpawnSubagentTool(Tool):
         self._agent = agent
 
     async def execute(self, task: str, context: str = "") -> ToolResult:  # type: ignore[override]
-        from core.session import Session
+        from jarvis.engine.session import Session
 
         prompt = f"{context}\n\n---\nTâche : {task}" if context else task
         session = Session()
@@ -130,7 +130,7 @@ class ScriptRPCTool(Tool):
     async def execute(self, script: str, timeout: int = 300) -> ToolResult:  # type: ignore[override]  # noqa: ASYNC109
         from agent.backends.rpc import ScriptRPCRunner
         from config.backends import get_backend
-        from core.approval_checker import get_approval_checker
+        from jarvis.engine.approval_checker import get_approval_checker
 
         checker = get_approval_checker()
         if checker:

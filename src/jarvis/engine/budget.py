@@ -48,7 +48,7 @@ class BudgetGuard:
     def _seed_from_history(self) -> None:
         """Recharge les dépenses mission du mois courant depuis les fichiers JSONL."""
         try:
-            from core.tracking import UsageTracker
+            from jarvis.engine.tracking import UsageTracker
 
             tracker = UsageTracker()
             today = date.today()
@@ -70,7 +70,7 @@ class BudgetGuard:
     def _global_spent(self) -> float:
         """Coût mensuel global lu depuis les fichiers JSONL (source de vérité)."""
         try:
-            from core.tracking import UsageTracker
+            from jarvis.engine.tracking import UsageTracker
 
             return UsageTracker().get_monthly_totals()["cost_usd"]
         except Exception:

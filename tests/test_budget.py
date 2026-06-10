@@ -45,10 +45,10 @@ def make_guard(
     settings_mock = _make_settings(enabled, monthly_usd, per_project, warn_pct)
 
     with (
-        patch("core.budget.BudgetGuard._seed_from_history"),
+        patch("jarvis.engine.budget.BudgetGuard._seed_from_history"),
         patch("config.settings.settings", settings_mock),
     ):
-        from core.budget import BudgetGuard
+        from jarvis.engine.budget import BudgetGuard
 
         guard = BudgetGuard(notify_callback=notifications.append)
 

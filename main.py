@@ -41,23 +41,6 @@ from background.scheduler import Scheduler
 from background.worker import BackgroundWorker
 from channels.telegram_bot import TelegramChannel, get_telegram_channel
 from config.settings import settings
-from core.agent import Agent
-from core.approval_checker import ApprovalChecker
-from core.auth import verify_api_token  # ── [AUTH] ──
-from core.gateway import Gateway
-from core.session import SessionManager
-from jarvis.providers.llm.api import AnthropicProvider
-from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
-from jarvis.providers.memory.auto_dream import AutoDream
-from jarvis.providers.memory.consolidation import ConsolidationAgent, CrossSessionRecall
-from jarvis.providers.memory.index import MemoryIndex
-from jarvis.providers.memory.ingest import MemoryIngest
-from jarvis.providers.memory.kernel import MemoryKernel
-from jarvis.providers.memory.search import FTSIndex, VectorIndex
-from jarvis.providers.memory.sessions import SessionStore
-from jarvis.providers.memory.topics import TopicStore
-from jarvis.providers.memory.user_model import UserModel
-from proactive.engine import ProactiveEngine
 from jarvis.capabilities.skills.registry import skill_registry
 from jarvis.capabilities.tools.browser import BrowserTool
 from jarvis.capabilities.tools.calendar import CalendarCreateTool, CalendarListTool
@@ -78,6 +61,23 @@ from jarvis.capabilities.tools.spotify import SpotifyTool
 from jarvis.capabilities.tools.subagent import ScriptRPCTool, SpawnSubagentTool
 from jarvis.capabilities.tools.vision import VisionTool
 from jarvis.capabilities.tools.weather import WeatherTool
+from jarvis.engine.agent import Agent
+from jarvis.engine.approval_checker import ApprovalChecker
+from jarvis.engine.auth import verify_api_token  # ── [AUTH] ──
+from jarvis.engine.gateway import Gateway
+from jarvis.engine.session import SessionManager
+from jarvis.providers.llm.api import AnthropicProvider
+from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
+from jarvis.providers.memory.auto_dream import AutoDream
+from jarvis.providers.memory.consolidation import ConsolidationAgent, CrossSessionRecall
+from jarvis.providers.memory.index import MemoryIndex
+from jarvis.providers.memory.ingest import MemoryIngest
+from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.providers.memory.search import FTSIndex, VectorIndex
+from jarvis.providers.memory.sessions import SessionStore
+from jarvis.providers.memory.topics import TopicStore
+from jarvis.providers.memory.user_model import UserModel
+from proactive.engine import ProactiveEngine
 
 # load_dotenv() doit tourner avant toute logique module-level qui consomme os.environ
 load_dotenv()
@@ -266,12 +266,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Expose singletons pour les presets (executor + tool)
     from background.notifications import set_proactive_queue
-    from core.gateway import set_tool_registry
+    from jarvis.engine.gateway import set_tool_registry
 
     set_proactive_queue(proactive_queue)
     set_tool_registry(tool_registry)
     # ── [BUDGET] ─────────────────────────────────────────────────────────────
-    from core.budget import BudgetGuard, set_budget_guard
+    from jarvis.engine.budget import BudgetGuard, set_budget_guard
 
     if settings.budget_enabled:
         _budget_guard: BudgetGuard | None = BudgetGuard(
@@ -527,7 +527,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.vector_index = vector_index
     app.state.fts_index = fts_index
     app.state.user_model = _user_model
-    from core.approval_checker import set_approval_checker
+    from jarvis.engine.approval_checker import set_approval_checker
 
     set_approval_checker(approval_checker)
 
@@ -540,7 +540,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from api.channels import router as channels_router
     from channels.discord_bot import DiscordChannel
     from channels.gateway import MessagingGateway
-    from core.connectivity import is_offline_mode
+    from jarvis.engine.connectivity import is_offline_mode
 
     _messaging_gw: MessagingGateway | None = None
     _telegram_enabled = os.getenv("TELEGRAM_ENABLED", "false").lower() == "true"

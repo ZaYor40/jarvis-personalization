@@ -100,7 +100,7 @@ class Printer3DTool(Tool):
         plate: int = 1,
         **_: object,
     ) -> ToolResult:
-        from core.approval_checker import get_approval_checker
+        from jarvis.engine.approval_checker import get_approval_checker
 
         checker = get_approval_checker()
         action_id = str(uuid.uuid4())[:8]

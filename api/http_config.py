@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from core.permissions import permissions as _perm_store
+from jarvis.engine.permissions import permissions as _perm_store
 
 router = APIRouter()
 

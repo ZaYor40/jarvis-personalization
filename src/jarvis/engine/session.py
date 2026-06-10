@@ -50,7 +50,9 @@ class SessionManager:
 
     def _try_restore(self, session_id: str) -> Session | None:
         """Tente de restaurer une session depuis le JSONL. Retourne None si introuvable."""
-        from jarvis.providers.memory.sessions import SessionStore  # import local pour éviter le cycle
+        from jarvis.providers.memory.sessions import (
+            SessionStore,  # import local pour éviter le cycle
+        )
 
         if not isinstance(self._store, SessionStore):
             return None

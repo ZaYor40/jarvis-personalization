@@ -175,8 +175,8 @@ class TestSpawnSubagent:
 
     @pytest.mark.asyncio
     async def test_spawn_session_fraiche_sans_historique(self) -> None:
-        from core.session import Session
         from jarvis.capabilities.tools.subagent import SpawnSubagentTool
+        from jarvis.engine.session import Session
 
         captured_sessions: list[Session] = []
 

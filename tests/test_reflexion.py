@@ -23,7 +23,7 @@ import pytest
 
 from agent.reflexion import Reflexion
 from agent.schemas import Project, ProjectStatus, Step, StepStatus
-from core.vocab import AccessLevel
+from jarvis.engine.vocab import AccessLevel
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.memory.ingest import MemoryIngest
 from jarvis.providers.memory.kernel import MemoryKernel

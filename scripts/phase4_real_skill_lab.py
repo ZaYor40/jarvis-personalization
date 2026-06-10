@@ -27,10 +27,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from jarvis.providers.memory.kernel import MemoryKernel  # noqa: E402
 from jarvis.capabilities.skills.lab import SkillLab  # noqa: E402
-from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillRecord, SkillStatus  # noqa: E402
+from jarvis.capabilities.skills.lifecycle import (  # noqa: E402
+    SkillLifecycle,
+    SkillRecord,
+    SkillStatus,
+)
 from jarvis.capabilities.skills.synthesizer import SkillSynthesizer  # noqa: E402
+from jarvis.providers.memory.kernel import MemoryKernel  # noqa: E402
 
 
 def _emit_skill_candidate_event(kernel: MemoryKernel) -> str:

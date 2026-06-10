@@ -16,7 +16,7 @@ from loguru import logger
 from channels.base import ChannelAdapter, IncomingMessage, MessageTarget
 
 if TYPE_CHECKING:
-    from core.gateway import Gateway as JarvisGateway
+    from jarvis.engine.gateway import Gateway as JarvisGateway
 
 _SESSION_MAP_FILE = Path("memory/messaging_sessions.json")
 

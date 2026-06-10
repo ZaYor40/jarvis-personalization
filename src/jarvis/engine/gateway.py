@@ -8,9 +8,9 @@ from loguru import logger
 
 from background.notifications import NotificationQueue
 from background.worker import BackgroundWorker
-from core.agent import Agent
-from core.router import RouteEnum, SpeedRouter
-from core.session import Session, SessionManager
+from jarvis.engine.agent import Agent
+from jarvis.engine.router import RouteEnum, SpeedRouter
+from jarvis.engine.session import Session, SessionManager
 
 if TYPE_CHECKING:
     from jarvis.providers.memory.consolidation import CrossSessionRecall

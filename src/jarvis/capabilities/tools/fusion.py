@@ -262,7 +262,7 @@ Cut (CutFeatureOperation) : "Aucun corps cible" = sketch sur mauvais plan
                 is_error=True,
             )
 
-        from core.approval_checker import get_approval_checker
+        from jarvis.engine.approval_checker import get_approval_checker
 
         # Approbation pour les scripts (modifications)
         if action == "execute_script":

@@ -339,11 +339,11 @@ def test_is_valid_name_kebab_case() -> None:
 @pytest.mark.asyncio
 async def test_skill_create_tool_succes(tmp_path: Path) -> None:
     """SkillCreateTool retourne un ToolResult non-erreur sur succès via le Lab."""
-    from jarvis.providers.memory.kernel import MemoryKernel
     from jarvis.capabilities.skills.lab import SkillLab
     from jarvis.capabilities.skills.lifecycle import SkillLifecycle
     from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
     from jarvis.capabilities.tools.skills import SkillCreateTool
+    from jarvis.providers.memory.kernel import MemoryKernel
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)

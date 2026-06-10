@@ -56,7 +56,7 @@ def test_status_quand_guard_actif() -> None:
     guard.status.return_value = _STATUS_PAYLOAD
     app = _app_with_guard(guard)
 
-    with patch("core.budget.get_budget_guard", return_value=guard):
+    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
         with TestClient(app) as c:
             res = c.get("/api/budget/status")
 
@@ -72,7 +72,7 @@ def test_status_quand_guard_absent() -> None:
     """Quand get_budget_guard() retourne None, l'endpoint retourne enabled=false."""
     app = _app_with_guard(None)
 
-    with patch("core.budget.get_budget_guard", return_value=None):
+    with patch("jarvis.engine.budget.get_budget_guard", return_value=None):
         with TestClient(app) as c:
             res = c.get("/api/budget/status")
 
@@ -88,7 +88,7 @@ def test_remaining_scope_global() -> None:
     guard.remaining.return_value = 7.5
     app = _app_with_guard(guard)
 
-    with patch("core.budget.get_budget_guard", return_value=guard):
+    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
         with TestClient(app) as c:
             res = c.get("/api/budget/remaining?scope=global")
 
@@ -106,7 +106,7 @@ def test_remaining_scope_illimite() -> None:
     guard.remaining.return_value = float("inf")
     app = _app_with_guard(guard)
 
-    with patch("core.budget.get_budget_guard", return_value=guard):
+    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
         with TestClient(app) as c:
             res = c.get("/api/budget/remaining?scope=run%3Asome-run")
 
@@ -118,7 +118,7 @@ def test_remaining_scope_illimite() -> None:
 def test_remaining_quand_desactive() -> None:
     app = _app_with_guard(None)
 
-    with patch("core.budget.get_budget_guard", return_value=None):
+    with patch("jarvis.engine.budget.get_budget_guard", return_value=None):
         with TestClient(app) as c:
             res = c.get("/api/budget/remaining?scope=global")
 
@@ -134,7 +134,7 @@ def test_remaining_scope_par_defaut_est_global() -> None:
     guard.remaining.return_value = 5.0
     app = _app_with_guard(guard)
 
-    with patch("core.budget.get_budget_guard", return_value=guard):
+    with patch("jarvis.engine.budget.get_budget_guard", return_value=guard):
         with TestClient(app) as c:
             res = c.get("/api/budget/remaining")
 

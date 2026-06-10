@@ -16,7 +16,8 @@ from unittest.mock import patch as mock_patch
 
 import pytest
 
-from core.vocab import AutonomyLevel
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle
+from jarvis.engine.vocab import AutonomyLevel
 from jarvis.providers.memory.kernel import MemoryKernel
 from jarvis.providers.memory.schemas import DecayPolicy, Fact, FactStatus
 from proactive.curator import (
@@ -33,7 +34,6 @@ from proactive.schemas import (
     needs_human_validation,
 )
 from proactive.store import InitiativeStore
-from jarvis.capabilities.skills.lifecycle import SkillLifecycle
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 

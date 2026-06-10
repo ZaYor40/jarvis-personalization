@@ -15,9 +15,9 @@ from enum import StrEnum
 from loguru import logger
 
 from config.approvals import ApprovalConfig, ApprovalMode
-from core.audit import AuditEntry, AuditLog
-from core.budget import BudgetGuard
-from core.vocab import AUTO_MAX_LEVEL, AccessLevel
+from jarvis.engine.audit import AuditEntry, AuditLog
+from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.vocab import AUTO_MAX_LEVEL, AccessLevel
 
 
 class GateDecision(StrEnum):

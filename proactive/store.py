@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from core.vocab import AutonomyLevel
+from jarvis.engine.vocab import AutonomyLevel
 from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
 
 

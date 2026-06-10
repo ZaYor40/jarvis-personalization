@@ -49,7 +49,7 @@ async def run_vision_daemon() -> None:
         logger.error("Vision daemon: opencv-python non installé — daemon désactivé")
         return
 
-    from core.permissions import permissions as _perm_store
+    from jarvis.engine.permissions import permissions as _perm_store
 
     detector = ObjectDetector(confidence=settings.vision_yolo_confidence)
     objects_q = get_vision_objects_queue()

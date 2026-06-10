@@ -28,11 +28,11 @@ class ExecutePresetTool(Tool):
     }
 
     async def execute(self, preset_name: str, **_: object) -> ToolResult:
-        from jarvis.providers.audio.tts import tts_engine
         from background.notifications import broadcast_event
-        from core.gateway import get_tool_registry
         from jarvis.capabilities.skills.executor import PresetExecutor
         from jarvis.capabilities.skills.registry import skill_registry
+        from jarvis.engine.gateway import get_tool_registry
+        from jarvis.providers.audio.tts import tts_engine
 
         preset = skill_registry.get_preset(preset_name)
 

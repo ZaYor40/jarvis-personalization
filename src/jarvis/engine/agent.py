@@ -8,17 +8,19 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from core.session import Session
+from jarvis.engine.session import Session
 from jarvis.providers.llm.api import ToolCapture
 from jarvis.providers.llm.base import LLMProvider
 
 if TYPE_CHECKING:
-    from jarvis.providers.memory.index import MemoryIndex
-    from jarvis.providers.memory.topics import TopicStore
     from jarvis.capabilities.skills.registry import SkillRegistry
     from jarvis.capabilities.tools.registry import ToolRegistry
+    from jarvis.providers.memory.index import MemoryIndex
+    from jarvis.providers.memory.topics import TopicStore
 
-_STATIC_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "system_static.md"
+from jarvis.kernel.paths import PROMPTS_DIR  # noqa: E402
+
+_STATIC_PROMPT_PATH = PROMPTS_DIR / "system_static.md"
 
 
 class Agent:

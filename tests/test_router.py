@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.router import RouteEnum, SpeedRouter
+from jarvis.engine.router import RouteEnum, SpeedRouter
 
 # ── heuristic ────────────────────────────────────────────────
 

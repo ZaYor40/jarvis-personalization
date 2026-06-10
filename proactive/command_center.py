@@ -24,9 +24,9 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from agent.project_store import ProjectStore
-    from core.budget import BudgetGuard
-    from proactive.store import InitiativeStore
     from jarvis.capabilities.skills.lifecycle import SkillLifecycle
+    from jarvis.engine.budget import BudgetGuard
+    from proactive.store import InitiativeStore
 
 
 @dataclass

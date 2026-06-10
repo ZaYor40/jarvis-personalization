@@ -18,7 +18,7 @@ from datetime import datetime
 import pytest
 
 from agent.schemas import Step, StepStatus, validate_step
-from core.vocab import (
+from jarvis.engine.vocab import (
     AUTO_MAX_LEVEL,
     CATEGORIES,
     PREDICATES,

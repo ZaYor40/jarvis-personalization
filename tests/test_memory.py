@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from jarvis.capabilities.tools.memory import MemoryLoadTopicTool, MemorySearchTool
 from jarvis.providers.memory.index import MemoryIndex
 from jarvis.providers.memory.search import VectorIndex, _chunk_text
 from jarvis.providers.memory.sessions import SessionStore
 from jarvis.providers.memory.topics import TopicStore
-from jarvis.capabilities.tools.memory import MemoryLoadTopicTool, MemorySearchTool
 
 # ── SessionStore ──────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ def test_topic_store_exists(tmp_path: Path) -> None:
 
 
 def test_session_persist_callback(tmp_path: Path) -> None:
-    from core.session import Session
+    from jarvis.engine.session import Session
 
     written: list[tuple[str, str]] = []
 
@@ -146,7 +146,7 @@ def test_session_persist_callback(tmp_path: Path) -> None:
 
 
 def test_session_manager_restore_from_jsonl(tmp_path: Path) -> None:
-    from core.session import SessionManager
+    from jarvis.engine.session import SessionManager
     from jarvis.providers.memory.sessions import SessionStore
 
     # UUID valide requis — les sessions sont toujours identifiées par uuid4()
@@ -167,7 +167,7 @@ def test_session_manager_restore_from_jsonl(tmp_path: Path) -> None:
 
 def test_agent_build_system_lists_topics_only(tmp_path: Path) -> None:
     """_build_system() doit injecter la LISTE des topics, pas leur contenu."""
-    from core.agent import Agent
+    from jarvis.engine.agent import Agent
 
     topics_dir = tmp_path / "topics"
     store = TopicStore(topics_dir)

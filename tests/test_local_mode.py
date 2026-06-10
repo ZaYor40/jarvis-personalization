@@ -10,9 +10,9 @@ import pytest
 
 from background.notifications import NotificationQueue
 from background.worker import BackgroundWorker
-from core.agent import Agent
-from core.gateway import Gateway
-from core.session import SessionManager
+from jarvis.engine.agent import Agent
+from jarvis.engine.gateway import Gateway
+from jarvis.engine.session import SessionManager
 from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.llm.local import OllamaProvider
@@ -76,14 +76,14 @@ class _MockLLM(LLMProvider):
 
 def test_offline_mode_when_local(local_mode: None) -> None:
     """is_offline_mode() est True quand llm_provider == 'local'."""
-    from core.connectivity import is_offline_mode
+    from jarvis.engine.connectivity import is_offline_mode
 
     assert is_offline_mode() is True
 
 
 def test_online_mode_when_api(api_mode: None) -> None:
     """is_offline_mode() est False quand llm_provider == 'api'."""
-    from core.connectivity import is_offline_mode
+    from jarvis.engine.connectivity import is_offline_mode
 
     assert is_offline_mode() is False
 

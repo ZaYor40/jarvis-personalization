@@ -82,7 +82,7 @@ class VisionTool(Tool):
         detail: str = "low",
         **_: object,
     ) -> ToolResult:
-        from core.permissions import permissions as _perms
+        from jarvis.engine.permissions import permissions as _perms
 
         # ── Recall — pas de capture ───────────────────────────────────────────
         if action == "recall":

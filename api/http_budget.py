@@ -18,7 +18,7 @@ async def budget_status() -> dict:
 
     Retourne {"enabled": false} si le BudgetGuard n'est pas initialisé.
     """
-    from core.budget import get_budget_guard
+    from jarvis.engine.budget import get_budget_guard
 
     guard = get_budget_guard()
     if guard is None:
@@ -33,7 +33,7 @@ async def budget_remaining(scope: str = "global") -> dict:
     Scopes valides : ``"global"``, ``"project:<id>"``, ``"run:<id>"``.
     Retourne ``remaining_usd: null`` si le scope est illimité ou le guard absent.
     """
-    from core.budget import get_budget_guard
+    from jarvis.engine.budget import get_budget_guard
 
     guard = get_budget_guard()
     if guard is None:

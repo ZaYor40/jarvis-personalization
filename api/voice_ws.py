@@ -8,14 +8,14 @@ from dataclasses import dataclass, field
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from jarvis.providers.audio.chunker import StreamChunker
-from jarvis.providers.audio.receiver import VoiceReceiver
-from jarvis.providers.audio.tts import tts_engine
 from background.notifications import ProactiveQueue
 from background.worker import BackgroundTask, BackgroundWorker
 from config.settings import settings
-from core.gateway import _FALLBACK, Gateway
-from core.router import RouteEnum
+from jarvis.engine.gateway import _FALLBACK, Gateway
+from jarvis.engine.router import RouteEnum
+from jarvis.providers.audio.chunker import StreamChunker
+from jarvis.providers.audio.receiver import VoiceReceiver
+from jarvis.providers.audio.tts import tts_engine
 from jarvis.providers.memory.auto_dream import AutoDream
 from jarvis.providers.memory.consolidation import ConsolidationAgent
 

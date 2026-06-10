@@ -81,7 +81,7 @@ class ReadFileTool(Tool):
         return any(resolved.is_relative_to(root) for root in self._allowed_roots)
 
     async def execute(self, path: str, **_: object) -> ToolResult:
-        from core.permissions import permissions as _perms
+        from jarvis.engine.permissions import permissions as _perms
 
         if not _perms.get("files"):
             return ToolResult(
@@ -155,7 +155,7 @@ class FindFilesTool(Tool):
         max_results: int = 20,
         **_: object,
     ) -> ToolResult:
-        from core.permissions import permissions as _perms
+        from jarvis.engine.permissions import permissions as _perms
 
         if not _perms.get("files"):
             return ToolResult(

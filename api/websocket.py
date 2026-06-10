@@ -9,11 +9,11 @@ from loguru import logger
 
 from background.notifications import NotificationQueue, ProactiveQueue
 from background.worker import BackgroundTask, BackgroundWorker
-from core.gateway import _FALLBACK, Gateway
-from core.router import RouteEnum
+from jarvis.capabilities.tools.spotify import SpotifyTool
+from jarvis.engine.gateway import _FALLBACK, Gateway
+from jarvis.engine.router import RouteEnum
 from jarvis.providers.memory.auto_dream import AutoDream
 from jarvis.providers.memory.consolidation import ConsolidationAgent
-from jarvis.capabilities.tools.spotify import SpotifyTool
 from jarvis.providers.vision.objects_queue import get_vision_objects_queue
 
 router = APIRouter()

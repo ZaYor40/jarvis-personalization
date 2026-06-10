@@ -16,7 +16,9 @@ if TYPE_CHECKING:
     from jarvis.providers.memory.ingest import MemoryIngest
     from jarvis.providers.memory.search import FTSIndex, VectorIndex
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "consolidation.md"
+from jarvis.kernel.paths import PROMPTS_DIR  # noqa: E402
+
+_PROMPT_PATH = PROMPTS_DIR / "consolidation.md"
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 _CODE_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
 
@@ -181,7 +183,7 @@ class CrossSessionRecall:
         # En mode local, le résumé LLM n'est pas requis :
         # Ollama peut être utilisé mais on évite un appel supplémentaire sur
         # le chemin critique. On retourne directement un extrait brut.
-        from core.connectivity import is_offline_mode
+        from jarvis.engine.connectivity import is_offline_mode
 
         if is_offline_mode():
             logger.debug("CrossSessionRecall LLM summary skipped — mode local")

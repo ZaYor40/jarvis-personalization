@@ -4,10 +4,10 @@ from collections.abc import AsyncIterator
 
 from background.notifications import NotificationQueue
 from background.worker import BackgroundWorker
-from core.agent import Agent
-from core.gateway import Gateway
-from core.router import RouteEnum
-from core.session import Session, SessionManager
+from jarvis.engine.agent import Agent
+from jarvis.engine.gateway import Gateway
+from jarvis.engine.router import RouteEnum
+from jarvis.engine.session import Session, SessionManager
 from jarvis.providers.llm.base import LLMProvider
 
 

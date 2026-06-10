@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from config.settings import settings
-from jarvis.providers.memory.topics import TopicStore
 from jarvis.capabilities.tools.base import Tool, ToolResult
+from jarvis.providers.memory.topics import TopicStore
 
 if TYPE_CHECKING:
     from jarvis.providers.memory.search import FTSIndex, VectorIndex

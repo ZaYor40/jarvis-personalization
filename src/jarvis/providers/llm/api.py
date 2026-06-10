@@ -14,7 +14,7 @@ from loguru import logger
 from openai import AsyncOpenAI
 
 from config.settings import settings
-from core.tracking import UsageEntry, calculate_cost, tracker
+from jarvis.engine.tracking import UsageEntry, calculate_cost, tracker
 from jarvis.providers.llm.base import LLMProvider
 
 _MAX_TOOL_ITERATIONS = 20

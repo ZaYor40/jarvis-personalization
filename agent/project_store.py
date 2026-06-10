@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
-from core.vocab import AccessLevel
+from jarvis.engine.vocab import AccessLevel
 
 WORKSPACE_DIR = Path("workspace/projects")
 

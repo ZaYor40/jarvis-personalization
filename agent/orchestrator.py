@@ -12,7 +12,7 @@ from agent.project_store import ProjectStore
 from agent.reflexion import Reflexion
 from agent.schemas import LogEntry, Project, validate_step
 from agent.worker_agent import WorkerAgent
-from core.budget import BudgetGuard
+from jarvis.engine.budget import BudgetGuard
 
 
 class ProjectOrchestrator:

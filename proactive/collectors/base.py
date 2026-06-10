@@ -12,7 +12,7 @@ class CollectorBase(ABC):
 
     async def collect(self) -> list[ContextItem]:
         """Point d'entrée principal. Gère les erreurs proprement."""
-        from core.connectivity import is_offline_mode
+        from jarvis.engine.connectivity import is_offline_mode
 
         try:
             items = await self._collect()

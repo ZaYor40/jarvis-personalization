@@ -33,9 +33,9 @@ from typing import TYPE_CHECKING
 import yaml
 from loguru import logger
 
-from jarvis.providers.memory.kernel import MemoryKernel
 from jarvis.capabilities.skills.lab import SkillLab
 from jarvis.capabilities.skills.lifecycle import SkillRecord, SkillStatus
+from jarvis.providers.memory.kernel import MemoryKernel
 
 if TYPE_CHECKING:
     from jarvis.capabilities.skills.registry import SkillRegistry

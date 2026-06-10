@@ -77,7 +77,7 @@ async def voice_generate(body: VoiceGenerateRequest, request: Request) -> Stream
     import asyncio
 
     from background.worker import BackgroundTask
-    from core.router import RouteEnum
+    from jarvis.engine.router import RouteEnum
 
     gateway = request.app.state.voice_gateway
     worker = request.app.state.worker

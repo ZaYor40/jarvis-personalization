@@ -6,7 +6,7 @@ import httpx
 from loguru import logger
 
 from config.settings import settings
-from core.connectivity import is_offline_mode
+from jarvis.engine.connectivity import is_offline_mode
 from proactive.collectors.base import CollectorBase
 from proactive.schemas import ContextItem, ItemType, Priority
 

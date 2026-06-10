@@ -19,8 +19,8 @@ from agent.reflexion import Reflexion
 from agent.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
 from agent.verifier import Verifier
 from agent.worker_cli import WorkerCLITool
-from core.budget import BudgetGuard
-from core.vocab import AccessLevel
+from jarvis.engine.budget import BudgetGuard
+from jarvis.engine.vocab import AccessLevel
 
 # ── Constantes PHASE 1 ─────────────────────────────────────────────────────────
 
@@ -246,7 +246,7 @@ class WorkerAgent:
         from pathlib import Path
 
         from config.approvals import approval_config
-        from core.audit import AuditLog
+        from jarvis.engine.audit import AuditLog
 
         audit_path = Path(self._project.workspace_path) / ".jarvis" / "audit.jsonl"
         self._governance = Governance(

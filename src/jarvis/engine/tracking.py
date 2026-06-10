@@ -88,7 +88,7 @@ class UsageTracker:
         # Branche les coûts mission vers BudgetGuard (import tardif pour éviter la circularité)
         if entry.cost_usd > 0 and entry.context and entry.context.startswith("mission:"):
             try:
-                from core.budget import get_budget_guard
+                from jarvis.engine.budget import get_budget_guard
 
                 guard = get_budget_guard()
                 if guard is not None:

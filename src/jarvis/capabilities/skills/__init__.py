@@ -8,4 +8,6 @@ permettre le chargement des skills utilisateur qui font
 
 from __future__ import annotations
 
-from jarvis.capabilities.skills import _abi_compat  # noqa: F401 — side-effect import (sys.modules setup)
+from jarvis.capabilities.skills import (
+    _abi_compat,  # noqa: F401 — side-effect import (sys.modules setup)
+)
