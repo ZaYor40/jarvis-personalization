@@ -33,7 +33,13 @@ _CF_PATTERNS = re.compile(
 
 
 class SpeedRouter:
-    """Heuristique de pré-routing + extraction du tag LLM depuis un stream."""
+    """Heuristique de pré-routing + extraction du tag LLM depuis un stream.
+
+    Phase C : aucun constructeur — toutes les méthodes sont `@staticmethod`,
+    pas d'état, pas de dépendance externe. Aucune injection nécessaire.
+    Le router est instancié indirectement via ses méthodes statiques
+    (`SpeedRouter.extract_route(...)`) — pas via Container.
+    """
 
     @staticmethod
     def heuristic(message: str) -> RouteEnum:
