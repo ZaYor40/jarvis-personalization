@@ -16,24 +16,24 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 import channels.telegram_bot as _tg_module
-from api.admin import _ui_router as admin_ui_router
-from api.admin import router as admin_router
-from api.deezer import router as deezer_router
-from api.globe import router as globe_router
-from api.google_oauth import router as google_oauth_router
-from api.http import _log_sink
-from api.http import router as http_router
-from api.http_budget import router as budget_router
-from api.http_routines import router as routines_router
-from api.local_music import router as local_music_router
-from api.macropad_2k import _ui_router as macropad_ui_router
-from api.macropad_2k import router as macropad_router
-from api.music import router as music_router
-from api.projects import router as projects_router
-from api.spotify import router as spotify_router
-from api.voice_ws import router as voice_router
-from api.websocket import router as ws_router
-from api.widgets import router as widgets_router
+from jarvis.interfaces.api.admin import _ui_router as admin_ui_router
+from jarvis.interfaces.api.admin import router as admin_router
+from jarvis.interfaces.api.deezer import router as deezer_router
+from jarvis.interfaces.api.globe import router as globe_router
+from jarvis.interfaces.api.google_oauth import router as google_oauth_router
+from jarvis.interfaces.api.http import _log_sink
+from jarvis.interfaces.api.http import router as http_router
+from jarvis.interfaces.api.http_budget import router as budget_router
+from jarvis.interfaces.api.http_routines import router as routines_router
+from jarvis.interfaces.api.local_music import router as local_music_router
+from jarvis.interfaces.api.macropad_2k import _ui_router as macropad_ui_router
+from jarvis.interfaces.api.macropad_2k import router as macropad_router
+from jarvis.interfaces.api.music import router as music_router
+from jarvis.interfaces.api.projects import router as projects_router
+from jarvis.interfaces.api.spotify import router as spotify_router
+from jarvis.interfaces.api.voice_ws import router as voice_router
+from jarvis.interfaces.api.websocket import router as ws_router
+from jarvis.interfaces.api.widgets import router as widgets_router
 from jarvis.engine.background.notifications import NotificationQueue, ProactiveQueue
 from jarvis.engine.background.scheduler import Scheduler
 from jarvis.engine.background.worker import BackgroundWorker
@@ -537,7 +537,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("AnalyticsRegistry initialisé", widgets=len(_analytics_registry.get_active()))
 
     # ── [GATEWAY] ────────────────────────────────────────────────────────────
-    from api.channels import router as channels_router
+    from jarvis.interfaces.api.channels import router as channels_router
     from channels.discord_bot import DiscordChannel
     from channels.gateway import MessagingGateway
     from jarvis.engine.connectivity import is_offline_mode
@@ -657,12 +657,12 @@ app.include_router(budget_router)
 app.include_router(routines_router)
 
 # ── [PHASE 6] Curator + Command Center routes
-from api.http_curator import router as curator_router  # noqa: E402
+from jarvis.interfaces.api.http_curator import router as curator_router  # noqa: E402
 
 app.include_router(curator_router)
 
 # ── [UI/M5] État de santé des connecteurs (Réglages → Connexions)
-from api.http_connectors import router as connectors_router  # noqa: E402
+from jarvis.interfaces.api.http_connectors import router as connectors_router  # noqa: E402
 
 app.include_router(connectors_router)
 # ── [/SURFACE] ───────────────────────────────────────────────────────────────

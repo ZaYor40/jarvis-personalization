@@ -342,7 +342,7 @@ async def test_webhook_plateforme_inconnue() -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from api.channels import router
+    from jarvis.interfaces.api.channels import router
 
     test_app = FastAPI()
     test_app.include_router(router)
@@ -357,7 +357,7 @@ async def test_webhook_gateway_non_demarre() -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from api.channels import router
+    from jarvis.interfaces.api.channels import router
 
     test_app = FastAPI()
     test_app.include_router(router)

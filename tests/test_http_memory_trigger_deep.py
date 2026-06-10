@@ -13,7 +13,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.http_memory import router
+from jarvis.interfaces.api.http_memory import router
 
 
 @pytest.fixture

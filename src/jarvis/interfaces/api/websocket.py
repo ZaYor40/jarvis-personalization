@@ -33,7 +33,7 @@ async def websocket_logs(websocket: WebSocket) -> None:
     """Streams the in-memory log ring buffer to the Système › Logs panel.
     Sends the last 50 entries on connect, then pushes new lines as they arrive.
     """
-    from api.http import _log_buffer
+    from jarvis.interfaces.api.http import _log_buffer
 
     await websocket.accept()
     last_sent = 0

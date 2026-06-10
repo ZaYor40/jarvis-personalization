@@ -16,7 +16,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.http_budget import router as budget_router
+from jarvis.interfaces.api.http_budget import router as budget_router
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

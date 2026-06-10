@@ -10,21 +10,21 @@ router = APIRouter()
 
 @router.get("/api/analytics/jarvis")
 async def analytics_jarvis(days: int = 30) -> dict:
-    from api.analytics import get_jarvis_stats
+    from jarvis.interfaces.api.analytics import get_jarvis_stats
 
     return await get_jarvis_stats(days)
 
 
 @router.get("/api/analytics/youtube")
 async def analytics_youtube(days: int = 7) -> dict:
-    from api.analytics import get_youtube_stats
+    from jarvis.interfaces.api.analytics import get_youtube_stats
 
     return await get_youtube_stats(days)
 
 
 @router.get("/api/analytics/summary")
 async def analytics_summary() -> dict:
-    from api.analytics import get_analytics_summary
+    from jarvis.interfaces.api.analytics import get_analytics_summary
 
     return await get_analytics_summary()
 
