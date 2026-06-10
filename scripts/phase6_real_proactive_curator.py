@@ -47,21 +47,21 @@ from jarvis.engine.mission.project_store import ProjectStore  # noqa: E402
 from jarvis.engine.vocab import AutonomyLevel  # noqa: E402
 from jarvis.providers.memory.kernel import MemoryKernel  # noqa: E402
 from jarvis.providers.memory.schemas import DecayPolicy, Fact, FactStatus  # noqa: E402
-from proactive.command_center import CommandCenter  # noqa: E402
-from proactive.curator import (  # noqa: E402
+from jarvis.engine.proactive.command_center import CommandCenter  # noqa: E402
+from jarvis.engine.proactive.curator import (  # noqa: E402
     Curator,
     CuratorPatch,
     PatchKind,
     is_protected_path,
 )
-from proactive.schemas import (  # noqa: E402
+from jarvis.engine.proactive.schemas import (  # noqa: E402
     ExecutionMode,
     Initiative,
     InitiativeType,
     Priority,
     needs_human_validation,
 )
-from proactive.store import InitiativeStore  # noqa: E402
+from jarvis.engine.proactive.store import InitiativeStore  # noqa: E402
 
 
 def _separator(title: str) -> None:
@@ -83,7 +83,7 @@ def cas_a_initiative_niveau_5(workspace: Path) -> bool:
     initiatives_dir.mkdir(parents=True, exist_ok=True)
 
     # Patche le dossier global du store pour ce run
-    import proactive.store as proactive_store
+    import jarvis.engine.proactive.store as proactive_store
 
     proactive_store.INITIATIVES_DIR = initiatives_dir
     store = InitiativeStore()
@@ -233,7 +233,7 @@ async def cas_b_curator_real_scan(workspace: Path) -> bool:
     if reports_dir.exists():
         shutil.rmtree(reports_dir)
 
-    import proactive.store as proactive_store
+    import jarvis.engine.proactive.store as proactive_store
 
     proactive_store.INITIATIVES_DIR = initiatives_dir
     store = InitiativeStore()
@@ -399,7 +399,7 @@ async def cas_c_refus_auto_apply(workspace: Path) -> bool:
     if reports_dir.exists():
         shutil.rmtree(reports_dir)
 
-    import proactive.store as proactive_store
+    import jarvis.engine.proactive.store as proactive_store
 
     proactive_store.INITIATIVES_DIR = initiatives_dir
     store = InitiativeStore()

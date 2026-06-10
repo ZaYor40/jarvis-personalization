@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from jarvis.capabilities.skills.lifecycle import SkillLifecycle
     from jarvis.engine.budget import BudgetGuard
     from jarvis.providers.memory.kernel import MemoryKernel
-    from proactive.store import InitiativeStore
+    from jarvis.engine.proactive.store import InitiativeStore
 
 
 # ── Constantes ──────────────────────────────────────────────────────────────

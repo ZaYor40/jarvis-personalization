@@ -77,7 +77,7 @@ from jarvis.providers.memory.search import FTSIndex, VectorIndex
 from jarvis.providers.memory.sessions import SessionStore
 from jarvis.providers.memory.topics import TopicStore
 from jarvis.providers.memory.user_model import UserModel
-from proactive.engine import ProactiveEngine
+from jarvis.engine.proactive.engine import ProactiveEngine
 
 # load_dotenv() doit tourner avant toute logique module-level qui consomme os.environ
 load_dotenv()
@@ -392,8 +392,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
 
     # ── [INITIATIVES] ────────────────────────────────────────────────────────
-    from proactive.executor import InitiativeExecutor as _InitiativeExecutor
-    from proactive.store import InitiativeStore as _InitiativeStore
+    from jarvis.engine.proactive.executor import InitiativeExecutor as _InitiativeExecutor
+    from jarvis.engine.proactive.store import InitiativeStore as _InitiativeStore
 
     _initiative_store = _InitiativeStore()
     _initiative_executor = _InitiativeExecutor(
@@ -412,8 +412,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Command Center : agrégateur lecture-seule des workstreams (initiatives,
     # missions, budget, skills). Sert au dashboard, ne court-circuite aucun
     # endpoint des phases précédentes.
-    from proactive.command_center import CommandCenter
-    from proactive.curator import Curator
+    from jarvis.engine.proactive.command_center import CommandCenter
+    from jarvis.engine.proactive.curator import Curator
 
     _curator = Curator(
         kernel=_memory_kernel,

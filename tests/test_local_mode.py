@@ -197,7 +197,7 @@ async def test_collector_base_offline_no_error_log(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """En mode local, une exception dans _collect() produit un DEBUG, pas un ERROR."""
-    from proactive.collectors.base import CollectorBase
+    from jarvis.engine.proactive.collectors.base import CollectorBase
 
     class _FailingCollector(CollectorBase):
         name = "test_failing"
@@ -220,7 +220,7 @@ async def test_collector_base_offline_no_error_log(
 @pytest.mark.asyncio
 async def test_collector_base_online_returns_empty_on_failure(api_mode: None) -> None:
     """En mode api, une exception dans _collect() retourne [] sans lever."""
-    from proactive.collectors.base import CollectorBase
+    from jarvis.engine.proactive.collectors.base import CollectorBase
 
     class _FailingCollector(CollectorBase):
         name = "test_failing_online"

@@ -21,8 +21,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
-from proactive.store import InitiativeStore
+from jarvis.engine.proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
+from jarvis.engine.proactive.store import InitiativeStore
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -92,10 +92,10 @@ def _write_initiative(store_dir: Path, initiative: Initiative, date_str: str) ->
 # ── Helpers store ──────────────────────────────────────────────────────────────
 
 def make_store(tmp_path: Path) -> InitiativeStore:
-    with patch("proactive.store.INITIATIVES_DIR", tmp_path):
+    with patch("jarvis.engine.proactive.store.INITIATIVES_DIR", tmp_path):
         store = InitiativeStore()
     # Monkey-patch le répertoire de données
-    import proactive.store as _store_mod
+    import jarvis.engine.proactive.store as _store_mod
     _orig = _store_mod.INITIATIVES_DIR
     _store_mod.INITIATIVES_DIR = tmp_path
     return store
@@ -107,7 +107,7 @@ class TestStoreMultiDay:
 
     def test_load_pending_all_reads_multiple_days(self, tmp_path: Path) -> None:
         """load_pending_all() doit trouver des initiatives datant de plusieurs jours."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
@@ -129,7 +129,7 @@ class TestStoreMultiDay:
             _store_mod.INITIATIVES_DIR = orig_dir
 
     def test_load_pending_all_excludes_non_pending(self, tmp_path: Path) -> None:
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
@@ -151,7 +151,7 @@ class TestStoreMultiDay:
 
     def test_get_by_id_finds_yesterday(self, tmp_path: Path) -> None:
         """get_by_id() doit trouver une initiative datant d'hier."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
@@ -167,7 +167,7 @@ class TestStoreMultiDay:
             _store_mod.INITIATIVES_DIR = orig_dir
 
     def test_get_by_id_returns_none_for_unknown(self, tmp_path: Path) -> None:
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
@@ -178,7 +178,7 @@ class TestStoreMultiDay:
 
     def test_update_status_finds_yesterday(self, tmp_path: Path) -> None:
         """update_status() doit mettre à jour une initiative d'hier."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
@@ -196,7 +196,7 @@ class TestStoreMultiDay:
             _store_mod.INITIATIVES_DIR = orig_dir
 
     def test_list_recent_filters_by_status(self, tmp_path: Path) -> None:
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
@@ -222,7 +222,7 @@ class TestEngineRestore:
     @pytest.mark.asyncio
     async def test_restart_broadcasts_initiatives_restored(self, tmp_path: Path) -> None:
         """Au démarrage, l'engine doit broadcaster initiatives_restored si des pending existent."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
@@ -235,7 +235,7 @@ class TestEngineRestore:
             from background.notifications import NotificationQueue
             nq = NotificationQueue()
 
-            from proactive.engine import ProactiveEngine
+            from jarvis.engine.proactive.engine import ProactiveEngine
             engine = ProactiveEngine(
                 notification_queue=nq,
                 broadcast_event=events.append,
@@ -256,13 +256,13 @@ class TestEngineRestore:
     @pytest.mark.asyncio
     async def test_restore_empty_broadcasts_nothing(self, tmp_path: Path) -> None:
         """Si aucune initiative pending, _restore_pending ne broadcast rien."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         orig_dir = _store_mod.INITIATIVES_DIR
         _store_mod.INITIATIVES_DIR = tmp_path
         try:
             events: list[dict] = []
             from background.notifications import NotificationQueue
-            from proactive.engine import ProactiveEngine
+            from jarvis.engine.proactive.engine import ProactiveEngine
 
             engine = ProactiveEngine(
                 notification_queue=NotificationQueue(),
@@ -281,13 +281,13 @@ def _make_executor(
     orchestrator: object | None = None,
     budget_guard: object | None = None,
 ) -> tuple:
-    import proactive.store as _store_mod
+    import jarvis.engine.proactive.store as _store_mod
     orig_dir = _store_mod.INITIATIVES_DIR
     _store_mod.INITIATIVES_DIR = tmp_path
     store = InitiativeStore()
     events: list[dict] = []
 
-    from proactive.executor import InitiativeExecutor
+    from jarvis.engine.proactive.executor import InitiativeExecutor
     executor = InitiativeExecutor(
         store=store,
         broadcast_event=events.append,
@@ -302,7 +302,7 @@ class TestExecutorDraftResponse:
     @pytest.mark.asyncio
     async def test_run_returns_draft_ready_without_sending(self, tmp_path: Path) -> None:
         """run() sur DRAFT_RESPONSE retourne draft_ready et ne déclenche pas d'envoi."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path)
         try:
             init = _make_initiative(InitiativeType.DRAFT_RESPONSE)
@@ -322,7 +322,7 @@ class TestExecutorDraftResponse:
     @pytest.mark.asyncio
     async def test_confirm_blocked_if_not_awaiting(self, tmp_path: Path) -> None:
         """confirm() échoue si l'initiative n'est pas en awaiting_confirm."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path)
         try:
             init = _make_initiative(InitiativeType.DRAFT_RESPONSE, status="pending")
@@ -338,7 +338,7 @@ class TestExecutorDraftResponse:
     @pytest.mark.asyncio
     async def test_confirm_blocked_when_approval_never(self, tmp_path: Path) -> None:
         """confirm() est bloqué si email_send=NEVER dans approval_config."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path)
         try:
             init = _make_initiative(InitiativeType.DRAFT_RESPONSE, status="awaiting_confirm")
@@ -360,7 +360,7 @@ class TestExecutorDraftResponse:
     @pytest.mark.asyncio
     async def test_two_step_flow_sends_only_after_confirm(self, tmp_path: Path) -> None:
         """Flux complet : run → draft_ready → confirm → envoi."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path)
         try:
             init = _make_initiative(InitiativeType.DRAFT_RESPONSE)
@@ -395,7 +395,7 @@ class TestExecutorMission:
     @pytest.mark.asyncio
     async def test_run_mission_reserves_budget(self, tmp_path: Path) -> None:
         """run() AUTO_TASK doit appeler budget.reserve() avant de lancer la mission."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
 
         mock_project = MagicMock()
         mock_project.id = "proj_abc"
@@ -431,7 +431,7 @@ class TestExecutorMission:
     @pytest.mark.asyncio
     async def test_run_mission_refuses_if_budget_exceeded(self, tmp_path: Path) -> None:
         """run() AUTO_TASK est refusé si budget.reserve() retourne False."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
 
         mock_orch = AsyncMock()
         mock_budget = AsyncMock()
@@ -460,7 +460,7 @@ class TestExecutorMission:
 
     @pytest.mark.asyncio
     async def test_run_mission_without_orchestrator_fails_gracefully(self, tmp_path: Path) -> None:
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path, orchestrator=None)
         try:
             init = _make_initiative(InitiativeType.AUTO_TASK)
@@ -479,7 +479,7 @@ class TestExecutorAudit:
     @pytest.mark.asyncio
     async def test_audit_event_broadcast_on_run(self, tmp_path: Path) -> None:
         """Un événement initiative_audit doit être broadcast à chaque run()."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path)
         try:
             init = _make_initiative(InitiativeType.INFO)
@@ -504,7 +504,7 @@ class TestExecutorInfoTypes:
     @pytest.mark.asyncio
     async def test_reminder_handled_without_external_action(self, tmp_path: Path) -> None:
         """REMINDER, SUGGESTION, INFO, ALERT → handled sans action externe."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path)
         try:
             for itype in (
@@ -534,7 +534,7 @@ class TestNoAutoFire:
         dans l'engine."""
         import inspect
 
-        from proactive.engine import ProactiveEngine
+        from jarvis.engine.proactive.engine import ProactiveEngine
 
         source = inspect.getsource(ProactiveEngine._dispatch)
         # AUTO doit juste logger — aucun appel à executor, aucun envoi de mail
@@ -549,7 +549,7 @@ class TestNoAutoFire:
     @pytest.mark.asyncio
     async def test_run_blocked_for_non_pending(self, tmp_path: Path) -> None:
         """run() est refusé si l'initiative n'est pas en status 'pending'."""
-        import proactive.store as _store_mod
+        import jarvis.engine.proactive.store as _store_mod
         executor, store, events, orig_dir = _make_executor(tmp_path)
         try:
             # Initiative déjà done

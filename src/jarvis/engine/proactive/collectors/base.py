@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 from loguru import logger
 
-from proactive.schemas import ContextItem
+from jarvis.engine.proactive.schemas import ContextItem
 
 
 class CollectorBase(ABC):

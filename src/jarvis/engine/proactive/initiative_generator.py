@@ -13,8 +13,8 @@ from loguru import logger
 from config.settings import settings
 from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.llm.local import OllamaProvider
-from proactive.context_builder import WorldState
-from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
+from jarvis.engine.proactive.context_builder import WorldState
+from jarvis.engine.proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
 
 MAX_INITIATIVES = 5
 MAX_HIGH = 3

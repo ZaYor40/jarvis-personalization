@@ -20,20 +20,20 @@ from jarvis.capabilities.skills.lifecycle import SkillLifecycle
 from jarvis.engine.vocab import AutonomyLevel
 from jarvis.providers.memory.kernel import MemoryKernel
 from jarvis.providers.memory.schemas import DecayPolicy, Fact, FactStatus
-from proactive.curator import (
+from jarvis.engine.proactive.curator import (
     _PROTECTED_PATHS,
     Curator,
     PatchKind,
     is_protected_path,
 )
-from proactive.schemas import (
+from jarvis.engine.proactive.schemas import (
     ExecutionMode,
     Initiative,
     InitiativeType,
     Priority,
     needs_human_validation,
 )
-from proactive.store import InitiativeStore
+from jarvis.engine.proactive.store import InitiativeStore
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ def lifecycle(tmp_path: Path) -> SkillLifecycle:
 
 @pytest.fixture
 def initiative_store(tmp_path: Path) -> InitiativeStore:
-    with mock_patch("proactive.store.INITIATIVES_DIR", tmp_path / "initiatives"):
+    with mock_patch("jarvis.engine.proactive.store.INITIATIVES_DIR", tmp_path / "initiatives"):
         store = InitiativeStore()
         yield store
 
@@ -175,7 +175,7 @@ def test_initiative_legacy_jsonl_compat_ascendante(
 
     today = datetime.now().strftime("%Y-%m-%d")
     # On écrit directement un legacy
-    from proactive.store import INITIATIVES_DIR
+    from jarvis.engine.proactive.store import INITIATIVES_DIR
 
     INITIATIVES_DIR.mkdir(parents=True, exist_ok=True)
     legacy_path = INITIATIVES_DIR / f"{today}.jsonl"
@@ -305,7 +305,7 @@ async def test_curator_patch_sur_noyau_protege_refuse(
     On simule un patch qui cible un fichier protégé en l'insérant dans la
     liste pendant un scan (via réécriture du _scan_facts).
     """
-    from proactive.curator import CuratorPatch, PatchKind
+    from jarvis.engine.proactive.curator import CuratorPatch, PatchKind
 
     # Injecte un patch synthétique qui cible un fichier protégé
     fake_patch = CuratorPatch(
@@ -411,7 +411,7 @@ def test_command_center_snapshot_agrege_tout(
     initiative_store: InitiativeStore,
 ) -> None:
     """CommandCenter agrège initiatives, missions, budget, skills sans crash."""
-    from proactive.command_center import CommandCenter
+    from jarvis.engine.proactive.command_center import CommandCenter
 
     # Setup état minimal
     init = _make_initiative(title="Test snapshot")
@@ -447,7 +447,7 @@ def test_command_center_snapshot_avec_budget(
     initiative_store: InitiativeStore,
 ) -> None:
     """Le snapshot inclut le budget si BudgetGuard fourni."""
-    from proactive.command_center import CommandCenter
+    from jarvis.engine.proactive.command_center import CommandCenter
 
     class _FakeProjectStore:
         def list_projects(self) -> list:
@@ -467,7 +467,7 @@ def test_command_center_snapshot_avec_budget(
 
 def test_command_center_heartbeat() -> None:
     """signal_heartbeat met à jour le timestamp interne."""
-    from proactive.command_center import CommandCenter
+    from jarvis.engine.proactive.command_center import CommandCenter
 
     class _FakeProjectStore:
         def list_projects(self) -> list:

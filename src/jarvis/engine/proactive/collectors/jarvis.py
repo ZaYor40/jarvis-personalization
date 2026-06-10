@@ -8,8 +8,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from proactive.collectors.base import CollectorBase
-from proactive.schemas import ContextItem, ItemType, Priority
+from jarvis.engine.proactive.collectors.base import CollectorBase
+from jarvis.engine.proactive.schemas import ContextItem, ItemType, Priority
 
 
 class JarvisCollector(CollectorBase):

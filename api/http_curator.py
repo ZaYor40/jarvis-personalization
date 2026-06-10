@@ -41,7 +41,7 @@ def _command_center(request: Request):  # noqa: ANN202
 @router.get("/api/curator/latest")
 async def curator_latest_report(request: Request) -> dict:
     """Renvoie le dernier rapport Curator (sérialisé JSON). 404 si jamais lancé."""
-    from proactive.curator import _report_to_dict
+    from jarvis.engine.proactive.curator import _report_to_dict
 
     cur = _curator(request)
     report = cur.latest_report()
@@ -58,7 +58,7 @@ async def curator_scan(request: Request) -> dict:
     flag à activer — le Curator n'a pas de mode auto-apply en MVP, son
     pire effet est de générer un rapport.
     """
-    from proactive.curator import _report_to_dict
+    from jarvis.engine.proactive.curator import _report_to_dict
 
     cur = _curator(request)
     report = await cur.scan()

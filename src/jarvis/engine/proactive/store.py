@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from jarvis.engine.vocab import AutonomyLevel
-from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
+from jarvis.engine.proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority
 
 
 def _title_key(title: str) -> str:

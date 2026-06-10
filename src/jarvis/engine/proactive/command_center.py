@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from jarvis.capabilities.skills.lifecycle import SkillLifecycle
     from jarvis.engine.budget import BudgetGuard
     from jarvis.engine.mission.project_store import ProjectStore
-    from proactive.store import InitiativeStore
+    from jarvis.engine.proactive.store import InitiativeStore
 
 
 @dataclass

@@ -11,13 +11,13 @@ from datetime import datetime
 
 from loguru import logger
 
-from proactive.collectors.calendar import CalendarCollector
-from proactive.collectors.email import EmailCollector
-from proactive.collectors.jarvis import JarvisCollector
-from proactive.collectors.news import NewsCollector
-from proactive.collectors.tasks import TaskCollector
-from proactive.collectors.weather import WeatherCollector
-from proactive.schemas import CollectionResult, ContextItem, ItemType, Priority
+from jarvis.engine.proactive.collectors.calendar import CalendarCollector
+from jarvis.engine.proactive.collectors.email import EmailCollector
+from jarvis.engine.proactive.collectors.jarvis import JarvisCollector
+from jarvis.engine.proactive.collectors.news import NewsCollector
+from jarvis.engine.proactive.collectors.tasks import TaskCollector
+from jarvis.engine.proactive.collectors.weather import WeatherCollector
+from jarvis.engine.proactive.schemas import CollectionResult, ContextItem, ItemType, Priority
 
 
 @dataclass

@@ -23,8 +23,8 @@ from typing import Protocol
 
 from loguru import logger
 
-from proactive.schemas import Initiative, InitiativeType
-from proactive.store import InitiativeStore
+from jarvis.engine.proactive.schemas import Initiative, InitiativeType
+from jarvis.engine.proactive.store import InitiativeStore
 
 
 class _Orchestrator(Protocol):

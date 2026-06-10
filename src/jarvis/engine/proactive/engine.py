@@ -16,10 +16,10 @@ from datetime import UTC, datetime
 from loguru import logger
 
 from background.notifications import NotificationQueue
-from proactive.context_builder import ContextBuilder
-from proactive.initiative_generator import InitiativeGenerator
-from proactive.schemas import ExecutionMode, Initiative, Priority
-from proactive.store import InitiativeStore
+from jarvis.engine.proactive.context_builder import ContextBuilder
+from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
+from jarvis.engine.proactive.schemas import ExecutionMode, Initiative, Priority
+from jarvis.engine.proactive.store import InitiativeStore
 
 _AUDIT_MAXLEN = 200
 

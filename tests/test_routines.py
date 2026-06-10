@@ -34,7 +34,7 @@ from background.routines import (  # noqa: E402
     fire_routine,
     next_cron_datetime,
 )
-from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority  # noqa: E402
+from jarvis.engine.proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority  # noqa: E402
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -155,7 +155,7 @@ async def test_concurrency_blocks_overlap(tmp_path: Path) -> None:
 def test_proactive_audit_event() -> None:
     """ProactiveEngine._dispatch doit enregistrer un ProactiveAuditEvent consultable."""
     from background.notifications import NotificationQueue
-    from proactive.engine import ProactiveEngine
+    from jarvis.engine.proactive.engine import ProactiveEngine
 
     broadcast_events: list[dict] = []
 
