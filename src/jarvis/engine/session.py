@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from jarvis.kernel.contracts import SessionStore
+
 
 @dataclass
 class Session:
@@ -29,11 +31,26 @@ class Session:
 
 
 class SessionManager:
-    """Registre en mémoire des sessions actives, avec restauration depuis JSONL."""
+    """Registre en mémoire des sessions actives, avec restauration depuis JSONL.
 
-    def __init__(self, store: object | None = None) -> None:
+    Phase C : `store` est typé sur le Protocol `jarvis.kernel.contracts
+    .SessionStore` (CDC §A.1.3), pas sur l'implémentation concrète
+    `jarvis.providers.memory.sessions.SessionStore`. Le manager dépend
+    du CONTRAT, pas du fournisseur — c'est la règle d'or n°3 du CDC
+    (engine ne dépend que du kernel ; reçoit ses providers par injection).
+
+    Conséquences :
+    - Plus aucun `from jarvis.providers.memory.sessions import SessionStore`
+      en local dans `_try_restore` / `_attach_store` (les anciens imports
+      différés masquaient un cycle engine ↔ providers).
+    - Plus de `isinstance(self._store, SessionStore)` runtime check — le
+      type est garanti par la signature.
+    - Le manager fonctionne avec toute implémentation conforme au Protocol
+      (utile pour les tests : un FakeSessionStore suffit).
+    """
+
+    def __init__(self, store: SessionStore | None = None) -> None:
         self._sessions: dict[str, Session] = {}
-        # store est un SessionStore — on accepte object pour éviter l'import circulaire
         self._store = store
 
     def get_or_create(self, session_id: str | None = None) -> Session:
@@ -49,12 +66,8 @@ class SessionManager:
         return self._new_session()
 
     def _try_restore(self, session_id: str) -> Session | None:
-        """Tente de restaurer une session depuis le JSONL. Retourne None si introuvable."""
-        from jarvis.providers.memory.sessions import (
-            SessionStore,  # import local pour éviter le cycle
-        )
-
-        if not isinstance(self._store, SessionStore):
+        """Tente de restaurer une session depuis le store. Retourne None si introuvable."""
+        if self._store is None:
             return None
 
         messages = self._store.load(session_id)
@@ -80,11 +93,10 @@ class SessionManager:
         return session
 
     def _attach_store(self, session: Session, sid: str) -> None:
-        if self._store is not None:
-            from jarvis.providers.memory.sessions import SessionStore
-
-            if isinstance(self._store, SessionStore):
-                session.set_persist(lambda role, content: self._store.append(sid, role, content))  # type: ignore[union-attr]
+        if self._store is None:
+            return
+        store = self._store  # capture pour la closure (mypy/typing)
+        session.set_persist(lambda role, content: store.append(sid, role, content))
 
     def get(self, session_id: str) -> Session | None:
         return self._sessions.get(session_id)
