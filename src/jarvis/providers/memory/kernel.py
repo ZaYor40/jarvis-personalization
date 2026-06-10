@@ -167,6 +167,13 @@ class MemoryKernel:
         conn = sqlite3.connect(self._db_path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
+        # Phase C §C.1.8 — accès concurrent process API + process voix :
+        # - WAL : les lecteurs ne bloquent plus l'écrivain (et inversement).
+        # - busy_timeout=5000 : sans ce timeout, WAL sérialise toujours les
+        #   écrivains → un write concurrent voix+API échouerait avec
+        #   `database is locked` au lieu d'attendre. 5s de marge.
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
         try:
             yield conn
         finally:
