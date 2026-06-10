@@ -71,8 +71,8 @@ def list_tokens() -> list[tuple[str, int]]:
 
 
 def list_installed_skills() -> tuple[int, list[str]]:
-    """Liste les sous-dossiers de skills/installed/ + tente de les charger via le loader réel."""
-    sk_dir = ROOT / "skills" / "installed"
+    """Liste les sous-dossiers de skills_data/installed/ + tente de les charger via le loader réel."""
+    sk_dir = ROOT / "skills_data" / "installed"
     if not sk_dir.exists():
         return 0, []
     subs = sorted(d.name for d in sk_dir.iterdir() if d.is_dir())

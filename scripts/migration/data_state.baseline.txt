@@ -15,4 +15,4 @@ tokens (-1 = absent) :
 skills.installed.dirs = 8
 skills.installed.loaded_by_registry = ['astronomy', 'bambulab-printer', 'clock', 'fusion360', 'globe-view', 'mode-streameur', 'system-monitor', 'weather']
 
-jarvis.providers.vision.faces.files = 1
+vision_data.faces.files = 1

@@ -67,7 +67,7 @@ from jarvis.interfaces.api.voice_ws import router as voice_router
 from jarvis.interfaces.api.websocket import router as ws_router
 from jarvis.interfaces.api.widgets import router as widgets_router
 from jarvis.interfaces.channels.telegram_bot import TelegramChannel, get_telegram_channel
-from jarvis.kernel.paths import PROJECT_ROOT, UI_STATIC_DIR
+from jarvis.kernel.paths import CONFIG_DIR, PROJECT_ROOT, UI_STATIC_DIR
 from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
 from jarvis.providers.memory.auto_dream import AutoDream
@@ -334,7 +334,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from jarvis.capabilities.tools.capability import ReportMissingCapabilityTool
     from jarvis.engine.mission.capability_engine import CapabilityEngine, Whitelist
 
-    _whitelist = Whitelist.load(Path("config/permissions.yaml"))
+    _whitelist = Whitelist.load(CONFIG_DIR / "permissions.yaml")
     _capability_engine = CapabilityEngine(
         kernel=_memory_kernel,
         lab=_skill_lab,
