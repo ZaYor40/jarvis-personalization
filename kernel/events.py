@@ -92,7 +92,7 @@ class EventBus:
         if handler in self._handlers.get(event_type, []):
             self._handlers[event_type].remove(handler)
 
-    async def publish(self, event: Any) -> None:
+    async def publish(self, event: Any) -> None:  # noqa: ANN401 — type d'événement dispatché dynamiquement
         """Publie un événement vers tous les handlers de son type.
 
         Les handlers sont exécutés concurremment via asyncio.gather. Toute

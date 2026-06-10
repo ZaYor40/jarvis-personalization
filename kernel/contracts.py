@@ -120,7 +120,7 @@ class MemoryStore(Protocol):
         self,
         fact_id: str,
         event_id: str,
-        observation_type: Any,
+        observation_type: Any,  # noqa: ANN401 — ObservationType (kernel.schemas) ou str selon l'appelant
         confidence_delta: float,
     ) -> FactObservation: ...
 
@@ -130,7 +130,7 @@ class MemoryStore(Protocol):
         self,
         from_fact_id: str,
         to_fact_id: str,
-        relation_type: Any,
+        relation_type: Any,  # noqa: ANN401 — RelationType (kernel.schemas) ou str selon l'appelant
     ) -> FactRelation: ...
 
     def list_relations(self, fact_id: str) -> list[FactRelation]: ...
@@ -183,7 +183,8 @@ class Tool(Protocol):
     input_schema: dict
 
     def to_claude_schema(self) -> dict: ...
-    async def execute(self, **kwargs: object) -> Any: ...  # ToolResult — type local à tools/
+    # ToolResult est défini dans tools/base.py (couche L1) — ne remonte pas en kernel.
+    async def execute(self, **kwargs: object) -> Any: ...  # noqa: ANN401 — ToolResult local à tools/
 
 
 @runtime_checkable
@@ -195,7 +196,7 @@ class ToolRegistry(Protocol):
     def has_tools(self) -> bool: ...
     def schemas(self) -> list[dict]: ...
     def core_schemas(self) -> list[dict]: ...
-    async def call(self, name: str, inputs: dict) -> Any: ...  # ToolResult
+    async def call(self, name: str, inputs: dict) -> Any: ...  # noqa: ANN401 — ToolResult local
     async def call_str(self, name: str, inputs: dict) -> str: ...
 
 
@@ -244,11 +245,12 @@ class Channel(Protocol):
     """Interface des canaux de messagerie (cf. channels/base.py ChannelAdapter)."""
 
     @property
-    def platform(self) -> Any: ...  # Platform StrEnum — type local à channels/
+    def platform(self) -> Any: ...  # noqa: ANN401 — Platform (StrEnum) local à channels/
 
     async def start(self) -> None: ...
     async def stop(self) -> None: ...
-    async def send(self, reply: str, target: Any) -> None: ...  # MessageTarget
+    async def send(self, reply: str, target: Any) -> None: ...  # noqa: ANN401 — MessageTarget local
+    # IncomingMessage est local à channels/ — kernel ne le voit pas typé.
     def set_dispatch(self, callback: Callable[[Any], Awaitable[None]]) -> None: ...
 
 
