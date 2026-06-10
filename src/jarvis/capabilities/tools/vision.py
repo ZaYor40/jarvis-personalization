@@ -9,7 +9,7 @@ import subprocess
 from loguru import logger
 
 from config.settings import settings
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 
 class VisionTool(Tool):

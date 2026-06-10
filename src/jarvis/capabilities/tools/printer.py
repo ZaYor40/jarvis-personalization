@@ -16,7 +16,7 @@ from pathlib import Path
 from loguru import logger
 
 from config.settings import settings
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 _ORCA_CLI = "/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer"
 

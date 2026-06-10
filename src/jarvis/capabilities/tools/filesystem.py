@@ -9,7 +9,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 _EXCLUDED_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".cache", "Library"}
 _MAX_FILE_SIZE = 100_000  # 100 Ko

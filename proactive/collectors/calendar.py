@@ -17,7 +17,7 @@ class CalendarCollector(CollectorBase):
 
     async def _collect(self) -> list[ContextItem]:
         from config.settings import settings
-        from tools.calendar import CalendarListTool
+        from jarvis.capabilities.tools.calendar import CalendarListTool
 
         tool = CalendarListTool(
             credentials_path=Path(settings.google_credentials_path),

@@ -695,7 +695,7 @@ class WorkerAgent:
                 return f"ERREUR (rc={res['returncode']}) : {res['stderr']}"
 
             if name == "fusion_360":
-                from tools.fusion import FusionTool
+                from jarvis.capabilities.tools.fusion import FusionTool
 
                 action = inputs.get("action", "")
                 await self._log("tool", f"fusion_360: {action}", data={"inputs": str(inputs)[:120]})

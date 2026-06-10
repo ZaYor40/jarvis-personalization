@@ -39,7 +39,7 @@ from skills.lifecycle import SkillRecord, SkillStatus
 
 if TYPE_CHECKING:
     from skills.registry import SkillRegistry
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
 # Seuil heuristique de matching textuel (sur jaccard normalisé).
 # Bas pour MVP : on préfère détecter des matchs faibles plutôt que de

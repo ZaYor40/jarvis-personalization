@@ -377,7 +377,7 @@ class TestExecutorDraftResponse:
 
             # Étape 2 : confirm — on mocke send_gmail_draft dans tools.gmail
             mock_send = AsyncMock(return_value="msg_abc123")
-            with patch("tools.gmail.send_gmail_draft", mock_send):
+            with patch("jarvis.capabilities.tools.gmail.send_gmail_draft", mock_send):
                 await executor.confirm(init.id)
 
             # Le statut doit être terminal (done, failed ou draft_only si outil absent)

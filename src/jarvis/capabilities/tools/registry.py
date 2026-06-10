@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 
 class ToolRegistry:

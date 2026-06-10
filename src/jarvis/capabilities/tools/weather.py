@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 from loguru import logger
 
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 
 class WeatherTool(Tool):

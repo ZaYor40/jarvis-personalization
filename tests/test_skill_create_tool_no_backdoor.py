@@ -22,7 +22,7 @@ from jarvis.providers.memory.kernel import MemoryKernel
 from skills.lab import SkillLab
 from skills.lifecycle import SkillLifecycle, SkillStatus
 from skills.synthesizer import SkillSynthesizer
-from tools.skills import SkillCreateTool
+from jarvis.capabilities.tools.skills import SkillCreateTool
 
 
 class _FakeLLM(LLMProvider):

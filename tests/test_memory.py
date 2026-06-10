@@ -10,7 +10,7 @@ from jarvis.providers.memory.index import MemoryIndex
 from jarvis.providers.memory.search import VectorIndex, _chunk_text
 from jarvis.providers.memory.sessions import SessionStore
 from jarvis.providers.memory.topics import TopicStore
-from tools.memory import MemoryLoadTopicTool, MemorySearchTool
+from jarvis.capabilities.tools.memory import MemoryLoadTopicTool, MemorySearchTool
 
 # ── SessionStore ──────────────────────────────────────────────
 

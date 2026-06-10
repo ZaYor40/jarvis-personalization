@@ -15,7 +15,7 @@ class TaskCollector(CollectorBase):
     name = "tasks"
 
     async def _collect(self) -> list[ContextItem]:
-        from tools.notion import NotionTasksTool
+        from jarvis.capabilities.tools.notion import NotionTasksTool
 
         tool = NotionTasksTool()
         result = await tool.execute()

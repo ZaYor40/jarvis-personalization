@@ -18,11 +18,11 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 if TYPE_CHECKING:
     from core.agent import Agent
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
 
 class SpawnSubagentTool(Tool):

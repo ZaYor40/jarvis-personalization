@@ -4,7 +4,7 @@ import httpx
 from loguru import logger
 
 from api.spotify import _get_access_token
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 _API_BASE = "https://api.spotify.com/v1"
 

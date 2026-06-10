@@ -20,7 +20,7 @@ from background.routines import (
 )
 from config.settings import settings
 from jarvis.providers.memory.auto_dream import AutoDream
-from tools.calendar import CalendarListTool
+from jarvis.capabilities.tools.calendar import CalendarListTool
 
 
 def _next_datetime(hour: int) -> datetime:
@@ -203,7 +203,7 @@ class Scheduler:
             parts.append(f"Agenda indisponible ({e}).")
 
         try:
-            from tools.notion import NotionTasksTool
+            from jarvis.capabilities.tools.notion import NotionTasksTool
 
             tasks_result = await NotionTasksTool().execute()
             if not tasks_result.is_error and tasks_result.content:

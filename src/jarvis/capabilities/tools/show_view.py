@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 import httpx
 
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 CITY_COORDS: dict[str, tuple[float, float]] = {
     # Villes françaises

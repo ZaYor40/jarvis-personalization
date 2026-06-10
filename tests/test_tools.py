@@ -29,7 +29,7 @@ def _enable_files_permission() -> Generator[None, None, None]:
 
 
 def test_tool_result_defaults() -> None:
-    from tools.base import ToolResult
+    from jarvis.capabilities.tools.base import ToolResult
 
     r = ToolResult(content="ok")
     assert r.content == "ok"
@@ -37,7 +37,7 @@ def test_tool_result_defaults() -> None:
 
 
 def test_tool_to_claude_schema() -> None:
-    from tools.base import Tool, ToolResult
+    from jarvis.capabilities.tools.base import Tool, ToolResult
 
     class _DummyTool(Tool):
         name = "dummy"
@@ -56,8 +56,8 @@ def test_tool_to_claude_schema() -> None:
 
 
 async def test_registry_dispatch() -> None:
-    from tools.base import Tool, ToolResult
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.base import Tool, ToolResult
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
     class _EchoTool(Tool):
         name = "echo"
@@ -80,7 +80,7 @@ async def test_registry_dispatch() -> None:
 
 
 async def test_registry_unknown_tool() -> None:
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
     registry = ToolRegistry()
     result = await registry.call("nonexistent", {})
@@ -89,8 +89,8 @@ async def test_registry_unknown_tool() -> None:
 
 
 async def test_registry_call_str() -> None:
-    from tools.base import Tool, ToolResult
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.base import Tool, ToolResult
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
     class _OkTool(Tool):
         name = "ok"
@@ -107,7 +107,7 @@ async def test_registry_call_str() -> None:
 
 
 async def test_registry_call_str_error() -> None:
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
     registry = ToolRegistry()
     text = await registry.call_str("unknown", {})
@@ -118,7 +118,7 @@ async def test_registry_call_str_error() -> None:
 
 
 async def test_weather_tool_success() -> None:
-    from tools.weather import WeatherTool
+    from jarvis.capabilities.tools.weather import WeatherTool
 
     tool = WeatherTool()
     mock_response = MagicMock()
@@ -130,7 +130,7 @@ async def test_weather_tool_success() -> None:
     mock_instance.__aexit__ = AsyncMock(return_value=None)
     mock_instance.get = AsyncMock(return_value=mock_response)
 
-    with patch("tools.weather.httpx.AsyncClient", return_value=mock_instance):
+    with patch("jarvis.capabilities.tools.weather.httpx.AsyncClient", return_value=mock_instance):
         result = await tool.execute(city="Paris")
 
     assert not result.is_error
@@ -138,7 +138,7 @@ async def test_weather_tool_success() -> None:
 
 
 async def test_weather_tool_http_error() -> None:
-    from tools.weather import WeatherTool
+    from jarvis.capabilities.tools.weather import WeatherTool
 
     tool = WeatherTool()
     mock_instance = AsyncMock()
@@ -146,7 +146,7 @@ async def test_weather_tool_http_error() -> None:
     mock_instance.__aexit__ = AsyncMock(return_value=None)
     mock_instance.get = AsyncMock(side_effect=httpx.HTTPError("timeout"))
 
-    with patch("tools.weather.httpx.AsyncClient", return_value=mock_instance):
+    with patch("jarvis.capabilities.tools.weather.httpx.AsyncClient", return_value=mock_instance):
         result = await tool.execute(city="NowhereLand")
 
     assert result.is_error
@@ -157,7 +157,7 @@ async def test_weather_tool_http_error() -> None:
 
 
 async def test_read_file_success(tmp_path: Path) -> None:
-    from tools.filesystem import ReadFileTool
+    from jarvis.capabilities.tools.filesystem import ReadFileTool
 
     tool = ReadFileTool(allowed_roots=[tmp_path])
     f = tmp_path / "hello.txt"
@@ -169,7 +169,7 @@ async def test_read_file_success(tmp_path: Path) -> None:
 
 
 async def test_read_file_access_denied(tmp_path: Path) -> None:
-    from tools.filesystem import ReadFileTool
+    from jarvis.capabilities.tools.filesystem import ReadFileTool
 
     allowed = tmp_path / "allowed"
     allowed.mkdir()
@@ -184,7 +184,7 @@ async def test_read_file_access_denied(tmp_path: Path) -> None:
 
 
 async def test_read_file_not_found(tmp_path: Path) -> None:
-    from tools.filesystem import ReadFileTool
+    from jarvis.capabilities.tools.filesystem import ReadFileTool
 
     tool = ReadFileTool(allowed_roots=[tmp_path])
     result = await tool.execute(path=str(tmp_path / "ghost.txt"))
@@ -192,7 +192,7 @@ async def test_read_file_not_found(tmp_path: Path) -> None:
 
 
 async def test_read_file_too_large(tmp_path: Path) -> None:
-    from tools.filesystem import _MAX_FILE_SIZE, ReadFileTool
+    from jarvis.capabilities.tools.filesystem import _MAX_FILE_SIZE, ReadFileTool
 
     tool = ReadFileTool(allowed_roots=[tmp_path])
     big = tmp_path / "big.txt"
@@ -207,7 +207,7 @@ async def test_read_file_too_large(tmp_path: Path) -> None:
 
 
 async def test_find_files_success(tmp_path: Path) -> None:
-    from tools.filesystem import FindFilesTool
+    from jarvis.capabilities.tools.filesystem import FindFilesTool
 
     tool = FindFilesTool(allowed_roots=[tmp_path])
     (tmp_path / "a.py").write_text("# a")
@@ -222,7 +222,7 @@ async def test_find_files_success(tmp_path: Path) -> None:
 
 
 async def test_find_files_no_results(tmp_path: Path) -> None:
-    from tools.filesystem import FindFilesTool
+    from jarvis.capabilities.tools.filesystem import FindFilesTool
 
     tool = FindFilesTool(allowed_roots=[tmp_path])
     result = await tool.execute(pattern="*.rs", directory=str(tmp_path))
@@ -231,7 +231,7 @@ async def test_find_files_no_results(tmp_path: Path) -> None:
 
 
 async def test_find_files_access_denied(tmp_path: Path) -> None:
-    from tools.filesystem import FindFilesTool
+    from jarvis.capabilities.tools.filesystem import FindFilesTool
 
     allowed = tmp_path / "zone"
     allowed.mkdir()
@@ -245,7 +245,7 @@ async def test_find_files_access_denied(tmp_path: Path) -> None:
 
 
 async def test_cli_runner_success(tmp_path: Path) -> None:
-    from tools.cli import CLIRunnerTool
+    from jarvis.capabilities.tools.cli import CLIRunnerTool
 
     yaml_path = tmp_path / "tools.yaml"
     yaml_path.write_text('echo_test:\n  command: ["echo", "hello jarvis"]\n  description: "Test"\n')
@@ -257,7 +257,7 @@ async def test_cli_runner_success(tmp_path: Path) -> None:
 
 
 async def test_cli_runner_unknown_alias(tmp_path: Path) -> None:
-    from tools.cli import CLIRunnerTool
+    from jarvis.capabilities.tools.cli import CLIRunnerTool
 
     yaml_path = tmp_path / "tools.yaml"
     yaml_path.write_text("{}")
@@ -269,7 +269,7 @@ async def test_cli_runner_unknown_alias(tmp_path: Path) -> None:
 
 
 async def test_cli_runner_no_whitelist(tmp_path: Path) -> None:
-    from tools.cli import CLIRunnerTool
+    from jarvis.capabilities.tools.cli import CLIRunnerTool
 
     tool = CLIRunnerTool(whitelist_path=tmp_path / "missing.yaml")
     result = await tool.execute(alias="anything")
@@ -277,7 +277,7 @@ async def test_cli_runner_no_whitelist(tmp_path: Path) -> None:
 
 
 async def test_cli_runner_with_args(tmp_path: Path) -> None:
-    from tools.cli import CLIRunnerTool
+    from jarvis.capabilities.tools.cli import CLIRunnerTool
 
     yaml_path = tmp_path / "tools.yaml"
     yaml_path.write_text('greet:\n  command: ["echo"]\n  description: "Greet"\n')

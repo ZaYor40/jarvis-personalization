@@ -141,16 +141,16 @@ def _build_voice_tools() -> list:
     jarvis_tools = []
 
     _tool_factories = [
-        ("weather", lambda: __import__("tools.weather", fromlist=["WeatherTool"]).WeatherTool()),
-        ("browser", lambda: __import__("tools.browser", fromlist=["BrowserTool"]).BrowserTool()),
-        ("vision", lambda: __import__("tools.vision", fromlist=["VisionTool"]).VisionTool()),
+        ("weather", lambda: __import__("jarvis.capabilities.tools.weather", fromlist=["WeatherTool"]).WeatherTool()),
+        ("browser", lambda: __import__("jarvis.capabilities.tools.browser", fromlist=["BrowserTool"]).BrowserTool()),
+        ("vision", lambda: __import__("jarvis.capabilities.tools.vision", fromlist=["VisionTool"]).VisionTool()),
         (
             "filesystem",
             lambda: [
-                __import__("tools.filesystem", fromlist=["ReadFileTool"]).ReadFileTool(
+                __import__("jarvis.capabilities.tools.filesystem", fromlist=["ReadFileTool"]).ReadFileTool(
                     allowed_roots=_allowed_roots
                 ),
-                __import__("tools.filesystem", fromlist=["FindFilesTool"]).FindFilesTool(
+                __import__("jarvis.capabilities.tools.filesystem", fromlist=["FindFilesTool"]).FindFilesTool(
                     allowed_roots=_allowed_roots
                 ),
             ],
@@ -158,43 +158,43 @@ def _build_voice_tools() -> list:
         (
             "cli",
             lambda: [
-                __import__("tools.cli", fromlist=["CLIRunnerTool"]).CLIRunnerTool(
+                __import__("jarvis.capabilities.tools.cli", fromlist=["CLIRunnerTool"]).CLIRunnerTool(
                     whitelist_path=Path(settings.cli_whitelist_path)
                 ),
-                __import__("tools.cli", fromlist=["ExecuteCLITool"]).ExecuteCLITool(),
+                __import__("jarvis.capabilities.tools.cli", fromlist=["ExecuteCLITool"]).ExecuteCLITool(),
             ],
         ),
         (
             "calendar",
             lambda: [
-                __import__("tools.calendar", fromlist=["CalendarListTool"]).CalendarListTool(
+                __import__("jarvis.capabilities.tools.calendar", fromlist=["CalendarListTool"]).CalendarListTool(
                     credentials_path=_google_creds, token_path=_calendar_token
                 ),
-                __import__("tools.calendar", fromlist=["CalendarCreateTool"]).CalendarCreateTool(
+                __import__("jarvis.capabilities.tools.calendar", fromlist=["CalendarCreateTool"]).CalendarCreateTool(
                     credentials_path=_google_creds, token_path=_calendar_token
                 ),
             ],
         ),
         (
             "notion",
-            lambda: __import__("tools.notion", fromlist=["NotionTasksTool"]).NotionTasksTool(),
+            lambda: __import__("jarvis.capabilities.tools.notion", fromlist=["NotionTasksTool"]).NotionTasksTool(),
         ),
         (
             "memory",
             lambda: __import__(
-                "tools.memory", fromlist=["MemoryTopicWriteTool"]
+                "jarvis.capabilities.tools.memory", fromlist=["MemoryTopicWriteTool"]
             ).MemoryTopicWriteTool(),
         ),
-        ("spotify", lambda: __import__("tools.spotify", fromlist=["SpotifyTool"]).SpotifyTool()),
+        ("spotify", lambda: __import__("jarvis.capabilities.tools.spotify", fromlist=["SpotifyTool"]).SpotifyTool()),
         (
             "gmail",
-            lambda: __import__("tools.gmail", fromlist=["GmailListTool"]).GmailListTool(
+            lambda: __import__("jarvis.capabilities.tools.gmail", fromlist=["GmailListTool"]).GmailListTool(
                 credentials_path=_google_creds, token_path=_gmail_token
             ),
         ),
         (
             "preset",
-            lambda: __import__("tools.preset", fromlist=["ExecutePresetTool"]).ExecutePresetTool(),
+            lambda: __import__("jarvis.capabilities.tools.preset", fromlist=["ExecutePresetTool"]).ExecutePresetTool(),
         ),
     ]
 

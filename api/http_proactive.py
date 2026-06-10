@@ -77,7 +77,7 @@ async def approve_initiative(initiative_id: str, request: Request) -> dict:
     try:
         if init.type == InitiativeType.DRAFT_RESPONSE:
             from config.settings import settings as _s
-            from tools.gmail import send_gmail_draft
+            from jarvis.capabilities.tools.gmail import send_gmail_draft
 
             msg_id = await send_gmail_draft(
                 draft_content=init.draft_content or "",

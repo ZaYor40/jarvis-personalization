@@ -25,6 +25,6 @@ Règles impératives :
 """
 
     def get_tools(self) -> list:
-        from tools.printer import Printer3DTool
+        from jarvis.capabilities.tools.printer import Printer3DTool
 
         return [Printer3DTool()]

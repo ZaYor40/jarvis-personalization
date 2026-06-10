@@ -303,7 +303,7 @@ class TestCrossSessionRecallTool:
 
     @pytest.mark.asyncio
     async def test_retourne_resultats_fusionnes(self, tmp_path: Path) -> None:
-        from tools.memory import CrossSessionRecallTool
+        from jarvis.capabilities.tools.memory import CrossSessionRecallTool
 
         fts = FTSIndex(db_path=tmp_path / "fts.db")
         await fts.add("s1.jsonl", "user: Je veux du café")
@@ -324,7 +324,7 @@ class TestCrossSessionRecallTool:
 
     @pytest.mark.asyncio
     async def test_retourne_aucun_resultat(self, tmp_path: Path) -> None:
-        from tools.memory import CrossSessionRecallTool
+        from jarvis.capabilities.tools.memory import CrossSessionRecallTool
 
         fts = FTSIndex(db_path=tmp_path / "fts.db")
         mock_vector = MagicMock()
@@ -338,7 +338,7 @@ class TestCrossSessionRecallTool:
 
     @pytest.mark.asyncio
     async def test_requete_vide_retourne_erreur(self, tmp_path: Path) -> None:
-        from tools.memory import CrossSessionRecallTool
+        from jarvis.capabilities.tools.memory import CrossSessionRecallTool
 
         fts = FTSIndex(db_path=tmp_path / "fts.db")
         mock_vector = MagicMock()

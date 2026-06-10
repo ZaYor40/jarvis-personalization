@@ -59,25 +59,25 @@ from jarvis.providers.memory.topics import TopicStore
 from jarvis.providers.memory.user_model import UserModel
 from proactive.engine import ProactiveEngine
 from skills.registry import skill_registry
-from tools.browser import BrowserTool
-from tools.calendar import CalendarCreateTool, CalendarListTool
-from tools.cli import CLIRunnerTool, ExecuteCLITool
-from tools.filesystem import FindFilesTool, ReadFileTool
-from tools.gmail import GmailListTool
-from tools.memory import (
+from jarvis.capabilities.tools.browser import BrowserTool
+from jarvis.capabilities.tools.calendar import CalendarCreateTool, CalendarListTool
+from jarvis.capabilities.tools.cli import CLIRunnerTool, ExecuteCLITool
+from jarvis.capabilities.tools.filesystem import FindFilesTool, ReadFileTool
+from jarvis.capabilities.tools.gmail import GmailListTool
+from jarvis.capabilities.tools.memory import (
     CrossSessionRecallTool,
     MemoryLoadTopicTool,
     MemorySearchTool,
     MemoryTopicWriteTool,
 )
-from tools.notion import NotionTasksTool
-from tools.preset import ExecutePresetTool
-from tools.registry import ToolRegistry
-from tools.show_view import ShowViewTool
-from tools.spotify import SpotifyTool
-from tools.subagent import ScriptRPCTool, SpawnSubagentTool
-from tools.vision import VisionTool
-from tools.weather import WeatherTool
+from jarvis.capabilities.tools.notion import NotionTasksTool
+from jarvis.capabilities.tools.preset import ExecutePresetTool
+from jarvis.capabilities.tools.registry import ToolRegistry
+from jarvis.capabilities.tools.show_view import ShowViewTool
+from jarvis.capabilities.tools.spotify import SpotifyTool
+from jarvis.capabilities.tools.subagent import ScriptRPCTool, SpawnSubagentTool
+from jarvis.capabilities.tools.vision import VisionTool
+from jarvis.capabilities.tools.weather import WeatherTool
 
 # load_dotenv() doit tourner avant toute logique module-level qui consomme os.environ
 load_dotenv()
@@ -295,7 +295,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from skills.lab import SkillLab
     from skills.lifecycle import SkillLifecycle
     from skills.synthesizer import SkillSynthesizer
-    from tools.skills import SkillCreateTool, SkillImproveTool, SkillListTool
+    from jarvis.capabilities.tools.skills import SkillCreateTool, SkillImproveTool, SkillListTool
 
     _synthesizer = SkillSynthesizer(llm=llm)
     app.state.skill_synthesizer = _synthesizer
@@ -331,7 +331,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # auto-installation en MVP (cf. CDC §8) : toute candidate exige promote()
     # humain, peu importe le verdict sandbox ou la whitelist.
     from agent.capability_engine import CapabilityEngine, Whitelist
-    from tools.capability import ReportMissingCapabilityTool
+    from jarvis.capabilities.tools.capability import ReportMissingCapabilityTool
 
     _whitelist = Whitelist.load(Path("config/permissions.yaml"))
     _capability_engine = CapabilityEngine(

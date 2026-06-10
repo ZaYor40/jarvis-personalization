@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import yaml
 
 if TYPE_CHECKING:
-    from tools.base import Tool
+    from jarvis.capabilities.tools.base import Tool
 
 
 class SkillBase(ABC):  # noqa: B024 — sous-classes surchargent par convention, pas via abstractmethod

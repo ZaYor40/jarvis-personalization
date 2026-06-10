@@ -13,7 +13,7 @@ from core.gateway import _FALLBACK, Gateway
 from core.router import RouteEnum
 from jarvis.providers.memory.auto_dream import AutoDream
 from jarvis.providers.memory.consolidation import ConsolidationAgent
-from tools.spotify import SpotifyTool
+from jarvis.capabilities.tools.spotify import SpotifyTool
 from jarvis.providers.vision.objects_queue import get_vision_objects_queue
 
 router = APIRouter()

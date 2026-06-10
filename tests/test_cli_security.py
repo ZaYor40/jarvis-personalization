@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tools.cli import ExecuteCLITool
+from jarvis.capabilities.tools.cli import ExecuteCLITool
 
 
 @pytest.fixture()

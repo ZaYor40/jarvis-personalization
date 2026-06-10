@@ -161,7 +161,7 @@ class TestSpawnSubagent:
 
     @pytest.mark.asyncio
     async def test_spawn_retourne_resume(self) -> None:
-        from tools.subagent import SpawnSubagentTool
+        from jarvis.capabilities.tools.subagent import SpawnSubagentTool
 
         mock_agent = MagicMock()
         mock_agent.respond_tools = AsyncMock(return_value="Résultat de la tâche déléguée.")
@@ -176,7 +176,7 @@ class TestSpawnSubagent:
     @pytest.mark.asyncio
     async def test_spawn_session_fraiche_sans_historique(self) -> None:
         from core.session import Session
-        from tools.subagent import SpawnSubagentTool
+        from jarvis.capabilities.tools.subagent import SpawnSubagentTool
 
         captured_sessions: list[Session] = []
 
@@ -197,7 +197,7 @@ class TestSpawnSubagent:
 
     @pytest.mark.asyncio
     async def test_spawn_erreur_retourne_is_error(self) -> None:
-        from tools.subagent import SpawnSubagentTool
+        from jarvis.capabilities.tools.subagent import SpawnSubagentTool
 
         mock_agent = MagicMock()
         mock_agent.respond_tools = AsyncMock(side_effect=RuntimeError("LLM down"))
@@ -232,7 +232,7 @@ class TestScriptRPC:
 
     @pytest.mark.asyncio
     async def test_script_appelle_outil_rpc(self, tmp_path: Path) -> None:
-        from tools.base import ToolResult
+        from jarvis.capabilities.tools.base import ToolResult
 
         mock_registry = MagicMock()
         mock_registry.schemas = MagicMock(return_value=[{"name": "weather"}])

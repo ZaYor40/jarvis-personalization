@@ -29,7 +29,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from agent.backends.base import ExecutionBackend
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
 # Sous-ensemble d'outils exposés dans le sandbox RPC.
 # Intersection avec les outils enregistrés au moment de l'exécution.

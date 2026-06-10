@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from loguru import logger
 
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 _TIMEOUT = 20.0
 _MAX_TEXT_LEN = 8000  # chars max retournés au LLM

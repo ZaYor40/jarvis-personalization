@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from config.settings import settings
 from jarvis.providers.memory.topics import TopicStore
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 if TYPE_CHECKING:
     from jarvis.providers.memory.search import FTSIndex, VectorIndex

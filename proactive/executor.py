@@ -147,7 +147,7 @@ class InitiativeExecutor:
             from pathlib import Path
 
             from config.settings import settings
-            from tools.gmail import send_gmail_draft
+            from jarvis.capabilities.tools.gmail import send_gmail_draft
 
             msg_id = await send_gmail_draft(
                 draft_content=init.draft_content or "",

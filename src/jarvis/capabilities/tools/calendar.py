@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 from loguru import logger
 
-from tools.base import Tool, ToolResult
+from jarvis.capabilities.tools.base import Tool, ToolResult
 
 _SCOPES = ["https://www.googleapis.com/auth/calendar"]
 _CAL_BASE = "https://www.googleapis.com/calendar/v3"

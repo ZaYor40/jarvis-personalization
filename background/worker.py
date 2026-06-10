@@ -12,7 +12,7 @@ from background.notifications import NotificationQueue
 from jarvis.providers.llm.base import LLMProvider
 
 if TYPE_CHECKING:
-    from tools.registry import ToolRegistry
+    from jarvis.capabilities.tools.registry import ToolRegistry
 
 _BG_SYSTEM = (
     "Tu es Jarvis. Exécute la tâche demandée avec les outils disponibles. "

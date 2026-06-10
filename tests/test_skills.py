@@ -343,7 +343,7 @@ async def test_skill_create_tool_succes(tmp_path: Path) -> None:
     from skills.lab import SkillLab
     from skills.lifecycle import SkillLifecycle
     from skills.synthesizer import SkillSynthesizer
-    from tools.skills import SkillCreateTool
+    from jarvis.capabilities.tools.skills import SkillCreateTool
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)
@@ -374,7 +374,7 @@ async def test_skill_create_tool_succes(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_skill_list_tool_vide() -> None:
     """SkillListTool retourne un message clair si aucun skill."""
-    from tools.skills import SkillListTool
+    from jarvis.capabilities.tools.skills import SkillListTool
 
     mock_registry = MagicMock()
     mock_registry.list_installed.return_value = []
@@ -390,7 +390,7 @@ async def test_skill_list_tool_vide() -> None:
 @pytest.mark.asyncio
 async def test_skill_list_tool_avec_skills() -> None:
     """SkillListTool liste les skills installés."""
-    from tools.skills import SkillListTool
+    from jarvis.capabilities.tools.skills import SkillListTool
 
     mock_registry = MagicMock()
     mock_registry.list_installed.return_value = [
@@ -415,7 +415,7 @@ async def test_skill_list_tool_avec_skills() -> None:
 async def test_skill_improve_tool_skill_absent() -> None:
     """SkillImproveTool retourne is_error=True si le skill est absent."""
     from skills.synthesizer import SkillSynthesizer
-    from tools.skills import SkillImproveTool
+    from jarvis.capabilities.tools.skills import SkillImproveTool
 
     mock_llm = _make_mock_llm("")
     synth = SkillSynthesizer(llm=mock_llm)
