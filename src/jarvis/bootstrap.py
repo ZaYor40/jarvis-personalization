@@ -187,17 +187,29 @@ def build(settings: Settings | None = None) -> Container:
     memory_kernel = MemoryKernel(memory_dir / "jarvis_memory.db")
     memory_mirror = MemoryMirror(memory_kernel, memory_dir / "mirror")
 
-    # ── 4. Providers L1 — LLM ──────────────────────────────────────────────
+    # ── 4. Engine L2 — UsageTracker (créé tôt pour injection dans les providers) ─
+    from jarvis.engine.tracking import UsageTracker
+
+    tracker = UsageTracker(on_usage_callback=None)
+
+    # ── 4bis. Providers L1 — LLM ───────────────────────────────────────────
     from jarvis.providers.llm.api import AnthropicProvider
     from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
 
-    llm = get_llm_provider()
-    background_llm = create_background_llm()
+    llm = get_llm_provider(tracker=tracker)
+    background_llm = create_background_llm(tracker=tracker)
     voice_llm: LLMProvider = (
-        get_llm_provider()
+        get_llm_provider(tracker=tracker)
         if settings.llm_provider == "local"
-        else AnthropicProvider(model=settings.voice_anthropic_model, max_tokens=1024)
+        else AnthropicProvider(
+            model=settings.voice_anthropic_model, max_tokens=1024, tracker=tracker
+        )
     )
+
+    # ── 4ter. Providers L1 — TTS (singleton module-level — set_tracker post-construction) ─
+    from jarvis.providers.audio.tts import tts_engine
+
+    tts_engine.set_tracker(tracker)
 
     memory_ingest = MemoryIngest(kernel=memory_kernel, llm=background_llm)
     user_model = UserModel(llm=background_llm, model_path=user_model_path)
@@ -283,10 +295,9 @@ def build(settings: Settings | None = None) -> Container:
     )
     tool_registry.replace_skill_tools(*skill_registry.get_all_tools())
 
-    # ── 6. Engine L2 — tracking & budget (two-phase setup) ─────────────────
+    # ── 6. Engine L2 — budget (tracker créé en section 4 ; two-phase setup) ─
     from jarvis.engine.background.notifications import NotificationQueue, ProactiveQueue
     from jarvis.engine.budget import BudgetGuard
-    from jarvis.engine.tracking import UsageTracker
 
     notifications = NotificationQueue()
     proactive_queue = ProactiveQueue()
@@ -294,7 +305,6 @@ def build(settings: Settings | None = None) -> Container:
     # ShowViewTool dépend de proactive_queue, donc enregistré après.
     tool_registry.register(ShowViewTool(broadcast_event=proactive_queue.broadcast_event))
 
-    tracker = UsageTracker(on_usage_callback=None)
     budget = BudgetGuard(
         settings=settings,
         tracker=tracker,

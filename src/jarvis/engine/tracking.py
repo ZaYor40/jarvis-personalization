@@ -325,4 +325,3 @@ class UsageTracker:
         return [round(h, 6) for h in hours]
 
 
-tracker = UsageTracker()

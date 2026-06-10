@@ -4,20 +4,34 @@ import asyncio
 import io
 import wave
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import httpx
 from loguru import logger
 
 from config.settings import settings
-from jarvis.engine.tracking import tracker
 from jarvis.kernel.schemas import UsageEntry, calculate_cost
+
+if TYPE_CHECKING:
+    from jarvis.kernel.contracts import UsageTracker
 
 
 class TTSEngine:
-    """Moteur TTS avec routing ElevenLabs / Piper selon TTS_PROVIDER."""
+    """Moteur TTS avec routing ElevenLabs / Piper selon TTS_PROVIDER.
 
-    def __init__(self) -> None:
+    Phase C — étape 2 (d) : `tracker` reçu par injection (constructeur ou
+    `set_tracker`). Aucun import depuis `jarvis.engine.*` (CYCLE 1 bouclé).
+    """
+
+    def __init__(self, tracker: UsageTracker | None = None) -> None:
         self._piper_voice: object = None
+        self._tracker = tracker
+
+    def set_tracker(self, tracker: UsageTracker) -> None:
+        """Injection post-construction (le singleton module-level est créé
+        avant que le Container n'existe ; bootstrap.build() pousse le tracker
+        ici juste après instanciation)."""
+        self._tracker = tracker
 
     async def synthesize(self, text: str) -> bytes:
         """Synthétise un texte → bytes audio. Route selon settings.tts_provider."""
@@ -58,16 +72,17 @@ class TTSEngine:
                     cost = calculate_cost(
                         "elevenlabs", settings.elevenlabs_model, characters=len(text)
                     )
-                    tracker.track(
-                        UsageEntry(
-                            timestamp=datetime.now().isoformat(),
-                            provider="elevenlabs",
-                            model=settings.elevenlabs_model,
-                            characters=len(text),
-                            cost_usd=cost,
-                            context="conversation",
+                    if self._tracker is not None:
+                        self._tracker.track(
+                            UsageEntry(
+                                timestamp=datetime.now().isoformat(),
+                                provider="elevenlabs",
+                                model=settings.elevenlabs_model,
+                                characters=len(text),
+                                cost_usd=cost,
+                                context="conversation",
+                            )
                         )
-                    )
                     return response.content
                 logger.error(f"ElevenLabs error {response.status_code} — {response.text[:300]}")
         except Exception as e:

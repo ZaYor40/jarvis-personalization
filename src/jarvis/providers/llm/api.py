@@ -6,26 +6,24 @@ import os
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import anthropic
 from loguru import logger
 from openai import AsyncOpenAI
 
 from config.settings import settings
-from jarvis.engine.tracking import tracker
 from jarvis.kernel.schemas import ToolCapture, UsageEntry, calculate_cost
 from jarvis.providers.llm.base import LLMProvider
 
+if TYPE_CHECKING:
+    from jarvis.kernel.contracts import UsageTracker
+
 _MAX_TOOL_ITERATIONS = 20
 
-# NB CYCLE 1 (CDC §C.1.3) : `from jarvis.engine.tracking import tracker`
-# subsiste pour réutiliser le singleton module-level (utilisé par tous les
-# providers pour `tracker.track(UsageEntry(...))`). Ce singleton sera
-# éliminé à la bascule app.py → bootstrap.build() (élimination groupée
-# avec _guard et _tool_registry_instance, conformément à la directive
-# « éviter l'état hybride »). À ce moment-là, ce dernier import engine→
-# providers disparaîtra aussi.
+# CYCLE 1 (CDC §C.1.3) — bouclé : aucun import depuis `jarvis.engine.*`.
+# Le tracker est reçu par constructeur (DI), typé via le Protocol
+# `jarvis.kernel.contracts.UsageTracker`. Câblage dans `bootstrap.build()`.
 
 
 # ── Helpers de conversion de format ──────────────────────────────────────────
@@ -109,10 +107,20 @@ def _messages_to_openai(messages: list[dict]) -> list[dict]:
 class AnthropicProvider(LLMProvider):
     """Provider Anthropic Claude via SDK officiel."""
 
-    def __init__(self, max_tokens: int = 2048, model: str | None = None) -> None:
+    def __init__(
+        self,
+        max_tokens: int = 2048,
+        model: str | None = None,
+        tracker: UsageTracker | None = None,
+    ) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._model = model or settings.anthropic_model
         self._max_tokens = max_tokens
+        self._tracker = tracker
+
+    def set_tracker(self, tracker: UsageTracker) -> None:
+        """Injection post-construction (utilisé pour providers créés par factory)."""
+        self._tracker = tracker
 
     @property
     def supports_tools(self) -> bool:
@@ -147,17 +155,18 @@ class AnthropicProvider(LLMProvider):
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
         )
-        tracker.track(
-            UsageEntry(
-                timestamp=datetime.now().isoformat(),
-                provider="anthropic",
-                model=self._model,
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-                cost_usd=cost,
-                context=context,
+        if self._tracker is not None:
+            self._tracker.track(
+                UsageEntry(
+                    timestamp=datetime.now().isoformat(),
+                    provider="anthropic",
+                    model=self._model,
+                    input_tokens=response.usage.input_tokens,
+                    output_tokens=response.usage.output_tokens,
+                    cost_usd=cost,
+                    context=context,
+                )
             )
-        )
         return text
 
     async def _stream(self, kwargs: dict) -> AsyncIterator[str]:
@@ -248,17 +257,18 @@ class AnthropicProvider(LLMProvider):
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
             )
-            tracker.track(
-                UsageEntry(
-                    timestamp=datetime.now().isoformat(),
-                    provider="anthropic",
-                    model=self._model,
-                    input_tokens=response.usage.input_tokens,
-                    output_tokens=response.usage.output_tokens,
-                    cost_usd=cost,
-                    context=context,
+            if self._tracker is not None:
+                self._tracker.track(
+                    UsageEntry(
+                        timestamp=datetime.now().isoformat(),
+                        provider="anthropic",
+                        model=self._model,
+                        input_tokens=response.usage.input_tokens,
+                        output_tokens=response.usage.output_tokens,
+                        cost_usd=cost,
+                        context=context,
+                    )
                 )
-            )
 
             if response.stop_reason != "tool_use":
                 text = "".join(
@@ -872,12 +882,21 @@ class OpenAIProvider(LLMProvider):
             return False
 
 
-def get_api_provider(backend: str = "anthropic", max_tokens: int = 2048) -> LLMProvider:
-    """Retourne le provider API selon le backend demandé."""
+def get_api_provider(
+    backend: str = "anthropic",
+    max_tokens: int = 2048,
+    tracker: UsageTracker | None = None,
+) -> LLMProvider:
+    """Retourne le provider API selon le backend demandé.
+
+    `tracker` est passé à AnthropicProvider (seul provider qui pousse une
+    UsageEntry vers le tracker pour l'instant). Les autres backends
+    l'ignorent — il sera branché si/quand ils ajoutent du tracking.
+    """
     if backend == "gemini":
         return GeminiProvider(max_tokens=max_tokens)
     if backend == "mistral":
         return MistralProvider()
     if backend == "openai":
         return OpenAIProvider()
-    return AnthropicProvider(max_tokens=max_tokens)
+    return AnthropicProvider(max_tokens=max_tokens, tracker=tracker)

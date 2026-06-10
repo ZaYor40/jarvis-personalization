@@ -37,6 +37,7 @@ from jarvis.kernel.schemas import (
     FactObservation,
     FactRelation,
     FactStatus,
+    UsageEntry,
 )
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -274,3 +275,15 @@ class Collector(Protocol):
     name: str
 
     async def collect(self) -> list[ContextItem]: ...
+
+
+@runtime_checkable
+class UsageTracker(Protocol):
+    """Tracker de consommation API/TTS (cf. engine/tracking.py).
+
+    Contract minimal utilisé par les providers L1 (LLM + audio) pour pousser
+    les coûts vers le moteur de tracking sans dépendre concrètement de
+    `engine.tracking.UsageTracker` (CYCLE 1 — providers→engine = 0).
+    """
+
+    def track(self, entry: UsageEntry) -> None: ...

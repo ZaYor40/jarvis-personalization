@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from config.settings import settings
 from jarvis.providers.llm.api import get_api_provider
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.llm.local import OllamaProvider
 
+if TYPE_CHECKING:
+    from jarvis.kernel.contracts import UsageTracker
 
-def get_llm_provider() -> LLMProvider:
+
+def get_llm_provider(tracker: UsageTracker | None = None) -> LLMProvider:
     """Instancie le provider LLM selon LLM_PROVIDER dans .env."""
     if settings.llm_provider == "local":
         return OllamaProvider()
-    return get_api_provider(settings.api_backend)
+    return get_api_provider(settings.api_backend, tracker=tracker)
 
 
-def create_background_llm() -> LLMProvider:
+def create_background_llm(tracker: UsageTracker | None = None) -> LLMProvider:
     """Provider léger et indépendant pour les tâches background (consolidation, auto_dream).
 
     Instance séparée = client HTTP distinct = aucune contention avec le provider principal.
@@ -22,5 +27,5 @@ def create_background_llm() -> LLMProvider:
     if settings.llm_provider == "local":
         return OllamaProvider()
     if settings.api_backend == "anthropic":
-        return get_api_provider("anthropic", max_tokens=500)
-    return get_api_provider(settings.api_backend)
+        return get_api_provider("anthropic", max_tokens=500, tracker=tracker)
+    return get_api_provider(settings.api_backend, tracker=tracker)
