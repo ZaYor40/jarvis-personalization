@@ -8,8 +8,8 @@ cd "$(dirname "$_SCRIPT")"
 
 case "${1:-}" in
   eclosion) bash setup.sh ;;
-  api)      uv run python main.py ;;
-  voice)    uv run python voice_agent.py dev ;;
+  api)      uv run python -m jarvis.app ;;
+  voice)    uv run python -m jarvis.interfaces.voice.agent dev ;;
   livekit)  livekit-server --dev --node-ip 127.0.0.1 --keys "devkey: devsecretdevsecretdevsecretdevsecret" ;;
   run|start)
     exec /usr/bin/env bash --noprofile --norc -c '
@@ -52,7 +52,8 @@ case "${1:-}" in
 
       # ── Cleanup ports + anciens process ──────────────────────────
       pkill -f "livekit-server" 2>/dev/null || true
-      pkill -f "voice_agent.py" 2>/dev/null || true
+      pkill -f "jarvis.interfaces.voice.agent" 2>/dev/null || true
+      pkill -f "voice_agent.py" 2>/dev/null || true  # legacy shim, à retirer post-refonte
       for _p in 7880 7881 8000; do
         _pid=$(lsof -nP -iTCP:$_p -sTCP:LISTEN -t 2>/dev/null || true)
         [ -n "$_pid" ] && kill -9 $_pid 2>/dev/null || true
@@ -107,7 +108,7 @@ case "${1:-}" in
 
       # 2) FastAPI
       _row_wait "API" "démarrage..."
-      uv run python main.py > "$API_LOG" 2>&1 &
+      uv run python -m jarvis.app > "$API_LOG" 2>&1 &
       _pids+=($!)
       if _wait_http "http://127.0.0.1:8000/health" 90; then
         printf "$CLEAR_LINE"; _row_ok "API" "http://localhost:8000"
@@ -118,7 +119,7 @@ case "${1:-}" in
 
       # 3) Voice worker (prewarm = ~10s pour charger Silero VAD + plugins)
       _row_wait "Vocal" "préchauffement (~10s)..."
-      PYTHONWARNINGS=ignore uv run python voice_agent.py dev --log-level info > "$VOICE_LOG" 2>&1 &
+      PYTHONWARNINGS=ignore uv run python -m jarvis.interfaces.voice.agent dev --log-level info > "$VOICE_LOG" 2>&1 &
       _pids+=($!)
       if _wait_grep "$VOICE_LOG" "Jarvis vocal prêt" 90; then
         printf "$CLEAR_LINE"; _row_ok "Vocal" "prêt"
@@ -220,7 +221,7 @@ def check_memory():
     return ("ok", f"{n} topics")
 
 def check_skills():
-    p = Path("skills/installed")
+    p = Path("skills_data/installed")
     n = len([d for d in p.iterdir() if d.is_dir()]) if p.exists() else 0
     return ("ok", f"{n} installes")
 
