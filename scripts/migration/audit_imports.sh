@@ -11,8 +11,25 @@
 # Le résultat se lit dans le rapport de phase, pas dans un fichier de gate
 # (sortie vers stdout ; la baseline numérique est notée dans le rapport A).
 #
-# Note portabilité : ce script utilise `grep -E` + classes POSIX (`[[:space:]]`)
-# pour fonctionner identiquement sur macOS (BSD grep) et Linux (GNU grep).
+# ─── SCOPE FIGÉ (du gel A → GATE C4) ─────────────────────────────────────────
+# La comparaison finale C4 ("imports différés < 15") n'a de sens que si CE
+# script mesure exactement la même chose qu'à la fin de la Phase A. Le scope
+# du grep est donc gelé et NE DOIT PAS être modifié avant la GATE C4 :
+#
+#   INCLUS   : tous les *.py sous la racine, y compris scripts/ (outillage),
+#              y compris kernel/ (ne doit rien importer du projet par règle 1),
+#              y compris l'ensemble du futur src/jarvis/ une fois en place.
+#   EXCLUS   : .git/, .venv/, __pycache__/, workspace/, tests/.
+#   FILTRES  : ligne contient "TYPE_CHECKING" → exclue (lazy autorisé).
+#              ligne contient "# lazy:"        → exclue (lazy déclaré).
+#
+# Baseline mesurée à la fin de la Phase A (commit 4d35b5a) :
+#   - 253 imports différés statiques
+#   - 75 fichiers concernés
+#   - 13 imports dynamiques (tous dans voice_agent.py)
+#
+# Note portabilité : `grep -E` + classes POSIX (`[[:space:]]`) pour
+# fonctionner identiquement sur macOS (BSD grep) et Linux (GNU grep).
 # Le pattern `\s\+` du CDC v1.3 n'est pas reconnu par BSD grep — corrigé ici.
 
 set -uo pipefail
