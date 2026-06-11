@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -15,7 +14,6 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
-import jarvis.interfaces.channels.telegram_bot as _tg_module
 from jarvis.analytics.registry import analytics_registry as _analytics_registry
 from jarvis.bootstrap import build
 from jarvis.capabilities.skills.dev_extensions import mount_dev_views
@@ -25,7 +23,6 @@ from jarvis.engine.background.routines import ROUTINES_ENABLED, Routine, Routine
 from jarvis.interfaces.api.admin import _ui_router as admin_ui_router
 from jarvis.interfaces.api.admin import router as admin_router
 from jarvis.interfaces.api.budget import router as budget_router
-from jarvis.interfaces.api.channels import router as channels_router
 from jarvis.interfaces.api.deezer import router as deezer_router
 from jarvis.interfaces.api.globe import router as globe_router
 from jarvis.interfaces.api.google_oauth import router as google_oauth_router
@@ -41,10 +38,8 @@ from jarvis.interfaces.api.spotify import router as spotify_router
 from jarvis.interfaces.api.voice_ws import router as voice_router
 from jarvis.interfaces.api.websocket import router as ws_router
 from jarvis.interfaces.api.widgets import router as widgets_router
-from jarvis.interfaces.channels.discord_bot import DiscordChannel
-from jarvis.interfaces.channels.gateway import MessagingGateway
-from jarvis.interfaces.channels.telegram_bot import TelegramChannel, get_telegram_channel
-from jarvis.kernel.connectivity import is_offline_mode
+from jarvis.interfaces.channels.setup import setup_channels
+from jarvis.interfaces.channels.telegram_bot import get_telegram_channel
 from jarvis.kernel.paths import UI_STATIC_DIR
 from jarvis.kernel.settings import settings
 from jarvis.providers.audio.clap_detector import ClapDetector
@@ -200,37 +195,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # ── Channels (Telegram/Discord) — hors-Container par design (interfaces L3) ─
 
-    _messaging_gw: MessagingGateway | None = None
-    _telegram_enabled = os.getenv("TELEGRAM_ENABLED", "false").lower() == "true"
-    _discord_enabled = os.getenv("DISCORD_ENABLED", "false").lower() == "true"
-    _messaging_enabled = os.getenv("MESSAGING_GATEWAY_ENABLED", "false").lower() == "true"
-
-    if is_offline_mode() and (_telegram_enabled or _discord_enabled or _messaging_enabled):
-        logger.info(
-            "Canaux réseau (Telegram/Discord) désactivés — mode local actif",
-            telegram=_telegram_enabled,
-            discord=_discord_enabled,
-        )
-    elif _messaging_enabled:
-        _messaging_gw = MessagingGateway(jarvis_gateway=container.gateway)
-        if _telegram_enabled:
-            telegram = TelegramChannel()
-            _tg_module._telegram_instance = telegram
-            _messaging_gw.register(telegram)
-        if _discord_enabled:
-            _messaging_gw.register(DiscordChannel())
-        app.state.messaging_gateway = _messaging_gw
-        app.include_router(channels_router)
-        await _messaging_gw.start_all()
-        logger.info(
-            "MessagingGateway démarré",
-            adapters=list(_messaging_gw._adapters.keys()),
-        )
-    elif _telegram_enabled:
-        telegram = TelegramChannel(gateway=container.gateway)
-        _tg_module._telegram_instance = telegram
-        asyncio.create_task(telegram.start(), name="telegram-bot")
-        logger.info("Canal Telegram démarré (mode legacy)")
+    _messaging_gw = await setup_channels(app, container)
 
     logger.info(
         "Jarvis démarré",
