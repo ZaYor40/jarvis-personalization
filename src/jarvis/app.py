@@ -20,9 +20,7 @@ from jarvis.analytics.registry import analytics_registry as _analytics_registry
 from jarvis.bootstrap import build
 from jarvis.capabilities.skills.dev_extensions import mount_dev_views
 from jarvis.capabilities.skills.registry import skill_registry
-from jarvis.engine.approval_checker import set_approval_checker
 from jarvis.engine.auth import verify_api_token  # ── [AUTH] ──
-from jarvis.engine.background.notifications import set_proactive_queue
 from jarvis.engine.background.routines import ROUTINES_ENABLED, Routine, RoutineStore
 from jarvis.interfaces.api.admin import _ui_router as admin_ui_router
 from jarvis.interfaces.api.admin import router as admin_router
@@ -112,15 +110,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.curator = container.curator
     app.state.command_center = container.command_center
 
-    # Singletons résiduels post-étape 2 (b) :
-    #  - set_proactive_queue / set_approval_checker : routes ws_voice & ws_chat
-    #    n'ont pas (encore) accès à app.state.container — élimination en E.
+    # Singleton résiduel post-étape 2 (b) :
     #  - `tracker` (jarvis.engine.tracking) reste module-level pour cette étape
     #    (b) et bascule en injection constructeur dans l'étape (d) qui touche
     #    providers/llm/api.py + providers/audio/tts.py (commit isolé pour bisect).
+    #  set_proactive_queue / set_approval_checker sont câblés directement dans
+    #  bootstrap.build() (Phase G — polish post-v0.2.0).
 
-    set_proactive_queue(container.proactive_queue)
-    set_approval_checker(container.approval_checker)
     if settings.budget_enabled:
         logger.info(
             "BudgetGuard activé",

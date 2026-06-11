@@ -55,7 +55,11 @@ from jarvis.capabilities.tools.vision import VisionTool
 from jarvis.capabilities.tools.weather import WeatherTool
 from jarvis.engine.agent import Agent
 from jarvis.engine.approval_checker import ApprovalChecker
-from jarvis.engine.background.notifications import NotificationQueue, ProactiveQueue
+from jarvis.engine.background.notifications import (
+    NotificationQueue,
+    ProactiveQueue,
+    set_proactive_queue,
+)
 from jarvis.engine.background.scheduler import Scheduler
 from jarvis.engine.background.worker import BackgroundWorker
 from jarvis.engine.budget import BudgetGuard
@@ -74,6 +78,7 @@ from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
 from jarvis.engine.proactive.store import InitiativeStore
 from jarvis.engine.session import SessionManager
 from jarvis.engine.tracking import UsageEntry, UsageTracker
+from jarvis.kernel.approval import set_approval_checker
 from jarvis.kernel.events import (
     BudgetThresholdReached,
     EventBus,
@@ -498,6 +503,12 @@ def build(
     assert isinstance(tracker, _contracts.UsageTracker), (
         "tracker: UsageTracker Protocol non respecté"
     )
+
+    # Singletons résiduels (post-étape 2 b) : ws_voice/ws_chat n'ont pas
+    # (encore) accès au Container — bascule prévue Phase E sur
+    # request.app.state.container.X, ce câblage tombera à ce moment.
+    set_proactive_queue(proactive_queue)
+    set_approval_checker(approval_checker)
 
     return Container(
         settings=settings,
