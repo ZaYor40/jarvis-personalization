@@ -12,8 +12,8 @@ from PIL import Image, ImageGrab
 
 from config.settings import settings
 from jarvis.capabilities.tools.base import Tool, ToolResult
+from jarvis.kernel.contracts import VisualMemory
 from jarvis.kernel.permissions import permissions as _perms
-from jarvis.providers.memory import visual_memory
 
 
 class VisionTool(Tool):
@@ -73,9 +73,9 @@ class VisionTool(Tool):
         "required": ["question"],
     }
 
-    def __init__(self) -> None:
-
+    def __init__(self, visual_memory: VisualMemory) -> None:
         self._openai = AsyncOpenAI(api_key=settings.openai_api_key)
+        self._visual_memory = visual_memory
 
     async def execute(
         self,
@@ -89,7 +89,7 @@ class VisionTool(Tool):
         # ── Recall — pas de capture ───────────────────────────────────────────
         if action == "recall":
 
-            matches = await visual_memory.search(question)
+            matches = await self._visual_memory.search(question)
             if matches:
                 return ToolResult(
                     content="Voici ce dont je me souviens :\n\n" + "\n\n---\n\n".join(matches)
@@ -190,7 +190,9 @@ class VisionTool(Tool):
     async def _store_memory(self, description: str, source: str, action: str, context: str) -> None:
         try:
 
-            await visual_memory.store(description=description, source=source, context=context)
+            await self._visual_memory.store(
+                description=description, source=source, context=context
+            )
         except Exception as e:
             logger.debug("Visual memory store failed", error=str(e))
 

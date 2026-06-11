@@ -45,8 +45,8 @@ from jarvis.capabilities.skills.synthesizer import (
     SkillSynthesizer,
 )
 from jarvis.engine.mission.docker_executor import DockerExecutor
+from jarvis.kernel.contracts import MemoryStore as MemoryKernel
 from jarvis.kernel.paths import PROJECT_ROOT
-from jarvis.providers.memory.kernel import MemoryKernel
 
 # Plafond du nombre d'events skill_candidate_proposal traités par scan.
 _MAX_EVENTS_PER_SCAN = 20

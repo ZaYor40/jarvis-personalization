@@ -85,6 +85,12 @@ _proactive_queue_instance: ProactiveQueue | None = None
 def set_proactive_queue(q: ProactiveQueue) -> None:
     global _proactive_queue_instance
     _proactive_queue_instance = q
+    # Phase F : ré-enregistre dans kernel.notifications pour que les
+    # capabilities (preset, executor) puissent broadcaster sans importer
+    # jarvis.engine.* (RÈGLE 2).
+    from jarvis.kernel.notifications import set_proactive_queue as _kernel_set
+
+    _kernel_set(q)
 
 
 async def broadcast_event(event: dict) -> None:

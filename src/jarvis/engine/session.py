@@ -1,33 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from jarvis.kernel.contracts import SessionStore
+from jarvis.kernel.schemas import Session
 
-
-@dataclass
-class Session:
-    """Une conversation thématique : UUID + historique + persist callback."""
-
-    id: UUID = field(default_factory=uuid4)
-    messages: list[dict] = field(default_factory=list)
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    # Callback appelé à chaque add_message pour la persistance JSONL.
-    # init=False : non inclus dans __init__, positionné par SessionManager.
-    _persist: Callable[[str, str], None] | None = field(
-        default=None, init=False, repr=False, compare=False
-    )
-
-    def set_persist(self, callback: Callable[[str, str], None]) -> None:
-        self._persist = callback
-
-    def add_message(self, role: str, content: str) -> None:
-        self.messages.append({"role": role, "content": content})
-        if self._persist:
-            self._persist(role, content)
+# Re-export pour compat des call-sites historiques (`from jarvis.engine
+# .session import Session`). Phase F : la dataclass est descendue en
+# kernel.schemas pour permettre à capabilities/ de l'instancier sans
+# violer RÈGLE 2 (capabilities n'importe que kernel).
+__all__ = ["Session", "SessionManager"]
 
 
 class SessionManager:

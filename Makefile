@@ -1,4 +1,18 @@
-.PHONY: boot run voice livekit start
+.PHONY: boot run voice livekit start lint test typecheck
+
+# ── Garde-fous architecture (Phase F) ────────────────────────────────
+# `make lint` : ruff + import-linter (contrat de couches CDC §2.2).
+# `make typecheck` : mypy scopé kernel + conformité Protocols (F.1.3bis).
+# `make test` : suite pytest (unit + integration).
+lint:
+	@uv run ruff check
+	@uv run lint-imports
+
+typecheck:
+	@uv run mypy
+
+test:
+	@uv run pytest -q
 
 start:
 	@echo "Démarrage Jarvis (LiveKit + API + Voice)..."

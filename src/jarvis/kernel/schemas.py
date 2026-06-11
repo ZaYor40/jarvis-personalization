@@ -465,3 +465,39 @@ class SkillRecord:
     promoted_at: datetime | None = None
     archived_at: datetime | None = None
     updated_at: datetime = field(default_factory=datetime.now)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Section 7 — Session (ex-engine/session.py)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Descendue en kernel en Phase F (import-linter) : `capabilities/tools/
+# subagent.py` instancie une Session pour démarrer une session sous-agent
+# isolée — pattern légitime, mais RÈGLE 2 interdit capabilities → engine.
+# Session est une dataclass + 2 méthodes (set_persist, add_message) avec
+# un callback de persistance — pure transit de données, naturel en kernel.
+
+from collections.abc import Callable  # noqa: E402
+from uuid import UUID, uuid4  # noqa: E402
+
+
+@dataclass
+class Session:
+    """Une conversation thématique : UUID + historique + persist callback."""
+
+    id: UUID = field(default_factory=uuid4)
+    messages: list[dict] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.now)
+    # Callback appelé à chaque add_message pour la persistance JSONL.
+    # init=False : non inclus dans __init__, positionné par SessionManager.
+    _persist: Callable[[str, str], None] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    def set_persist(self, callback: Callable[[str, str], None]) -> None:
+        self._persist = callback
+
+    def add_message(self, role: str, content: str) -> None:
+        self.messages.append({"role": role, "content": content})
+        if self._persist:
+            self._persist(role, content)

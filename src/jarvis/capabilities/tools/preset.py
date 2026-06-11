@@ -6,8 +6,8 @@ from jarvis.capabilities.skills.executor import PresetExecutor
 from jarvis.capabilities.skills.registry import skill_registry
 from jarvis.capabilities.tools.base import Tool, ToolResult
 from jarvis.capabilities.tools.registry import ToolRegistry
-from jarvis.engine.background.notifications import broadcast_event
-from jarvis.providers.audio.tts import tts_engine
+from jarvis.kernel.contracts import TTSEngine
+from jarvis.kernel.notifications import broadcast_event
 
 
 class ExecutePresetTool(Tool):
@@ -32,11 +32,11 @@ class ExecutePresetTool(Tool):
         "required": ["preset_name"],
     }
 
-    def __init__(self, *, tool_registry: ToolRegistry) -> None:
+    def __init__(self, *, tool_registry: ToolRegistry, tts_engine: TTSEngine) -> None:
         self._tool_registry = tool_registry
+        self._tts_engine = tts_engine
 
     async def execute(self, preset_name: str, **_: object) -> ToolResult:
-
         preset = skill_registry.get_preset(preset_name)
 
         if not preset:
@@ -47,7 +47,7 @@ class ExecutePresetTool(Tool):
 
         executor = PresetExecutor(
             tool_registry=self._tool_registry,
-            tts_engine=tts_engine,
+            tts_engine=self._tts_engine,
         )
 
         results = await executor.execute(preset, broadcast_fn=broadcast_event)

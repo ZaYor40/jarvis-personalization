@@ -4,8 +4,7 @@ from pathlib import Path
 
 from config.settings import settings
 from jarvis.capabilities.tools.base import Tool, ToolResult
-from jarvis.providers.memory.search import FTSIndex, VectorIndex
-from jarvis.providers.memory.topics import TopicStore
+from jarvis.kernel.contracts import FTSIndex, TopicStore, VectorIndex
 
 
 def _is_invalid_filename(filename: str) -> bool:
@@ -93,9 +92,8 @@ class MemoryLoadTopicTool(Tool):
         "required": ["filename"],
     }
 
-    def __init__(self, topics_dir: Path | None = None) -> None:
-        self._dir = topics_dir or (Path(settings.memory_dir) / "topics")
-        self._store = TopicStore(self._dir)
+    def __init__(self, topic_store: TopicStore) -> None:
+        self._store = topic_store
 
     async def execute(self, filename: str) -> ToolResult:
         if _is_invalid_filename(filename):

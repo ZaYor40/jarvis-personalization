@@ -9,9 +9,8 @@ from pathlib import Path
 import yaml
 from loguru import logger
 
+from jarvis.kernel.contracts import LLMProvider
 from jarvis.kernel.paths import SKILLS_CANDIDATES_DIR, SKILLS_INSTALLED_DIR  # noqa: F401, E402
-from jarvis.providers.llm.base import LLMProvider
-from jarvis.providers.llm.factory import get_llm_provider
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
@@ -99,7 +98,7 @@ class SkillSynthesizer:
 
     Usage::
 
-        synth = SkillSynthesizer()
+        synth = SkillSynthesizer(llm=llm)  # llm injecté par bootstrap.build()
         # PHASE 4 : on génère une candidate dans candidates_dir, JAMAIS
         # directement dans installed/. La promotion exige une validation
         # humaine via SkillLab.promote().
@@ -107,10 +106,7 @@ class SkillSynthesizer:
         await synth.improve_skill(skill_name, "Nouvelle leçon apprise.")
     """
 
-    def __init__(self, llm: LLMProvider | None = None) -> None:
-        if llm is None:
-
-            llm = get_llm_provider()
+    def __init__(self, llm: LLMProvider) -> None:
         self._llm = llm
 
     # ── API publique ──────────────────────────────────────────────────────────

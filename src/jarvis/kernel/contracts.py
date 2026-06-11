@@ -170,6 +170,80 @@ class MemoryIndex(Protocol):
     def add_pointer(self, section: str, key: str, filepath: str, description: str) -> None: ...
 
 
+@runtime_checkable
+class FTSIndex(Protocol):
+    """Index full-text SQLite des sessions (cf. memory/search.py)."""
+
+    async def add(self, doc_id: str, text: str) -> None: ...
+    async def remove(self, doc_id: str) -> None: ...
+    async def search(self, query: str, k: int = 5) -> list[dict]: ...
+    async def count(self) -> int: ...
+    async def is_empty(self) -> bool: ...
+
+
+@runtime_checkable
+class VectorIndex(Protocol):
+    """Index vectoriel multilingue des topics + transcripts (cf. memory/search.py)."""
+
+    async def add(self, doc_id: str, text: str, metadata: dict | None = None) -> None: ...
+    async def search(self, query: str, k: int = 5) -> list[dict]: ...
+    async def persist(self) -> None: ...
+    def is_empty(self) -> bool: ...
+
+
+@runtime_checkable
+class VisualMemory(Protocol):
+    """Stockage + recherche des souvenirs visuels (cf. memory/visual_memory.py).
+
+    Le module historique expose des fonctions au niveau module (`search`,
+    `store`) ; le Protocol structural les expose comme attributs callables
+    pour permettre l'injection du module (vu comme un namespace) dans
+    les capabilities sans import direct.
+    """
+
+    async def search(self, query: str) -> list[str]: ...
+    async def store(
+        self, description: str, source: str, context: str = "", tags: list[str] | None = None
+    ) -> None: ...
+
+
+@runtime_checkable
+class TTSEngine(Protocol):
+    """Moteur de synthèse vocale (cf. providers/audio/tts.py)."""
+
+    async def synthesize(self, text: str) -> bytes: ...
+
+
+@runtime_checkable
+class ApprovalChecker(Protocol):
+    """Garde-fou approval gating (cf. engine/approval_checker.py).
+
+    Phase F : utilisé par les tools `capabilities/tools/{subagent, fusion,
+    printer}` qui doivent demander confirmation à l'utilisateur avant une
+    action sensible (écriture de code, action externe, etc.). Le Protocol
+    leur évite d'importer concrètement `engine.approval_checker`.
+    """
+
+    async def check(self, category: str, description: str, action_id: str) -> bool: ...
+
+
+@runtime_checkable
+class CapabilityEngine(Protocol):
+    """Moteur de proposition de capacités manquantes (cf. engine/mission/
+    capability_engine.py).
+
+    Phase F : utilisé par `capabilities/tools/capability.py
+    ReportMissingCapabilityTool` pour notifier le LLM qu'une capacité
+    n'existe pas et déclencher une éventuelle proposition de skill.
+    """
+
+    async def detect_and_propose(
+        self,
+        description: str,
+        example_input: str | None = None,
+    ) -> Any: ...  # noqa: ANN401 — type ResolutionResult défini en engine/mission
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # L1 — Capabilities (tools, skills)
 # ════════════════════════════════════════════════════════════════════════════

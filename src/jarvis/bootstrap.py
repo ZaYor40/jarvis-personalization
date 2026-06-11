@@ -88,6 +88,7 @@ from jarvis.providers.audio.tts import tts_engine
 from jarvis.providers.llm.api import AnthropicProvider
 from jarvis.providers.llm.base import LLMProvider
 from jarvis.providers.llm.factory import create_background_llm, get_llm_provider
+from jarvis.providers.memory import visual_memory as _visual_memory
 from jarvis.providers.memory.auto_dream import AutoDream
 from jarvis.providers.memory.consolidation import ConsolidationAgent, CrossSessionRecall
 from jarvis.providers.memory.index import MemoryIndex
@@ -269,7 +270,7 @@ def build(settings: Settings | None = None) -> Container:
     tool_registry.register(
         WeatherTool(),
         BrowserTool(),
-        VisionTool(),
+        VisionTool(visual_memory=_visual_memory),
         ReadFileTool(allowed_roots=allowed_roots),
         FindFilesTool(allowed_roots=allowed_roots),
         CLIRunnerTool(whitelist_path=Path(settings.cli_whitelist_path)),
@@ -278,11 +279,11 @@ def build(settings: Settings | None = None) -> Container:
         CalendarCreateTool(credentials_path=_google_creds, token_path=_calendar_token),
         notion_tasks_tool,
         MemoryTopicWriteTool(vector_index=vector_index),
-        MemoryLoadTopicTool(),
+        MemoryLoadTopicTool(topic_store=topic_store),
         MemorySearchTool(vector_index=vector_index),
         SpotifyTool(),
         GmailListTool(credentials_path=_google_creds, token_path=_gmail_token),
-        ExecutePresetTool(tool_registry=tool_registry),
+        ExecutePresetTool(tool_registry=tool_registry, tts_engine=tts_engine),
         CrossSessionRecallTool(fts_index=fts_index, vector_index=vector_index),
     )
     tool_registry.replace_skill_tools(*skill_registry.get_all_tools())

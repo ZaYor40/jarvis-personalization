@@ -136,10 +136,7 @@ class SkillImproveTool(Tool):
         "required": ["skill_name", "new_experience"],
     }
 
-    def __init__(self, synthesizer: SkillSynthesizer | None = None) -> None:
-        if synthesizer is None:
-
-            synthesizer = SkillSynthesizer()
+    def __init__(self, synthesizer: SkillSynthesizer) -> None:
         self._synthesizer = synthesizer
 
     async def execute(  # type: ignore[override]

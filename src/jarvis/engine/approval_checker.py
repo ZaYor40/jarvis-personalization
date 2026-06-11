@@ -11,17 +11,10 @@ from loguru import logger
 
 from config.approvals import ApprovalMode, approval_config
 
-# Module-level singleton — initialisé depuis main.py via set_approval_checker()
-_instance: ApprovalChecker | None = None
-
-
-def get_approval_checker() -> ApprovalChecker | None:
-    return _instance
-
-
-def set_approval_checker(checker: ApprovalChecker) -> None:
-    global _instance
-    _instance = checker
+# Phase F : le singleton vit en `jarvis.kernel.approval` pour permettre aux
+# tools plugin de capabilities/ d'y accéder sans violer RÈGLE 2. Ces
+# ré-exports gardent les call-sites historiques compatibles.
+from jarvis.kernel.approval import get_approval_checker, set_approval_checker  # noqa: F401
 
 
 class ApprovalChecker:

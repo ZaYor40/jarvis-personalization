@@ -9,7 +9,7 @@ from loguru import logger
 
 from jarvis.capabilities.skills.app_checker import check_all_apps
 from jarvis.capabilities.skills.base import PresetSkill, PresetStep
-from jarvis.engine.background.notifications import broadcast_audio
+from jarvis.kernel.notifications import broadcast_audio
 
 
 class PresetExecutor:

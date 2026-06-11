@@ -199,7 +199,7 @@ async def test_memory_load_topic_reads_existing(tmp_path: Path) -> None:
     store = TopicStore(topics_dir)
     store.write("user_prefs.md", "# Préférences\nMode sombre activé.")
 
-    tool = MemoryLoadTopicTool(topics_dir=topics_dir)
+    tool = MemoryLoadTopicTool(topic_store=TopicStore(topics_dir))
     result = await tool.execute(filename="user_prefs.md")
 
     assert not result.is_error
@@ -207,7 +207,7 @@ async def test_memory_load_topic_reads_existing(tmp_path: Path) -> None:
 
 
 async def test_memory_load_topic_rejects_invalid_name(tmp_path: Path) -> None:
-    tool = MemoryLoadTopicTool(topics_dir=tmp_path / "topics")
+    tool = MemoryLoadTopicTool(topic_store=TopicStore(tmp_path / "topics"))
     for bad in ["../secret.md", "etc/passwd", "no_extension", "evil\\path.md"]:
         result = await tool.execute(filename=bad)
         assert result.is_error, f"Nom invalide accepté : {bad}"
@@ -216,7 +216,7 @@ async def test_memory_load_topic_rejects_invalid_name(tmp_path: Path) -> None:
 async def test_memory_load_topic_unknown_file(tmp_path: Path) -> None:
     topics_dir = tmp_path / "topics"
     TopicStore(topics_dir)  # crée le dossier
-    tool = MemoryLoadTopicTool(topics_dir=topics_dir)
+    tool = MemoryLoadTopicTool(topic_store=TopicStore(topics_dir))
     result = await tool.execute(filename="inexistant.md")
     assert result.is_error
     assert "introuvable" in result.content.lower()

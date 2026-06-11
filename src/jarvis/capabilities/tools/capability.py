@@ -11,7 +11,7 @@ Promotion vers installed/ : EXIGE un humain (POST /api/skills/lab/{name}/promote
 from __future__ import annotations
 
 from jarvis.capabilities.tools.base import Tool, ToolResult
-from jarvis.engine.mission.capability_engine import CapabilityEngine
+from jarvis.kernel.contracts import CapabilityEngine
 
 
 class ReportMissingCapabilityTool(Tool):

@@ -115,4 +115,94 @@ dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.15.11",
+    "import-linter>=2.0",
+    "mypy>=1.13",
 ]
+
+[tool.importlinter]
+root_package = "jarvis"
+
+# Le contrat de couches strict (`type = "layers"`) n'exprime pas correctement
+# la topologie du projet (cf. CDC §2.2) parce que :
+#   - `app.py` et `interfaces/voice/agent.py` doivent tous deux appeler
+#     `bootstrap.build()` (2 entry-points = 2 process) ; ils ne sont pas
+#     un layer unique au-dessus des autres ;
+#   - `app.py` doit importer les routers `interfaces.api.*` pour les
+#     monter, mais voice/agent n'a pas besoin de routers ;
+#   - les 4 sous-packages L1 (providers, capabilities, analytics, hardware)
+#     ne s'importent pas entre eux (RÈGLE 2).
+# Solution : 3 contrats `forbidden` qui encodent fidèlement les 3 RÈGLES
+# du CDC. Le "layering" implicite tombe directement de cette table d'interdictions.
+
+[[tool.importlinter.contracts]]
+name = "RÈGLE 1 — Kernel indépendant"
+type = "forbidden"
+source_modules = ["jarvis.kernel"]
+forbidden_modules = [
+    "jarvis.engine",
+    "jarvis.providers",
+    "jarvis.capabilities",
+    "jarvis.interfaces",
+    "jarvis.app",
+    "jarvis.bootstrap",
+    "jarvis.analytics",
+    "jarvis.hardware",
+]
+
+[[tool.importlinter.contracts]]
+name = "RÈGLE 2 — Providers/Capabilities/Analytics/Hardware n'importent que kernel"
+type = "forbidden"
+source_modules = [
+    "jarvis.providers",
+    "jarvis.capabilities",
+    "jarvis.analytics",
+    "jarvis.hardware",
+]
+forbidden_modules = [
+    "jarvis.engine",
+    "jarvis.interfaces",
+    "jarvis.app",
+    "jarvis.bootstrap",
+]
+# Résidus connus tolérés : tools plugin instanciés par skills utilisateur
+# sans DI possible, et un type Agent passé en signature. Voir BACKLOG
+# Phase G "fermer RÈGLE 2 strict".
+ignore_imports = [
+    "jarvis.capabilities.tools.subagent -> jarvis.engine.agent",
+    "jarvis.capabilities.tools.subagent -> jarvis.engine.mission.backends.rpc",
+    "jarvis.capabilities.skills.lab -> jarvis.engine.mission.docker_executor",
+]
+
+[[tool.importlinter.contracts]]
+name = "RÈGLE 3 — Engine n'importe que kernel"
+type = "forbidden"
+source_modules = ["jarvis.engine"]
+forbidden_modules = [
+    "jarvis.providers",
+    "jarvis.capabilities",
+    "jarvis.interfaces",
+    "jarvis.app",
+    "jarvis.bootstrap",
+    "jarvis.analytics",
+    "jarvis.hardware",
+]
+# Plugin Fusion 360 instancié à la demande dans worker_agent quand un step
+# nomme `fusion_360` — l'import est lazy et annoté `# lazy: plugin`.
+ignore_imports = [
+    "jarvis.engine.mission.worker_agent -> jarvis.capabilities.tools.fusion",
+]
+
+[tool.mypy]
+# Scope strict : kernel + test de conformité des Protocols (CDC §F.1.3bis).
+# Le reste du codebase (46k lignes) reste à typer en chantier séparé.
+files = [
+    "src/jarvis/kernel",
+    "tests/unit/kernel/test_contracts_conformance.py",
+]
+python_version = "3.11"
+strict_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = false
+no_implicit_optional = true
+ignore_missing_imports = true
