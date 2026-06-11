@@ -13,15 +13,15 @@ from pathlib import Path
 
 import pytest
 
-from llm.base import LLMProvider
-from memory.ingest import (
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.memory.ingest import (
     CONFIDENCE_EXPLICIT,
     CONFIDENCE_INFERENCE,
     CONFIRM_DELTA,
     MemoryIngest,
 )
-from memory.kernel import MemoryKernel
-from memory.schemas import FactStatus, ObservationType, RelationType
+from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.providers.memory.schemas import FactStatus, ObservationType, RelationType
 
 # ── Fake LLM contrôlé ─────────────────────────────────────────────────────────
 
@@ -371,7 +371,7 @@ async def test_max_5_facts_par_ingest(kernel: MemoryKernel) -> None:
 
 async def test_decay_policy_par_categorie(kernel: MemoryKernel) -> None:
     """goal → fast, identity → none, preference → medium."""
-    from memory.schemas import DecayPolicy
+    from jarvis.providers.memory.schemas import DecayPolicy
 
     llm = _ScriptedLLM(
         [
@@ -457,9 +457,7 @@ async def test_arbiter_appele_sur_stable_object_different(
     old_id = r1.new_facts[0].id
 
     # Patch le verdict pour pointer sur le bon id
-    llm._arbiter_scripts = [
-        {"verdict": "same_as", "target_fact_id": old_id, "notes": ""}
-    ]
+    llm._arbiter_scripts = [{"verdict": "same_as", "target_fact_id": old_id, "notes": ""}]
 
     r2 = await ingest.ingest("...", source="t")
     assert ingest.arbiter_calls == 1

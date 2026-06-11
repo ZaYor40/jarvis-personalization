@@ -17,15 +17,15 @@ from datetime import datetime
 
 import pytest
 
-from agent.schemas import Step, StepStatus, validate_step
-from core.vocab import (
+from jarvis.engine.mission.schemas import Step, StepStatus, validate_step
+from jarvis.engine.vocab import (
     AUTO_MAX_LEVEL,
     CATEGORIES,
     PREDICATES,
     AccessLevel,
     AutonomyLevel,
 )
-from memory.schemas import (
+from jarvis.providers.memory.schemas import (
     DecayPolicy,
     Event,
     Fact,

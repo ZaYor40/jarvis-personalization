@@ -15,9 +15,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from loguru import logger
 
-from llm.api import AnthropicProvider, MistralProvider, OpenAIProvider
-from llm.factory import get_llm_provider
-from llm.local import OllamaProvider
+from jarvis.providers.llm.api import AnthropicProvider, MistralProvider, OpenAIProvider
+from jarvis.providers.llm.factory import get_llm_provider
+from jarvis.providers.llm.local import OllamaProvider
 
 
 async def run(provider_name: str, stream: bool) -> None:

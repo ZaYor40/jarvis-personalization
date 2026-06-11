@@ -71,14 +71,12 @@ def _make_mock_llm(response: str) -> MagicMock:
 @pytest.mark.asyncio
 async def test_propose_skill_candidate_cree_les_fichiers(tmp_path: Path) -> None:
     """propose_skill_candidate génère SKILL.md, skill.yaml et skill.py valides."""
-    from skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)
 
-    skill_name = await synth.propose_skill_candidate(
-        _SAMPLE_TRAJECTORY, target_dir=tmp_path
-    )
+    skill_name = await synth.propose_skill_candidate(_SAMPLE_TRAJECTORY, target_dir=tmp_path)
 
     skill_dir = tmp_path / skill_name
     assert skill_dir.exists(), f"Dossier skill absent : {skill_dir}"
@@ -90,14 +88,12 @@ async def test_propose_skill_candidate_cree_les_fichiers(tmp_path: Path) -> None
 @pytest.mark.asyncio
 async def test_propose_skill_candidate_skill_md_valide(tmp_path: Path) -> None:
     """Le SKILL.md généré a un frontmatter valide (name + description)."""
-    from skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)
 
-    skill_name = await synth.propose_skill_candidate(
-        _SAMPLE_TRAJECTORY, target_dir=tmp_path
-    )
+    skill_name = await synth.propose_skill_candidate(_SAMPLE_TRAJECTORY, target_dir=tmp_path)
 
     skill_md = (tmp_path / skill_name / "SKILL.md").read_text(encoding="utf-8")
     import re
@@ -114,14 +110,12 @@ async def test_propose_skill_candidate_skill_yaml_contient_system_prompt(
     tmp_path: Path,
 ) -> None:
     """Le skill.yaml contient un system_prompt non vide."""
-    from skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)
 
-    skill_name = await synth.propose_skill_candidate(
-        _SAMPLE_TRAJECTORY, target_dir=tmp_path
-    )
+    skill_name = await synth.propose_skill_candidate(_SAMPLE_TRAJECTORY, target_dir=tmp_path)
 
     with (tmp_path / skill_name / "skill.yaml").open(encoding="utf-8") as f:
         meta = yaml.safe_load(f)
@@ -132,7 +126,7 @@ async def test_propose_skill_candidate_skill_yaml_contient_system_prompt(
 @pytest.mark.asyncio
 async def test_propose_skill_candidate_nom_invalide_leve_erreur(tmp_path: Path) -> None:
     """propose_skill_candidate lève ValueError si le LLM retourne un nom invalide."""
-    from skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 
     bad_md = "---\nname: INVALID_NAME_WITH_CAPS\ndescription: test\n---\nBody."
     mock_llm = _make_mock_llm(bad_md)
@@ -145,7 +139,7 @@ async def test_propose_skill_candidate_nom_invalide_leve_erreur(tmp_path: Path) 
 @pytest.mark.asyncio
 async def test_improve_skill_met_a_jour_les_fichiers(tmp_path: Path) -> None:
     """improve_skill met à jour SKILL.md, skill.yaml et skill.py."""
-    from skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 
     skill_name = "web-research"
     skill_dir = tmp_path / skill_name
@@ -156,7 +150,7 @@ async def test_improve_skill_met_a_jour_les_fichiers(tmp_path: Path) -> None:
     mock_llm = _make_mock_llm(improved_md)
     synth = SkillSynthesizer(llm=mock_llm)
 
-    with patch("skills.synthesizer.SKILLS_INSTALLED_DIR", tmp_path):
+    with patch("jarvis.capabilities.skills.synthesizer.SKILLS_INSTALLED_DIR", tmp_path):
         await synth.improve_skill(skill_name, "Leçon : toujours vérifier plusieurs sources.")
 
     updated = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
@@ -172,12 +166,12 @@ async def test_improve_skill_met_a_jour_les_fichiers(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_improve_skill_fichier_absent_leve_erreur(tmp_path: Path) -> None:
     """improve_skill lève FileNotFoundError si le skill est absent."""
-    from skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 
     mock_llm = _make_mock_llm("")
     synth = SkillSynthesizer(llm=mock_llm)
 
-    with patch("skills.synthesizer.SKILLS_INSTALLED_DIR", tmp_path):
+    with patch("jarvis.capabilities.skills.synthesizer.SKILLS_INSTALLED_DIR", tmp_path):
         with pytest.raises(FileNotFoundError):
             await synth.improve_skill("skill-inexistant", "test")
 
@@ -188,21 +182,19 @@ async def test_improve_skill_fichier_absent_leve_erreur(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_skill_synthetise_chargeable_par_le_registry(tmp_path: Path) -> None:
     """Un skill synthétisé peut être chargé et activé par le SkillRegistry."""
-    from skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)
 
-    skill_name = await synth.propose_skill_candidate(
-        _SAMPLE_TRAJECTORY, target_dir=tmp_path
-    )
+    skill_name = await synth.propose_skill_candidate(_SAMPLE_TRAJECTORY, target_dir=tmp_path)
 
     # Charge le skill directement depuis le dossier temporaire
-    from skills.registry import SkillRegistry
+    from jarvis.capabilities.skills.registry import SkillRegistry
 
     registry = SkillRegistry.__new__(SkillRegistry)
     registry._skills = {}
-    with patch("skills.registry.SKILLS_INSTALLED_DIR", tmp_path):
+    with patch("jarvis.capabilities.skills.registry.SKILLS_INSTALLED_DIR", tmp_path):
         registry.load_all()
 
     assert skill_name in registry._skills, (
@@ -235,9 +227,9 @@ def test_export_to_standard_produit_skill_md_valide(tmp_path: Path) -> None:
     with (skill_dir / "skill.yaml").open("w", encoding="utf-8") as f:
         yaml.dump(meta, f, allow_unicode=True)
 
-    from skills.standard import AgentSkillsAdapter
+    from jarvis.capabilities.skills.standard import AgentSkillsAdapter
 
-    with patch("skills.standard.SKILLS_INSTALLED_DIR", tmp_path):
+    with patch("jarvis.capabilities.skills.standard.SKILLS_INSTALLED_DIR", tmp_path):
         skill_md = AgentSkillsAdapter.export_to_standard(skill_name)
 
     assert "---" in skill_md, "Frontmatter YAML absent du SKILL.md exporté"
@@ -247,9 +239,9 @@ def test_export_to_standard_produit_skill_md_valide(tmp_path: Path) -> None:
 
 def test_import_from_standard_cree_les_fichiers(tmp_path: Path) -> None:
     """import_from_standard crée skill.yaml + skill.py depuis un SKILL.md."""
-    from skills.standard import AgentSkillsAdapter
+    from jarvis.capabilities.skills.standard import AgentSkillsAdapter
 
-    with patch("skills.standard.SKILLS_INSTALLED_DIR", tmp_path):
+    with patch("jarvis.capabilities.skills.standard.SKILLS_INSTALLED_DIR", tmp_path):
         skill_name = AgentSkillsAdapter.import_from_standard(_SAMPLE_SKILL_MD)
 
     skill_dir = tmp_path / skill_name
@@ -265,7 +257,7 @@ def test_import_from_standard_cree_les_fichiers(tmp_path: Path) -> None:
 
 def test_import_from_standard_nom_invalide_leve_erreur() -> None:
     """import_from_standard lève ValueError si le name est invalide."""
-    from skills.standard import AgentSkillsAdapter
+    from jarvis.capabilities.skills.standard import AgentSkillsAdapter
 
     bad_md = "---\nname: Invalid_Name\ndescription: test\n---\nBody."
     with pytest.raises(ValueError, match="invalide"):
@@ -274,7 +266,7 @@ def test_import_from_standard_nom_invalide_leve_erreur() -> None:
 
 def test_import_from_standard_description_absente_leve_erreur() -> None:
     """import_from_standard lève ValueError si description est absente."""
-    from skills.standard import AgentSkillsAdapter
+    from jarvis.capabilities.skills.standard import AgentSkillsAdapter
 
     bad_md = "---\nname: valid-name\n---\nBody."
     with pytest.raises(ValueError, match="description"):
@@ -299,16 +291,16 @@ def test_round_trip_export_import(tmp_path: Path) -> None:
     with (skill_dir / "skill.yaml").open("w", encoding="utf-8") as f:
         yaml.dump(meta, f, allow_unicode=True)
 
-    from skills.standard import AgentSkillsAdapter
+    from jarvis.capabilities.skills.standard import AgentSkillsAdapter
 
     # Export Jarvis → SKILL.md
-    with patch("skills.standard.SKILLS_INSTALLED_DIR", tmp_path):
+    with patch("jarvis.capabilities.skills.standard.SKILLS_INSTALLED_DIR", tmp_path):
         skill_md = AgentSkillsAdapter.export_to_standard(skill_name)
 
     # Import SKILL.md → Jarvis (dans un dossier séparé)
     import_dir = tmp_path / "imported"
     import_dir.mkdir()
-    with patch("skills.standard.SKILLS_INSTALLED_DIR", import_dir):
+    with patch("jarvis.capabilities.skills.standard.SKILLS_INSTALLED_DIR", import_dir):
         imported_name = AgentSkillsAdapter.import_from_standard(skill_md)
 
     assert imported_name == skill_name, f"Nom après round-trip : '{imported_name}' ≠ '{skill_name}'"
@@ -321,7 +313,7 @@ def test_round_trip_export_import(tmp_path: Path) -> None:
 
 def test_is_valid_name_kebab_case() -> None:
     """_is_valid_name valide correctement les noms agentskills.io."""
-    from skills.standard import _is_valid_name
+    from jarvis.capabilities.skills.standard import _is_valid_name
 
     assert _is_valid_name("web-research")
     assert _is_valid_name("data-analysis-v2")
@@ -339,11 +331,11 @@ def test_is_valid_name_kebab_case() -> None:
 @pytest.mark.asyncio
 async def test_skill_create_tool_succes(tmp_path: Path) -> None:
     """SkillCreateTool retourne un ToolResult non-erreur sur succès via le Lab."""
-    from memory.kernel import MemoryKernel
-    from skills.lab import SkillLab
-    from skills.lifecycle import SkillLifecycle
-    from skills.synthesizer import SkillSynthesizer
-    from tools.skills import SkillCreateTool
+    from jarvis.capabilities.skills.lab import SkillLab
+    from jarvis.capabilities.skills.lifecycle import SkillLifecycle
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.tools.skills import SkillCreateTool
+    from jarvis.providers.memory.kernel import MemoryKernel
 
     mock_llm = _make_mock_llm(_SAMPLE_SKILL_MD)
     synth = SkillSynthesizer(llm=mock_llm)
@@ -374,13 +366,13 @@ async def test_skill_create_tool_succes(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_skill_list_tool_vide() -> None:
     """SkillListTool retourne un message clair si aucun skill."""
-    from tools.skills import SkillListTool
+    from jarvis.capabilities.tools.skills import SkillListTool
 
     mock_registry = MagicMock()
     mock_registry.list_installed.return_value = []
 
     tool = SkillListTool()
-    with patch("skills.registry.skill_registry", mock_registry):
+    with patch("jarvis.capabilities.tools.skills.skill_registry", mock_registry):
         result = await tool.execute()
 
     assert not result.is_error
@@ -390,7 +382,7 @@ async def test_skill_list_tool_vide() -> None:
 @pytest.mark.asyncio
 async def test_skill_list_tool_avec_skills() -> None:
     """SkillListTool liste les skills installés."""
-    from tools.skills import SkillListTool
+    from jarvis.capabilities.tools.skills import SkillListTool
 
     mock_registry = MagicMock()
     mock_registry.list_installed.return_value = [
@@ -404,7 +396,7 @@ async def test_skill_list_tool_avec_skills() -> None:
     ]
 
     tool = SkillListTool()
-    with patch("skills.registry.skill_registry", mock_registry):
+    with patch("jarvis.capabilities.tools.skills.skill_registry", mock_registry):
         result = await tool.execute()
 
     assert not result.is_error
@@ -414,15 +406,15 @@ async def test_skill_list_tool_avec_skills() -> None:
 @pytest.mark.asyncio
 async def test_skill_improve_tool_skill_absent() -> None:
     """SkillImproveTool retourne is_error=True si le skill est absent."""
-    from skills.synthesizer import SkillSynthesizer
-    from tools.skills import SkillImproveTool
+    from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
+    from jarvis.capabilities.tools.skills import SkillImproveTool
 
     mock_llm = _make_mock_llm("")
     synth = SkillSynthesizer(llm=mock_llm)
     tool = SkillImproveTool(synthesizer=synth)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        with patch("skills.synthesizer.SKILLS_INSTALLED_DIR", Path(tmpdir)):
+        with patch("jarvis.capabilities.skills.synthesizer.SKILLS_INSTALLED_DIR", Path(tmpdir)):
             result = await tool.execute(
                 skill_name="inexistant",
                 new_experience="test",

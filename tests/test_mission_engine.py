@@ -16,21 +16,21 @@ from unittest.mock import patch
 
 import pytest
 
-from agent.governance import Governance
-from agent.project_store import ProjectStore
-from agent.schemas import (
+from jarvis.engine.audit import AuditLog
+from jarvis.engine.mission.governance import Governance
+from jarvis.engine.mission.project_store import ProjectStore
+from jarvis.engine.mission.schemas import (
     Project,
     ProjectStatus,
     Step,
     StepStatus,
     validate_step,
 )
-from agent.verifier import VerificationResult, Verifier
-from agent.worker_agent import WorkerAgent
-from config.approvals import ApprovalConfig, ApprovalMode
-from core.audit import AuditLog
-from core.vocab import AccessLevel
-from llm.base import LLMProvider
+from jarvis.engine.mission.verifier import VerificationResult, Verifier
+from jarvis.engine.mission.worker_agent import WorkerAgent
+from jarvis.engine.vocab import AccessLevel
+from jarvis.kernel.approvals import ApprovalConfig, ApprovalMode
+from jarvis.providers.llm.base import LLMProvider
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ def test_validate_step_blancs_seuls_rejetes() -> None:
 
 def test_persistance_step_roundtrip(tmp_path: Path) -> None:
     """Un projet sauvegardé puis rechargé conserve tous les nouveaux champs Step."""
-    with patch("agent.project_store.WORKSPACE_DIR", tmp_path):
+    with patch("jarvis.engine.mission.project_store.WORKSPACE_DIR", tmp_path):
         store = ProjectStore()
         project = store.create_project(
             mission="Mission test",
@@ -148,7 +148,7 @@ def test_persistance_step_roundtrip(tmp_path: Path) -> None:
 
 def test_persistance_projet_ancien_format_compat(tmp_path: Path) -> None:
     """Un projet sauvegardé AVANT PHASE 1 (sans les nouveaux champs) se recharge sans crash."""
-    with patch("agent.project_store.WORKSPACE_DIR", tmp_path):
+    with patch("jarvis.engine.mission.project_store.WORKSPACE_DIR", tmp_path):
         # Simule un fichier d'état au format pré-PHASE-1
         project_id = "proj_old"
         workspace = tmp_path / project_id
@@ -218,14 +218,12 @@ async def test_step_non_verifie_bloque_progression(tmp_path: Path) -> None:
         title="Test blocage",
         mission="Test",
         workspace_path=str(workspace),
-        steps=[
-            _step(f"s{i}", criterion=f"crit {i}") for i in range(1, 4)
-        ],
+        steps=[_step(f"s{i}", criterion=f"crit {i}") for i in range(1, 4)],
     )
 
     store = ProjectStore()
     # patcher WORKSPACE_DIR pour que claim_step écrive au bon endroit
-    with patch("agent.project_store.WORKSPACE_DIR", tmp_path):
+    with patch("jarvis.engine.mission.project_store.WORKSPACE_DIR", tmp_path):
         store.save_project(project)
 
         # Fake verifier qui renvoie TOUJOURS verified=false
@@ -249,6 +247,7 @@ async def test_step_non_verifie_bloque_progression(tmp_path: Path) -> None:
 
         # Broadcast no-op
         broadcasts: list[dict] = []
+
         def _broadcast(evt: dict) -> None:
             broadcasts.append(evt)
 
@@ -267,6 +266,7 @@ async def test_step_non_verifie_bloque_progression(tmp_path: Path) -> None:
             store=store,
             broadcast_event=_broadcast,
             approval_callback=_approval_cb,
+            llm=_NoOpLLM(),
             governance=_make_governance(tmp_path),
             verifier=_AlwaysFailVerifier(),
         )
@@ -308,7 +308,7 @@ async def test_step_modify_core_declenche_approval_systematique(tmp_path: Path) 
     )
 
     store = ProjectStore()
-    with patch("agent.project_store.WORKSPACE_DIR", tmp_path):
+    with patch("jarvis.engine.mission.project_store.WORKSPACE_DIR", tmp_path):
         store.save_project(project)
 
         # Approval callback : refuse → le step doit être SKIPPED
@@ -323,6 +323,7 @@ async def test_step_modify_core_declenche_approval_systematique(tmp_path: Path) 
             store=store,
             broadcast_event=lambda _: None,
             approval_callback=_approval_cb,
+            llm=_NoOpLLM(),
             governance=_make_governance(tmp_path),
         )
 
@@ -351,7 +352,7 @@ async def test_step_never_categorie_failed_sans_demande(tmp_path: Path) -> None:
     )
 
     store = ProjectStore()
-    with patch("agent.project_store.WORKSPACE_DIR", tmp_path):
+    with patch("jarvis.engine.mission.project_store.WORKSPACE_DIR", tmp_path):
         store.save_project(project)
 
         approval_calls: list[str] = []
@@ -366,6 +367,7 @@ async def test_step_never_categorie_failed_sans_demande(tmp_path: Path) -> None:
             store=store,
             broadcast_event=lambda _: None,
             approval_callback=_approval_cb,
+            llm=_NoOpLLM(),
             governance=gov,
         )
 
@@ -402,7 +404,7 @@ async def test_reprise_skip_steps_deja_done(tmp_path: Path) -> None:
     )
 
     store = ProjectStore()
-    with patch("agent.project_store.WORKSPACE_DIR", tmp_path):
+    with patch("jarvis.engine.mission.project_store.WORKSPACE_DIR", tmp_path):
         store.save_project(project)
 
         executions: list[str] = []
@@ -431,6 +433,7 @@ async def test_reprise_skip_steps_deja_done(tmp_path: Path) -> None:
             store=store,
             broadcast_event=lambda _: None,
             approval_callback=_no_approval_cb,
+            llm=_NoOpLLM(),
             governance=_make_governance(tmp_path),
             verifier=_AlwaysPassVerifier(),
         )

@@ -15,6 +15,7 @@ wheels/
 # ── Fichiers de spécifications / cahiers des charges ─────────
 JARVIS_*.md
 AUDIO_OPTIM.md
+*_devlocal.md
 
 # ── Tokens et credentials OAuth ──────────────────────────────
 config/google_credentials.json
@@ -29,10 +30,14 @@ models/
 # ── Données personnelles de Jarvis ───────────────────────────
 memory_data/
 workspace/
-vision/faces/
+vision_data/faces/
 
 # ── Skills générées par le Lab (artefacts run, regénérables) ─
-skills/candidates/
+skills_data/candidates/
+# ── Skills installés en runtime — distribués via le shop (repo `jarvis skills`
+#    séparé), jamais en dur ici. Un clone neuf n'embarque AUCUN skill par
+#    défaut ; ils se téléchargent via le shop à la demande de l'utilisateur.
+skills_data/installed/
 
 # ── Paramètres locaux Claude Code ────────────────────────────
 .claude/

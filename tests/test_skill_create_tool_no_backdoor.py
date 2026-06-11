@@ -17,12 +17,12 @@ from pathlib import Path
 
 import pytest
 
-from llm.base import LLMProvider
-from memory.kernel import MemoryKernel
-from skills.lab import SkillLab
-from skills.lifecycle import SkillLifecycle, SkillStatus
-from skills.synthesizer import SkillSynthesizer
-from tools.skills import SkillCreateTool
+from jarvis.capabilities.skills.lab import SkillLab
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
+from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
+from jarvis.capabilities.tools.skills import SkillCreateTool
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.memory.kernel import MemoryKernel
 
 
 class _FakeLLM(LLMProvider):

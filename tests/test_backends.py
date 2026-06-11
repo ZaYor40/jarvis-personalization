@@ -9,13 +9,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.backends.base import ExecutionBackend
-from agent.backends.docker import DockerBackend
-from agent.backends.local import LocalBackend
-from agent.backends.remote import RemoteBackend
-from agent.backends.rpc import ScriptRPCRunner, _build_stub
-from agent.backends.ssh import SSHBackend
-from config.backends import BackendsConfig, BackendType, SSHConfig, get_backend
+from jarvis.engine.mission.backend_factory import get_backend
+from jarvis.engine.mission.backends.base import ExecutionBackend
+from jarvis.engine.mission.backends.docker import DockerBackend
+from jarvis.engine.mission.backends.local import LocalBackend
+from jarvis.engine.mission.backends.remote import RemoteBackend
+from jarvis.engine.mission.backends.rpc import ScriptRPCRunner, _build_stub
+from jarvis.engine.mission.backends.ssh import SSHBackend
+from jarvis.kernel.backends import BackendsConfig, BackendType, SSHConfig
+
+pytestmark = pytest.mark.integration  # CDC §A.1.5 — exercice Docker backend
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,32 +39,38 @@ class TestGetBackend:
 
     def test_auto_avec_docker_executor_retourne_docker(self, tmp_path: Path) -> None:
         executor = MagicMock()
-        with patch("config.backends.load_backends_config", return_value=BackendsConfig()):
-            with patch("config.settings.settings") as mock_settings:
+        with patch(
+            "jarvis.engine.mission.backend_factory.load_backends_config",
+            return_value=BackendsConfig(),
+        ):
+            with patch("jarvis.engine.mission.backend_factory.settings") as mock_settings:
                 mock_settings.docker_enabled = True
                 backend = get_backend(str(tmp_path), docker_executor=executor)
         assert isinstance(backend, DockerBackend)
 
     def test_auto_sans_docker_retourne_local(self, tmp_path: Path) -> None:
-        with patch("config.backends.load_backends_config", return_value=BackendsConfig()):
-            with patch("config.settings.settings") as mock_settings:
+        with patch(
+            "jarvis.engine.mission.backend_factory.load_backends_config",
+            return_value=BackendsConfig(),
+        ):
+            with patch("jarvis.engine.mission.backend_factory.settings") as mock_settings:
                 mock_settings.docker_enabled = False
                 backend = get_backend(str(tmp_path), docker_executor=None)
         assert isinstance(backend, LocalBackend)
 
     def test_docker_explicite_sans_executor_retourne_none(self, tmp_path: Path) -> None:
         with patch(
-            "config.backends.load_backends_config",
+            "jarvis.engine.mission.backend_factory.load_backends_config",
             return_value=BackendsConfig(default_backend=BackendType.DOCKER),
         ):
-            with patch("config.settings.settings") as mock_settings:
+            with patch("jarvis.engine.mission.backend_factory.settings") as mock_settings:
                 mock_settings.docker_enabled = True
                 backend = get_backend(str(tmp_path), docker_executor=None)
         assert backend is None
 
     def test_ssh_sans_host_retourne_none(self, tmp_path: Path) -> None:
         cfg = BackendsConfig(default_backend=BackendType.SSH, ssh=SSHConfig(host="", user=""))
-        with patch("config.backends.load_backends_config", return_value=cfg):
+        with patch("jarvis.engine.mission.backend_factory.load_backends_config", return_value=cfg):
             backend = get_backend(str(tmp_path))
         assert backend is None
 
@@ -70,13 +79,13 @@ class TestGetBackend:
             default_backend=BackendType.SSH,
             ssh=SSHConfig(host="host.example.com", user="jarvis"),
         )
-        with patch("config.backends.load_backends_config", return_value=cfg):
+        with patch("jarvis.engine.mission.backend_factory.load_backends_config", return_value=cfg):
             backend = get_backend(str(tmp_path))
         assert isinstance(backend, SSHBackend)
 
     def test_remote_retourne_remote_backend(self, tmp_path: Path) -> None:
         cfg = BackendsConfig(default_backend=BackendType.REMOTE, remote_provider="modal")
-        with patch("config.backends.load_backends_config", return_value=cfg):
+        with patch("jarvis.engine.mission.backend_factory.load_backends_config", return_value=cfg):
             backend = get_backend(str(tmp_path))
         assert isinstance(backend, RemoteBackend)
 
@@ -110,10 +119,10 @@ class TestDockerBackend:
     async def test_is_available_respecte_docker_enabled(self) -> None:
         executor = MagicMock()
         backend = DockerBackend(executor)
-        with patch("config.settings.settings") as mock_settings:
+        with patch("jarvis.engine.mission.backends.docker.settings") as mock_settings:
             mock_settings.docker_enabled = False
             with patch(
-                "agent.docker_executor.DockerExecutor.is_available",
+                "jarvis.engine.mission.docker_executor.DockerExecutor.is_available",
                 new_callable=AsyncMock,
                 return_value=True,
             ):
@@ -129,7 +138,7 @@ class TestRefusSansBackendSur:
     @pytest.mark.asyncio
     async def test_local_refuse_sans_optin(self, tmp_path: Path) -> None:
         backend = LocalBackend(str(tmp_path))
-        with patch("config.settings.settings") as mock_settings:
+        with patch("jarvis.engine.mission.backends.local.settings") as mock_settings:
             mock_settings.allow_unsandboxed_exec = False
             result = await backend.execute("echo test")
         assert result["success"] is False
@@ -138,7 +147,7 @@ class TestRefusSansBackendSur:
     @pytest.mark.asyncio
     async def test_local_is_available_false_sans_optin(self, tmp_path: Path) -> None:
         backend = LocalBackend(str(tmp_path))
-        with patch("config.settings.settings") as mock_settings:
+        with patch("jarvis.engine.mission.backends.local.settings") as mock_settings:
             mock_settings.allow_unsandboxed_exec = False
             assert await backend.is_available() is False
 
@@ -159,7 +168,7 @@ class TestSpawnSubagent:
 
     @pytest.mark.asyncio
     async def test_spawn_retourne_resume(self) -> None:
-        from tools.subagent import SpawnSubagentTool
+        from jarvis.capabilities.tools.subagent import SpawnSubagentTool
 
         mock_agent = MagicMock()
         mock_agent.respond_tools = AsyncMock(return_value="Résultat de la tâche déléguée.")
@@ -173,8 +182,8 @@ class TestSpawnSubagent:
 
     @pytest.mark.asyncio
     async def test_spawn_session_fraiche_sans_historique(self) -> None:
-        from core.session import Session
-        from tools.subagent import SpawnSubagentTool
+        from jarvis.capabilities.tools.subagent import SpawnSubagentTool
+        from jarvis.engine.session import Session
 
         captured_sessions: list[Session] = []
 
@@ -195,7 +204,7 @@ class TestSpawnSubagent:
 
     @pytest.mark.asyncio
     async def test_spawn_erreur_retourne_is_error(self) -> None:
-        from tools.subagent import SpawnSubagentTool
+        from jarvis.capabilities.tools.subagent import SpawnSubagentTool
 
         mock_agent = MagicMock()
         mock_agent.respond_tools = AsyncMock(side_effect=RuntimeError("LLM down"))
@@ -230,7 +239,7 @@ class TestScriptRPC:
 
     @pytest.mark.asyncio
     async def test_script_appelle_outil_rpc(self, tmp_path: Path) -> None:
-        from tools.base import ToolResult
+        from jarvis.capabilities.tools.base import ToolResult
 
         mock_registry = MagicMock()
         mock_registry.schemas = MagicMock(return_value=[{"name": "weather"}])
@@ -300,15 +309,18 @@ class TestWorkerCLIRouting:
 
     @pytest.mark.asyncio
     async def test_route_vers_docker_si_dispo(self, tmp_path: Path) -> None:
-        from agent.worker_cli import WorkerCLITool
+        from jarvis.engine.mission.worker_cli import WorkerCLITool
 
         mock_docker = MagicMock()
         mock_docker.execute = AsyncMock(return_value=_ok("via docker"))
 
         cli = WorkerCLITool(str(tmp_path), docker_executor=mock_docker)
 
-        with patch("config.backends.load_backends_config", return_value=BackendsConfig()):
-            with patch("config.settings.settings") as s:
+        with patch(
+            "jarvis.engine.mission.backend_factory.load_backends_config",
+            return_value=BackendsConfig(),
+        ):
+            with patch("jarvis.engine.mission.backend_factory.settings") as s:
                 s.docker_enabled = True
                 result = await cli.execute("ls")
 
@@ -317,15 +329,15 @@ class TestWorkerCLIRouting:
 
     @pytest.mark.asyncio
     async def test_refuse_si_aucun_backend(self, tmp_path: Path) -> None:
-        from agent.worker_cli import WorkerCLITool
+        from jarvis.engine.mission.worker_cli import WorkerCLITool
 
         cli = WorkerCLITool(str(tmp_path))
 
         with patch(
-            "config.backends.load_backends_config",
+            "jarvis.engine.mission.backend_factory.load_backends_config",
             return_value=BackendsConfig(default_backend=BackendType.DOCKER),
         ):
-            with patch("config.settings.settings") as s:
+            with patch("jarvis.engine.mission.backend_factory.settings") as s:
                 s.docker_enabled = True
                 # docker_executor=None + DOCKER explicite → get_backend retourne None
                 result = await cli.execute("ls")

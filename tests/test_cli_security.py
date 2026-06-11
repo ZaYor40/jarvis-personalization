@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tools.cli import ExecuteCLITool
+from jarvis.capabilities.tools.cli import ExecuteCLITool
 
 
 @pytest.fixture()
@@ -103,7 +103,7 @@ async def test_osascript_confirmed_executes(
     """osascript avec confirmed=True est bien soumis à exécution (mocké)."""
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = False
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(return_value=(b"result", b""))
@@ -232,7 +232,7 @@ async def test_sandbox_active_by_default(
 
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = False
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     with patch("asyncio.create_subprocess_exec", side_effect=mock_exec):
         await tool.execute(command="ffmpeg -version")
@@ -260,7 +260,7 @@ async def test_sandbox_disabled_with_opt_in(
 
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = True
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     with patch("asyncio.create_subprocess_exec", side_effect=mock_exec):
         await tool.execute(command="ffmpeg -version")
@@ -281,7 +281,7 @@ async def _run_legit(
     """Utilitaire : vérifie qu'une commande légitime n'est pas bloquée."""
     mock_settings = MagicMock()
     mock_settings.allow_unsandboxed_exec = False
-    monkeypatch.setattr("config.settings.settings", mock_settings)
+    monkeypatch.setattr("jarvis.capabilities.tools.cli.settings", mock_settings)
 
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))
@@ -293,31 +293,21 @@ async def _run_legit(
     assert not result.is_error, f"commande légitime bloquée : {command!r} → {result.content}"
 
 
-async def test_legitimate_ffmpeg(
-    tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_legitimate_ffmpeg(tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch) -> None:
     await _run_legit(tool, monkeypatch, "ffmpeg -version", b"ffmpeg version 6.0")
 
 
-async def test_legitimate_sips(
-    tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_legitimate_sips(tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch) -> None:
     await _run_legit(tool, monkeypatch, "sips -z 800 600 input.jpg --out output.jpg")
 
 
-async def test_legitimate_yt_dlp(
-    tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_legitimate_yt_dlp(tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch) -> None:
     await _run_legit(tool, monkeypatch, "yt-dlp -f mp4 https://example.com/video")
 
 
-async def test_legitimate_git_log(
-    tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_legitimate_git_log(tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch) -> None:
     await _run_legit(tool, monkeypatch, "git log --oneline -5")
 
 
-async def test_legitimate_convert(
-    tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_legitimate_convert(tool: ExecuteCLITool, monkeypatch: pytest.MonkeyPatch) -> None:
     await _run_legit(tool, monkeypatch, "convert input.png output.jpg")

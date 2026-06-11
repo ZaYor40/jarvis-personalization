@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from core.audit import AuditEntry, AuditLog
+from jarvis.engine.audit import AuditEntry, AuditLog
 
 
 def _make_entry(decision: str = "auto", ctx: str = "step:proj:s1") -> AuditEntry:

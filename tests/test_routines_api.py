@@ -10,22 +10,19 @@ Cas couverts :
 
 from __future__ import annotations
 
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-# Stubbe les dépendances LLM absentes dans l'environnement de test
-for _dep in ("openai", "anthropic", "ollama", "google", "google.genai", "google.generativeai"):
-    if _dep not in sys.modules:
-        sys.modules[_dep] = MagicMock()  # type: ignore[assignment]
-
-from api.http_routines import router as routines_router  # noqa: E402
-from background.routines import (  # noqa: E402
+# NB : un stub historique remplaçait ici `google.genai` et autres par
+# MagicMock dans sys.modules pour les envs CI sans deps installées. Retiré
+# en Phase C (étape 2 (a)) car uv sync installe maintenant les deps lourdes
+# en CI ; le stub polluait l'ordre des tests (cf. tests gemini dans
+# test_llm_tools.py qui font `patch("google.genai.Client")`).
+from jarvis.engine.background.routines import (  # noqa: E402
     CatchUpPolicy,
     ConcurrencyPolicy,
     Routine,
@@ -33,6 +30,7 @@ from background.routines import (  # noqa: E402
     RunStatus,
     TriggerType,
 )
+from jarvis.interfaces.api.routines import router as routines_router  # noqa: E402
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

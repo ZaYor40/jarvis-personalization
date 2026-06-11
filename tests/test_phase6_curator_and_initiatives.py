@@ -16,24 +16,24 @@ from unittest.mock import patch as mock_patch
 
 import pytest
 
-from core.vocab import AutonomyLevel
-from memory.kernel import MemoryKernel
-from memory.schemas import DecayPolicy, Fact, FactStatus
-from proactive.curator import (
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle
+from jarvis.engine.proactive.curator import (
     _PROTECTED_PATHS,
     Curator,
     PatchKind,
     is_protected_path,
 )
-from proactive.schemas import (
+from jarvis.engine.proactive.schemas import (
     ExecutionMode,
     Initiative,
     InitiativeType,
     Priority,
     needs_human_validation,
 )
-from proactive.store import InitiativeStore
-from skills.lifecycle import SkillLifecycle
+from jarvis.engine.proactive.store import InitiativeStore
+from jarvis.engine.vocab import AutonomyLevel
+from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.providers.memory.schemas import DecayPolicy, Fact, FactStatus
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ def lifecycle(tmp_path: Path) -> SkillLifecycle:
 
 @pytest.fixture
 def initiative_store(tmp_path: Path) -> InitiativeStore:
-    with mock_patch("proactive.store.INITIATIVES_DIR", tmp_path / "initiatives"):
+    with mock_patch("jarvis.engine.proactive.store.INITIATIVES_DIR", tmp_path / "initiatives"):
         store = InitiativeStore()
         yield store
 
@@ -175,7 +175,7 @@ def test_initiative_legacy_jsonl_compat_ascendante(
 
     today = datetime.now().strftime("%Y-%m-%d")
     # On écrit directement un legacy
-    from proactive.store import INITIATIVES_DIR
+    from jarvis.engine.proactive.store import INITIATIVES_DIR
 
     INITIATIVES_DIR.mkdir(parents=True, exist_ok=True)
     legacy_path = INITIATIVES_DIR / f"{today}.jsonl"
@@ -206,9 +206,7 @@ def test_initiative_legacy_jsonl_compat_ascendante(
 # ── 2. Curator détecte les skills stale ──────────────────────────────────────
 
 
-async def test_curator_detecte_skill_stale(
-    curator: Curator, lifecycle: SkillLifecycle
-) -> None:
+async def test_curator_detecte_skill_stale(curator: Curator, lifecycle: SkillLifecycle) -> None:
     """Une skill ACTIVE non utilisée depuis > 30j → patch MARK_SKILL_STALE proposé."""
     # Skill "vieille" qui n'a pas été utilisée
     lifecycle.create_candidate("skill-old")
@@ -222,8 +220,7 @@ async def test_curator_detecte_skill_stale(
     old = (datetime.now() - timedelta(days=60)).isoformat()
     with sqlite3.connect(lifecycle.db_path) as conn:
         conn.execute(
-            "UPDATE skills SET created_at=?, promoted_at=?, updated_at=? "
-            "WHERE name=?",
+            "UPDATE skills SET created_at=?, promoted_at=?, updated_at=? WHERE name=?",
             (old, old, old, "skill-old"),
         )
         conn.commit()
@@ -238,9 +235,7 @@ async def test_curator_detecte_skill_stale(
 # ── 3. Curator détecte les facts à archiver par decay ────────────────────────
 
 
-async def test_curator_detecte_facts_decay(
-    curator: Curator, kernel: MemoryKernel
-) -> None:
+async def test_curator_detecte_facts_decay(curator: Curator, kernel: MemoryKernel) -> None:
     """Fact FAST decay vieux de > 3 demi-vies (42j) → patch ARCHIVE_FACT."""
     f = _make_fact("fact_old", decay=DecayPolicy.FAST, age_days=50.0)
     kernel.insert_fact(f)
@@ -252,9 +247,7 @@ async def test_curator_detecte_facts_decay(
     assert archive_patches[0].target == "fact_old"
 
 
-async def test_curator_ignore_facts_recents(
-    curator: Curator, kernel: MemoryKernel
-) -> None:
+async def test_curator_ignore_facts_recents(curator: Curator, kernel: MemoryKernel) -> None:
     """Fact récent (< demi-vie) → pas de patch decay proposé."""
     f = _make_fact("fact_recent", decay=DecayPolicy.FAST, age_days=2.0)
     kernel.insert_fact(f)
@@ -265,9 +258,7 @@ async def test_curator_ignore_facts_recents(
     assert len(archive_patches) == 0
 
 
-async def test_curator_ignore_facts_decay_none(
-    curator: Curator, kernel: MemoryKernel
-) -> None:
+async def test_curator_ignore_facts_decay_none(curator: Curator, kernel: MemoryKernel) -> None:
     """Fact DecayPolicy.NONE (identity) → jamais archivé, peu importe l'âge."""
     f = _make_fact("fact_identity", decay=DecayPolicy.NONE, age_days=10000.0)
     kernel.insert_fact(f)
@@ -305,7 +296,7 @@ async def test_curator_patch_sur_noyau_protege_refuse(
     On simule un patch qui cible un fichier protégé en l'insérant dans la
     liste pendant un scan (via réécriture du _scan_facts).
     """
-    from proactive.curator import CuratorPatch, PatchKind
+    from jarvis.engine.proactive.curator import CuratorPatch, PatchKind
 
     # Injecte un patch synthétique qui cible un fichier protégé
     fake_patch = CuratorPatch(
@@ -329,15 +320,13 @@ def test_is_protected_path() -> None:
         assert is_protected_path(f"/abs/path/{p}"), f"absolute path /abs/path/{p}"
     # Non-protégés
     assert not is_protected_path("random/file.txt")
-    assert not is_protected_path("skills/installed/my-skill/skill.py")
+    assert not is_protected_path("skills_data/installed/my-skill/skill.py")
 
 
 # ── 5. Curator produit un rapport persisté ──────────────────────────────────
 
 
-async def test_curator_scan_persiste_le_rapport(
-    curator: Curator, tmp_path: Path
-) -> None:
+async def test_curator_scan_persiste_le_rapport(curator: Curator, tmp_path: Path) -> None:
     """Chaque scan écrit un JSON timestampé + le miroir latest.md."""
     report = await curator.scan()
     json_files = sorted((tmp_path / "curator_reports").glob("*.json"))
@@ -411,7 +400,7 @@ def test_command_center_snapshot_agrege_tout(
     initiative_store: InitiativeStore,
 ) -> None:
     """CommandCenter agrège initiatives, missions, budget, skills sans crash."""
-    from proactive.command_center import CommandCenter
+    from jarvis.engine.proactive.command_center import CommandCenter
 
     # Setup état minimal
     init = _make_initiative(title="Test snapshot")
@@ -447,7 +436,7 @@ def test_command_center_snapshot_avec_budget(
     initiative_store: InitiativeStore,
 ) -> None:
     """Le snapshot inclut le budget si BudgetGuard fourni."""
-    from proactive.command_center import CommandCenter
+    from jarvis.engine.proactive.command_center import CommandCenter
 
     class _FakeProjectStore:
         def list_projects(self) -> list:
@@ -467,7 +456,7 @@ def test_command_center_snapshot_avec_budget(
 
 def test_command_center_heartbeat() -> None:
     """signal_heartbeat met à jour le timestamp interne."""
-    from proactive.command_center import CommandCenter
+    from jarvis.engine.proactive.command_center import CommandCenter
 
     class _FakeProjectStore:
         def list_projects(self) -> list:

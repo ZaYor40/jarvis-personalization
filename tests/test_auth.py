@@ -6,8 +6,11 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from main import app
+
+pytestmark = pytest.mark.integration  # CDC §A.1.5 — exercice HTTP middleware réel
 
 
 @pytest.fixture
@@ -21,18 +24,18 @@ def client() -> TestClient:
 
 def test_auth_disabled_health_ok(client: TestClient) -> None:
     """Sans auth, /api/health est accessible sans aucun token."""
-    with patch("core.auth.settings") as mock:
+    with patch("jarvis.engine.auth.settings") as mock:
         mock.api_auth_enabled = False
-        mock.api_token = ""
+        mock.api_token = SecretStr("")
         r = client.get("/api/health")
     assert r.status_code == 200
 
 
 def test_auth_disabled_sessions_accessible(client: TestClient) -> None:
     """Sans auth activée, une route API standard passe sans token."""
-    with patch("core.auth.settings") as mock:
+    with patch("jarvis.engine.auth.settings") as mock:
         mock.api_auth_enabled = False
-        mock.api_token = ""
+        mock.api_token = SecretStr("")
         r = client.get("/api/sessions")
     # 200 ou autre code métier — jamais 401
     assert r.status_code != 401
@@ -43,27 +46,27 @@ def test_auth_disabled_sessions_accessible(client: TestClient) -> None:
 
 def test_auth_enabled_missing_token_returns_401(client: TestClient) -> None:
     """Avec auth activée, requête sans header Authorization → 401."""
-    with patch("core.auth.settings") as mock:
+    with patch("jarvis.engine.auth.settings") as mock:
         mock.api_auth_enabled = True
-        mock.api_token = "test-secret-token"
+        mock.api_token = SecretStr("test-secret-token")
         r = client.get("/api/sessions")
     assert r.status_code == 401
 
 
 def test_auth_enabled_wrong_token_returns_401(client: TestClient) -> None:
     """Avec auth activée, mauvais token → 401."""
-    with patch("core.auth.settings") as mock:
+    with patch("jarvis.engine.auth.settings") as mock:
         mock.api_auth_enabled = True
-        mock.api_token = "test-secret-token"
+        mock.api_token = SecretStr("test-secret-token")
         r = client.get("/api/sessions", headers={"Authorization": "Bearer mauvais-token"})
     assert r.status_code == 401
 
 
 def test_auth_enabled_correct_token_passes(client: TestClient) -> None:
     """Avec auth activée, le bon token n'est pas rejeté (pas 401)."""
-    with patch("core.auth.settings") as mock:
+    with patch("jarvis.engine.auth.settings") as mock:
         mock.api_auth_enabled = True
-        mock.api_token = "test-secret-token"
+        mock.api_token = SecretStr("test-secret-token")
         r = client.get("/api/sessions", headers={"Authorization": "Bearer test-secret-token"})
     assert r.status_code != 401
 
@@ -73,9 +76,9 @@ def test_auth_enabled_correct_token_passes(client: TestClient) -> None:
 
 def test_health_exempt_even_with_auth_enabled(client: TestClient) -> None:
     """/api/health reste accessible sans token même quand auth activée."""
-    with patch("core.auth.settings") as mock:
+    with patch("jarvis.engine.auth.settings") as mock:
         mock.api_auth_enabled = True
-        mock.api_token = "test-secret-token"
+        mock.api_token = SecretStr("test-secret-token")
         r = client.get("/api/health")
     assert r.status_code == 200
 
@@ -85,8 +88,8 @@ def test_health_exempt_even_with_auth_enabled(client: TestClient) -> None:
 
 def test_tools_execute_blocked_without_token(client: TestClient) -> None:
     """Avec auth activée, /api/tools/execute (exécution code) est protégée sans token."""
-    with patch("core.auth.settings") as mock:
+    with patch("jarvis.engine.auth.settings") as mock:
         mock.api_auth_enabled = True
-        mock.api_token = "test-secret-token"
+        mock.api_token = SecretStr("test-secret-token")
         r = client.post("/api/tools/execute", json={"tool": "cli_runner", "args": {}})
     assert r.status_code == 401

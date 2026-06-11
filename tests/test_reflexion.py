@@ -21,13 +21,13 @@ from pathlib import Path
 
 import pytest
 
-from agent.reflexion import Reflexion
-from agent.schemas import Project, ProjectStatus, Step, StepStatus
-from core.vocab import AccessLevel
-from llm.base import LLMProvider
-from memory.ingest import MemoryIngest
-from memory.kernel import MemoryKernel
-from memory.schemas import FactStatus
+from jarvis.engine.mission.reflexion import Reflexion
+from jarvis.engine.mission.schemas import Project, ProjectStatus, Step, StepStatus
+from jarvis.engine.vocab import AccessLevel
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.memory.ingest import MemoryIngest
+from jarvis.providers.memory.kernel import MemoryKernel
+from jarvis.providers.memory.schemas import FactStatus
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────
 
@@ -358,9 +358,7 @@ async def test_sans_kernel_lecon_produite_mais_non_persistee() -> None:
 
 
 async def test_format_text_inclut_jarvis_decided(kernel: MemoryKernel) -> None:
-    llm = _DualLLM(
-        reflect_response=_lesson_dict(corrective_action="prendre du recul avant d'agir")
-    )
+    llm = _DualLLM(reflect_response=_lesson_dict(corrective_action="prendre du recul avant d'agir"))
     reflexion = Reflexion(llm=llm, kernel=kernel)
     project = _make_project()
     await reflexion.reflect(project)

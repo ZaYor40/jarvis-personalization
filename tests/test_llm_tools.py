@@ -11,7 +11,7 @@ import pytest
 
 def test_ollama_supports_tools_true() -> None:
     """OllamaProvider supporte les outils (function calling Ollama) : supports_tools=True."""
-    from llm.local import OllamaProvider
+    from jarvis.providers.llm.local import OllamaProvider
 
     provider = OllamaProvider()
     assert provider.supports_tools is True
@@ -22,8 +22,8 @@ def test_ollama_supports_tools_true() -> None:
 
 def test_anthropic_supports_tools_true() -> None:
     """AnthropicProvider annonce le support des outils (régression)."""
-    with patch("llm.api.anthropic.AsyncAnthropic"):
-        from llm.api import AnthropicProvider
+    with patch("jarvis.providers.llm.api.anthropic.AsyncAnthropic"):
+        from jarvis.providers.llm.api import AnthropicProvider
 
         provider = AnthropicProvider()
         assert provider.supports_tools is True
@@ -34,8 +34,8 @@ def test_anthropic_supports_tools_true() -> None:
 
 def test_mistral_supports_tools_true() -> None:
     """MistralProvider annonce le support des outils."""
-    with patch("llm.api.AsyncOpenAI"):
-        from llm.api import MistralProvider
+    with patch("jarvis.providers.llm.api.AsyncOpenAI"):
+        from jarvis.providers.llm.api import MistralProvider
 
         provider = MistralProvider()
         assert provider.supports_tools is True
@@ -44,7 +44,7 @@ def test_mistral_supports_tools_true() -> None:
 @pytest.mark.asyncio
 async def test_mistral_tool_loop_executes_tool() -> None:
     """tool_loop Mistral : l'outil est exécuté et la synthèse LLM est retournée."""
-    with patch("llm.api.AsyncOpenAI") as mock_cls:
+    with patch("jarvis.providers.llm.api.AsyncOpenAI") as mock_cls:
         mock_client = MagicMock()
         mock_cls.return_value = mock_client
 
@@ -67,7 +67,7 @@ async def test_mistral_tool_loop_executes_tool() -> None:
 
         mock_client.chat.completions.create = AsyncMock(side_effect=[resp1, resp2])
 
-        from llm.api import MistralProvider
+        from jarvis.providers.llm.api import MistralProvider
 
         provider = MistralProvider()
         executed: list[str] = []
@@ -105,7 +105,7 @@ async def test_mistral_tool_loop_executes_tool() -> None:
 @pytest.mark.asyncio
 async def test_mistral_stream_with_capture_detects_tool() -> None:
     """stream_with_capture Mistral : un tool call delta peuple ToolCapture.calls."""
-    with patch("llm.api.AsyncOpenAI") as mock_cls:
+    with patch("jarvis.providers.llm.api.AsyncOpenAI") as mock_cls:
         mock_client = MagicMock()
         mock_cls.return_value = mock_client
 
@@ -135,7 +135,7 @@ async def test_mistral_stream_with_capture_detects_tool() -> None:
 
         mock_client.chat.completions.create = AsyncMock(return_value=_fake_chunks())
 
-        from llm.api import MistralProvider
+        from jarvis.providers.llm.api import MistralProvider
 
         provider = MistralProvider()
         stream, capture = provider.stream_with_capture(
@@ -168,8 +168,10 @@ async def test_mistral_stream_with_capture_detects_tool() -> None:
 
 def test_gemini_supports_tools_true() -> None:
     """GeminiProvider annonce le support des outils."""
+    import google.genai  # noqa: F401 — force le chargement avant patch (idem)
+
     with patch("google.genai.Client"):
-        from llm.api import GeminiProvider
+        from jarvis.providers.llm.api import GeminiProvider
 
         provider = GeminiProvider()
         assert provider.supports_tools is True
@@ -178,6 +180,12 @@ def test_gemini_supports_tools_true() -> None:
 @pytest.mark.asyncio
 async def test_gemini_tool_loop_executes_tool() -> None:
     """tool_loop Gemini : l'outil est exécuté et la synthèse LLM est retournée."""
+    # NB : pré-charger google.genai pour éviter la fragilité de mock.patch
+    # quand le namespace google a déjà été chargé partiellement (google.auth
+    # via Calendar/Gmail Tool) — sinon `patch("google.genai.Client")` ne
+    # capture pas correctement la classe selon l'ordre des tests.
+    import google.genai  # noqa: F401 — force le chargement avant patch
+
     with patch("google.genai.Client") as mock_client_cls:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -220,7 +228,7 @@ async def test_gemini_tool_loop_executes_tool() -> None:
 
         mock_client.aio.models.generate_content = AsyncMock(side_effect=[resp1, resp2])
 
-        from llm.api import GeminiProvider
+        from jarvis.providers.llm.api import GeminiProvider
 
         provider = GeminiProvider()
         executed: list[str] = []
@@ -256,6 +264,12 @@ async def test_gemini_tool_loop_executes_tool() -> None:
 @pytest.mark.asyncio
 async def test_gemini_stream_with_capture_detects_tool() -> None:
     """stream_with_capture Gemini : chunk.function_calls peuple ToolCapture.calls."""
+    # NB : pré-charger google.genai pour éviter la fragilité de mock.patch
+    # quand le namespace google a déjà été chargé partiellement (google.auth
+    # via Calendar/Gmail Tool) — sinon `patch("google.genai.Client")` ne
+    # capture pas correctement la classe selon l'ordre des tests.
+    import google.genai  # noqa: F401 — force le chargement avant patch
+
     with patch("google.genai.Client") as mock_client_cls:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -280,7 +294,7 @@ async def test_gemini_stream_with_capture_detects_tool() -> None:
 
         mock_client.aio.models.generate_content_stream = AsyncMock(return_value=_fake_stream())
 
-        from llm.api import GeminiProvider
+        from jarvis.providers.llm.api import GeminiProvider
 
         provider = GeminiProvider()
         stream, capture = provider.stream_with_capture(

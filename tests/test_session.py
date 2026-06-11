@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.session import Session, SessionManager
+from jarvis.engine.session import Session, SessionManager
 
 
 def test_session_add_message() -> None:

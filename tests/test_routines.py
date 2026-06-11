@@ -10,20 +10,14 @@ Cas couverts :
 
 from __future__ import annotations
 
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
-# Stubbe les dépendances LLM absentes de l'environnement de test.
-# ProactiveEngine n'exerce aucun chemin LLM dans ce fichier.
-for _dep in ("openai", "anthropic", "ollama", "google", "google.genai", "google.generativeai"):
-    if _dep not in sys.modules:
-        sys.modules[_dep] = MagicMock()  # type: ignore[assignment]
-
-from background.routines import (  # noqa: E402
+# NB : stub historique de sys.modules retiré en Phase C étape 2 (a)
+# (cf. test_routines_api.py pour le contexte).
+from jarvis.engine.background.routines import (  # noqa: E402
     CatchUpPolicy,
     ConcurrencyPolicy,
     Routine,
@@ -34,7 +28,12 @@ from background.routines import (  # noqa: E402
     fire_routine,
     next_cron_datetime,
 )
-from proactive.schemas import ExecutionMode, Initiative, InitiativeType, Priority  # noqa: E402
+from jarvis.engine.proactive.schemas import (  # noqa: E402
+    ExecutionMode,
+    Initiative,
+    InitiativeType,
+    Priority,
+)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -154,8 +153,8 @@ async def test_concurrency_blocks_overlap(tmp_path: Path) -> None:
 
 def test_proactive_audit_event() -> None:
     """ProactiveEngine._dispatch doit enregistrer un ProactiveAuditEvent consultable."""
-    from background.notifications import NotificationQueue
-    from proactive.engine import ProactiveEngine
+    from jarvis.engine.background.notifications import NotificationQueue
+    from jarvis.engine.proactive.engine import ProactiveEngine
 
     broadcast_events: list[dict] = []
 
@@ -163,9 +162,18 @@ def test_proactive_audit_event() -> None:
         def add(self, content: str) -> None:  # noqa: ANN001
             pass
 
+    from unittest.mock import MagicMock
+
+    from jarvis.engine.proactive.context_builder import ContextBuilder
+    from jarvis.engine.proactive.initiative_generator import InitiativeGenerator
+    from jarvis.engine.proactive.store import InitiativeStore
+
     engine = ProactiveEngine(
         notification_queue=_Queue(),
         broadcast_event=broadcast_events.append,
+        builder=ContextBuilder(calendar_tool=MagicMock(), notion_tool=MagicMock()),
+        generator=InitiativeGenerator(llm=MagicMock()),
+        store=InitiativeStore(),
         interval_minutes=30,
     )
 

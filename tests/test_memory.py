@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from memory.index import MemoryIndex
-from memory.search import VectorIndex, _chunk_text
-from memory.sessions import SessionStore
-from memory.topics import TopicStore
-from tools.memory import MemoryLoadTopicTool, MemorySearchTool
+from jarvis.capabilities.tools.memory import MemoryLoadTopicTool, MemorySearchTool
+from jarvis.providers.memory.index import MemoryIndex
+from jarvis.providers.memory.search import VectorIndex, _chunk_text
+from jarvis.providers.memory.sessions import SessionStore
+from jarvis.providers.memory.topics import TopicStore
 
 # ── SessionStore ──────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ def test_topic_store_exists(tmp_path: Path) -> None:
 
 
 def test_session_persist_callback(tmp_path: Path) -> None:
-    from core.session import Session
+    from jarvis.engine.session import Session
 
     written: list[tuple[str, str]] = []
 
@@ -146,8 +146,8 @@ def test_session_persist_callback(tmp_path: Path) -> None:
 
 
 def test_session_manager_restore_from_jsonl(tmp_path: Path) -> None:
-    from core.session import SessionManager
-    from memory.sessions import SessionStore
+    from jarvis.engine.session import SessionManager
+    from jarvis.providers.memory.sessions import SessionStore
 
     # UUID valide requis — les sessions sont toujours identifiées par uuid4()
     session_id = "12345678-1234-5678-1234-567812345678"
@@ -167,7 +167,7 @@ def test_session_manager_restore_from_jsonl(tmp_path: Path) -> None:
 
 def test_agent_build_system_lists_topics_only(tmp_path: Path) -> None:
     """_build_system() doit injecter la LISTE des topics, pas leur contenu."""
-    from core.agent import Agent
+    from jarvis.engine.agent import Agent
 
     topics_dir = tmp_path / "topics"
     store = TopicStore(topics_dir)
@@ -180,7 +180,9 @@ def test_agent_build_system_lists_topics_only(tmp_path: Path) -> None:
     class _DummyLLM:
         supports_tools = False
 
-    agent = Agent(llm=_DummyLLM(), memory_index=memory_index, topic_store=store)
+    from jarvis.kernel.settings import settings as _settings
+
+    agent = Agent(settings=_settings, llm=_DummyLLM(), memory_index=memory_index, topic_store=store)
     system = agent._build_system()
 
     assert "user_prefs.md" in system
@@ -195,7 +197,7 @@ async def test_memory_load_topic_reads_existing(tmp_path: Path) -> None:
     store = TopicStore(topics_dir)
     store.write("user_prefs.md", "# Préférences\nMode sombre activé.")
 
-    tool = MemoryLoadTopicTool(topics_dir=topics_dir)
+    tool = MemoryLoadTopicTool(topic_store=TopicStore(topics_dir))
     result = await tool.execute(filename="user_prefs.md")
 
     assert not result.is_error
@@ -203,7 +205,7 @@ async def test_memory_load_topic_reads_existing(tmp_path: Path) -> None:
 
 
 async def test_memory_load_topic_rejects_invalid_name(tmp_path: Path) -> None:
-    tool = MemoryLoadTopicTool(topics_dir=tmp_path / "topics")
+    tool = MemoryLoadTopicTool(topic_store=TopicStore(tmp_path / "topics"))
     for bad in ["../secret.md", "etc/passwd", "no_extension", "evil\\path.md"]:
         result = await tool.execute(filename=bad)
         assert result.is_error, f"Nom invalide accepté : {bad}"
@@ -212,7 +214,7 @@ async def test_memory_load_topic_rejects_invalid_name(tmp_path: Path) -> None:
 async def test_memory_load_topic_unknown_file(tmp_path: Path) -> None:
     topics_dir = tmp_path / "topics"
     TopicStore(topics_dir)  # crée le dossier
-    tool = MemoryLoadTopicTool(topics_dir=topics_dir)
+    tool = MemoryLoadTopicTool(topic_store=TopicStore(topics_dir))
     result = await tool.execute(filename="inexistant.md")
     assert result.is_error
     assert "introuvable" in result.content.lower()

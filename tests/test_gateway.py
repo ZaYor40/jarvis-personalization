@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from background.notifications import NotificationQueue
-from background.worker import BackgroundWorker
-from core.agent import Agent
-from core.gateway import Gateway
-from core.router import RouteEnum
-from core.session import Session, SessionManager
-from llm.base import LLMProvider
+from jarvis.engine.agent import Agent
+from jarvis.engine.background.notifications import NotificationQueue
+from jarvis.engine.background.worker import BackgroundWorker
+from jarvis.engine.gateway import Gateway
+from jarvis.engine.router import RouteEnum
+from jarvis.engine.session import Session, SessionManager
+from jarvis.kernel.settings import settings as _test_settings
+from jarvis.providers.llm.base import LLMProvider
 
 
 class _MockLLM(LLMProvider):
@@ -39,7 +40,7 @@ class _MockLLM(LLMProvider):
 def _make_gateway(response: str = "[I] Bonjour chef.") -> tuple[Gateway, SessionManager]:
     mgr = SessionManager()
     llm = _MockLLM(response)
-    agent = Agent(llm=llm)
+    agent = Agent(settings=_test_settings, llm=llm)
     notifications = NotificationQueue()
     worker = BackgroundWorker(llm=llm, notifications=notifications)
     return (
@@ -87,7 +88,7 @@ async def test_gateway_fallback_on_error() -> None:
 
     mgr = SessionManager()
     llm = _BrokenLLM()
-    agent = Agent(llm=llm)
+    agent = Agent(settings=_test_settings, llm=llm)
     notifications = NotificationQueue()
     worker = BackgroundWorker(llm=llm, notifications=notifications)
     gw = Gateway(session_manager=mgr, agent=agent, notifications=notifications, worker=worker)

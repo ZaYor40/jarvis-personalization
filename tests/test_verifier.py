@@ -17,10 +17,10 @@ from pathlib import Path
 
 import pytest
 
-from agent.quality_checker import QualityChecker
-from agent.schemas import Project, Step
-from agent.verifier import Verifier
-from llm.base import LLMProvider
+from jarvis.engine.mission.quality_checker import QualityChecker
+from jarvis.engine.mission.schemas import Project, Step
+from jarvis.engine.mission.verifier import Verifier
+from jarvis.providers.llm.base import LLMProvider
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────
 
@@ -102,9 +102,7 @@ def _verdict_json(verified: bool, issues: list[str] | None = None, notes: str = 
 
 
 async def test_couche1_fichier_vide_bloque_avant_llm(tmp_path: Path) -> None:
-    project, step, files_before = _make_project_step(
-        tmp_path, verification_command="true"
-    )
+    project, step, files_before = _make_project_step(tmp_path, verification_command="true")
     # On crée un fichier vide pour faire échouer la couche 1
     (Path(project.workspace_path) / "vide.py").write_text("")
 

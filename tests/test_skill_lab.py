@@ -15,11 +15,11 @@ from pathlib import Path
 
 import pytest
 
-from llm.base import LLMProvider
-from memory.kernel import MemoryKernel
-from skills.lab import SkillLab
-from skills.lifecycle import SkillLifecycle, SkillStatus
-from skills.synthesizer import SkillSynthesizer
+from jarvis.capabilities.skills.lab import SkillLab
+from jarvis.capabilities.skills.lifecycle import SkillLifecycle, SkillStatus
+from jarvis.capabilities.skills.synthesizer import SkillSynthesizer
+from jarvis.providers.llm.base import LLMProvider
+from jarvis.providers.memory.kernel import MemoryKernel
 
 # ── Fakes ──────────────────────────────────────────────────────────────────────
 
@@ -183,9 +183,7 @@ def test_promote_refuse_si_sandboxed_fail(
     lab = _make_lab(kernel, lifecycle, workspace)
     # On simule directement : lifecycle marque la skill comme SANDBOXED_FAIL
     lifecycle.create_candidate(name="broken-skill")
-    lifecycle.mark_sandbox_result(
-        name="broken-skill", passed=False, notes="import error"
-    )
+    lifecycle.mark_sandbox_result(name="broken-skill", passed=False, notes="import error")
     record = lab.promote("broken-skill")
     assert record is None  # promotion refusée
     assert not (workspace / "installed" / "broken-skill").exists()
@@ -333,9 +331,10 @@ async def test_skill_sans_classe_skillbase_est_rejetee(
     record = await lab.test_in_sandbox("no-class")
     assert record is not None
     assert record.status == SkillStatus.SANDBOXED_FAIL
-    assert "classe" in (record.sandbox_notes or "").lower() or "skillbase" in (
-        record.sandbox_notes or ""
-    ).lower()
+    assert (
+        "classe" in (record.sandbox_notes or "").lower()
+        or "skillbase" in (record.sandbox_notes or "").lower()
+    )
 
 
 async def test_skill_system_prompt_vide_rejetee(

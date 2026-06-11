@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from skills.lifecycle import CONFIDENCE_INITIAL, SkillLifecycle, SkillStatus
+from jarvis.capabilities.skills.lifecycle import CONFIDENCE_INITIAL, SkillLifecycle, SkillStatus
 
 
 @pytest.fixture
@@ -48,9 +48,7 @@ def test_mark_sandbox_pass(lifecycle: SkillLifecycle) -> None:
 
 def test_mark_sandbox_fail(lifecycle: SkillLifecycle) -> None:
     lifecycle.create_candidate(name="bad-skill")
-    record = lifecycle.mark_sandbox_result(
-        name="bad-skill", passed=False, notes="import error"
-    )
+    record = lifecycle.mark_sandbox_result(name="bad-skill", passed=False, notes="import error")
     assert record is not None
     assert record.status == SkillStatus.SANDBOXED_FAIL
     assert "import" in (record.sandbox_notes or "")
