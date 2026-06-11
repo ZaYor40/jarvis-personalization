@@ -7,6 +7,12 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    # Permet de déclencher manuellement les workflows de la branche cible
+    # via l'UI Actions (bouton "Run workflow") ou `gh workflow run`. Ajouté
+    # isolément avant le merge F.7 pour activer B9 cold-install (qui vit sur
+    # refonte/architecture-couches) sans devoir merger d'abord. Remplacé
+    # par le ci.yml complet de la refonte au moment du merge F.7.
 
 jobs:
   lint-and-test:
