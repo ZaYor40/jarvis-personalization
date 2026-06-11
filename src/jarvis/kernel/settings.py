@@ -190,6 +190,10 @@ class Settings(BaseSettings):
         default="config/google_token.json",
         description="Chemin vers le token OAuth2 Google (généré automatiquement).",
     )
+    google_gmail_token_path: str = Field(
+        default="config/google_gmail_token.json",
+        description="Chemin vers le token OAuth2 Gmail (généré automatiquement).",
+    )
 
     # ── Vision ───────────────────────────────────────────────────
     vision_model: str = Field(

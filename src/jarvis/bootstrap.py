@@ -271,7 +271,7 @@ def build(
 
     _root = CONFIG_DIR.parent  # PROJECT_ROOT
     _google_creds = (_root / settings.google_credentials_path).resolve()
-    _gmail_token = (_root / "config/google_gmail_token.json").resolve()
+    _gmail_token = (_root / settings.google_gmail_token_path).resolve()
     _calendar_token = (_root / settings.google_token_path).resolve()
     allowed_roots = [Path(r).expanduser().resolve() for r in settings.file_search_roots]
 
