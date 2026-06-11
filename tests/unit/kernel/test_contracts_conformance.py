@@ -22,15 +22,19 @@ suite de tests dépende d'une .env complète. La validation runtime
 (`isinstance` au boot bootstrap.build()) est faite côté `bootstrap.py`
 GATE F1bis-b, sur les instances RÉELLES.
 
-Périmètre couvert en Phase F :
-  - L1 / Providers / LLM : 5 providers (mypy statique)
-  - L1 / Providers / Memory : FTSIndex, VectorIndex, SessionStore,
-    TopicStore, MemoryIndex (mypy statique)
-  - L2 / Engine / tracking : UsageTracker (mypy + runtime)
+Périmètre couvert en Phase F (12 couples statiques + 1 runtime) :
+  - L1 / Providers / LLM : Anthropic, Mistral, Gemini, OpenAI, Ollama (5)
+  - L1 / Providers / Memory : MemoryStore (MemoryKernel), FTSIndex,
+    VectorIndex, SessionStore, TopicStore, MemoryIndex (6)
+  - L2 / Engine / tracking : UsageTracker (mypy statique + runtime check, 1)
 
 Hors-périmètre (BACKLOG Phase G "fermer conformité Protocols stricte") :
-MemoryStore, ToolRegistry, SkillRegistry — divergences réelles entre
-Protocols et impls documentées dans BACKLOG.md.
+ToolRegistry et SkillRegistry — divergences PURE VARIANCE entre Protocol
+(`kernel.contracts.Tool` / `Skill`) et ABC (`capabilities.tools.base.Tool`
+/ `capabilities.skills.base.SkillBase`). Les attributs/méthodes sont
+structurellement identiques, mais mypy distingue les types nominaux.
+Documentés en BACKLOG.md, à reprendre en G en alignant `*tools: Tool`
+sur le Protocol (l'ABC l'implémente structurellement).
 """
 
 from __future__ import annotations
@@ -42,6 +46,7 @@ from jarvis.kernel import contracts
 if TYPE_CHECKING:
     # Imports pour le check statique. Les types sont résolus par mypy
     # mais le code n'est jamais exécuté → pas besoin de clé API pour le LLM.
+    from jarvis.engine.tracking import UsageTracker as _ConcreteUsageTracker
     from jarvis.providers.llm.api import (
         AnthropicProvider,
         GeminiProvider,
@@ -50,6 +55,7 @@ if TYPE_CHECKING:
     )
     from jarvis.providers.llm.local import OllamaProvider
     from jarvis.providers.memory.index import MemoryIndex as _ConcreteMemoryIndex
+    from jarvis.providers.memory.kernel import MemoryKernel as _ConcreteMemoryStore
     from jarvis.providers.memory.search import FTSIndex as _ConcreteFTSIndex
     from jarvis.providers.memory.search import VectorIndex as _ConcreteVectorIndex
     from jarvis.providers.memory.sessions import SessionStore as _ConcreteSessionStore
@@ -63,21 +69,25 @@ def test_conformance_static() -> None:
     mypy le visite normalement et vérifie chaque assignation.
     """
     if False:  # noqa: SIM108 — bloc analysé par mypy, jamais exécuté
-        # ── L1 — Providers / LLM ────────────────────────────────────────────
+        # ── L1 — Providers / LLM (5 couples) ────────────────────────────────
         _a: contracts.LLMProvider = cast("AnthropicProvider", None)
         _m: contracts.LLMProvider = cast("MistralProvider", None)
         _g: contracts.LLMProvider = cast("GeminiProvider", None)
         _open: contracts.LLMProvider = cast("OpenAIProvider", None)
         _o: contracts.LLMProvider = cast("OllamaProvider", None)
 
-        # ── L1 — Providers / Memory ─────────────────────────────────────────
+        # ── L1 — Providers / Memory (6 couples) ─────────────────────────────
+        _store: contracts.MemoryStore = cast("_ConcreteMemoryStore", None)
         _sess: contracts.SessionStore = cast("_ConcreteSessionStore", None)
         _top: contracts.TopicStore = cast("_ConcreteTopicStore", None)
         _mi: contracts.MemoryIndex = cast("_ConcreteMemoryIndex", None)
         _fts: contracts.FTSIndex = cast("_ConcreteFTSIndex", None)
         _vi: contracts.VectorIndex = cast("_ConcreteVectorIndex", None)
 
-    assert True  # mypy a tranché statiquement
+        # ── L2 — Engine / tracking (1 couple) ───────────────────────────────
+        _ut: contracts.UsageTracker = cast("_ConcreteUsageTracker", None)
+
+    assert True  # mypy a tranché statiquement — 12 couples couverts
 
 
 def test_conformance_runtime_check() -> None:

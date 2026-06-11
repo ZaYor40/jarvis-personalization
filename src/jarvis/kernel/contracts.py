@@ -109,7 +109,11 @@ class MemoryStore(Protocol):
 
     def list_facts_by_status(self, status: FactStatus, limit: int | None = None) -> list[Fact]: ...
 
-    def list_facts_by_category(self, category: str, limit: int | None = None) -> list[Fact]: ...
+    def list_facts_by_category(
+        self,
+        category: str,
+        status: FactStatus = FactStatus.ACTIVE,
+    ) -> list[Fact]: ...
 
     def count_facts(self, status: FactStatus | None = None) -> int: ...
 
@@ -135,7 +139,16 @@ class MemoryStore(Protocol):
 
     # Recherche & correction
     def search_facts_fts(self, query: str, k: int = 10) -> list[tuple[Fact, float]]: ...
-    def apply_correction(self, fact_id: str, new_object: str, event_id: str) -> Fact | None: ...
+
+    def apply_correction(
+        self,
+        target_fact_id: str,
+        new_object: str | None = None,
+        new_status: FactStatus | None = None,
+        new_confidence: float | None = None,
+        correction_text: str = "",
+        source: str = "user_command",
+    ) -> tuple[Event, Fact | None]: ...
 
 
 @runtime_checkable
