@@ -49,7 +49,8 @@ from jarvis.kernel.schemas import (
 class LLMProvider(Protocol):
     """Interface commune à tous les providers LLM (cf. llm/base.py)."""
 
-    supports_tools: bool
+    @property
+    def supports_tools(self) -> bool: ...
 
     async def complete(
         self,

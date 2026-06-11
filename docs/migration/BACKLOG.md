@@ -26,6 +26,11 @@ _(à venir)_
 
 ## Phase F
 
+- **Fermer conformité Protocols stricte (CDC §F.1.3bis)** — 3 couples (Protocol, impl) divergent en signatures :
+  - `kernel.contracts.MemoryStore` ↔ `providers.memory.kernel.MemoryKernel` : `apply_correction(...)` retourne `Fact | None` (Protocol) vs `tuple[Event, Fact | None]` (impl) ; `list_facts_by_category(category, limit=...)` vs `list_facts_by_category(category, status=...)`.
+  - `kernel.contracts.ToolRegistry` ↔ `capabilities.tools.registry.ToolRegistry` : la variance `kernel.contracts.Tool` (Protocol) vs `capabilities.tools.base.Tool` (ABC) crée un mismatch — l'impl utilise la classe locale, le Protocol pointe sur le sien.
+  - `kernel.contracts.SkillRegistry` ↔ `capabilities.skills.registry.SkillRegistry` : même motif (Skill Protocol vs SkillBase ABC).
+  Test de conformité actuel scopé sur les Protocols passants (LLM x5 + 5 Memory + UsageTracker = 11 couples). À reprendre en Phase G : aligner signatures OU faire passer les ABCs L1 en `kernel.contracts.Tool/Skill` (qui sont déjà des Protocols structurels).
 - **Fermer RÈGLE 2 strict — 4 résidus capabilities/engine et engine/capabilities annotés `ignore_imports`** dans `pyproject.toml::tool.importlinter` :
   - `capabilities.tools.subagent → engine.agent` (Agent type pour SpawnSubagentTool — passer en Protocol kernel.contracts.Agent)
   - `capabilities.tools.subagent → engine.mission.backends.rpc` (ScriptRPCRunner instanciation — injecter via constructeur ou descendre l'infrastructure RPC en kernel/providers)

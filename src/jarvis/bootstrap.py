@@ -466,6 +466,23 @@ def build(settings: Settings | None = None) -> Container:
         project_store=orchestrator._store,
     )
 
+    # ── 17. Conformité runtime des Protocols (GATE F1bis-b) ─────────────────
+    # Vérifie au boot que les implémentations exposent bien les méthodes
+    # déclarées par les Protocols `@runtime_checkable`. Les signatures
+    # restent vérifiées par mypy (cf. tests/unit/kernel/test_contracts_conformance.py).
+    from jarvis.kernel import contracts as _contracts
+
+    assert isinstance(llm, _contracts.LLMProvider), "llm: LLMProvider Protocol non respecté"
+    assert isinstance(background_llm, _contracts.LLMProvider), (
+        "background_llm: LLMProvider Protocol non respecté"
+    )
+    assert isinstance(voice_llm, _contracts.LLMProvider), (
+        "voice_llm: LLMProvider Protocol non respecté"
+    )
+    assert isinstance(tracker, _contracts.UsageTracker), (
+        "tracker: UsageTracker Protocol non respecté"
+    )
+
     return Container(
         settings=settings,
         bus=bus,
