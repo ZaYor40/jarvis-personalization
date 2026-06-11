@@ -71,7 +71,7 @@ class DeepgramReceiver:
     # ── Internals ─────────────────────────────────────────────────────────────
 
     async def _connect(self) -> None:
-        api_key = settings.deepgram_api_key
+        api_key = settings.deepgram_api_key.get_secret_value()
         if not api_key:
             raise ValueError("DEEPGRAM_API_KEY manquant dans .env")
 

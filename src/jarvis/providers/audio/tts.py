@@ -47,7 +47,7 @@ class TTSEngine:
         )
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
         headers = {
-            "xi-api-key": settings.elevenlabs_api_key,
+            "xi-api-key": settings.elevenlabs_api_key.get_secret_value(),
             "Content-Type": "application/json",
         }
         payload = {

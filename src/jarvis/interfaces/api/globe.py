@@ -208,8 +208,12 @@ async def get_weather() -> dict[str, Any]:
 # ── Config — expose public keys to frontend ────────────────────
 @router.get("/config")
 async def get_config() -> dict[str, Any]:
+    # Ces 3 clés sont VOLONTAIREMENT exposées au frontend (JS browser fait
+    # les appels Mapbox/MapTiler/AISStream directement). Le SecretStr les
+    # masque dans `repr(settings)` — défense en profondeur — mais on les
+    # passe en clair ici puisque c'est leur usage prévu.
     return {
-        "aisstream_key": settings.aisstream_key or "",
-        "maptiler_key": settings.maptiler_key or "",
-        "mapbox_token": settings.mapbox_token or "",
+        "aisstream_key": settings.aisstream_key.get_secret_value() or "",
+        "maptiler_key": settings.maptiler_key.get_secret_value() or "",
+        "mapbox_token": settings.mapbox_token.get_secret_value() or "",
     }

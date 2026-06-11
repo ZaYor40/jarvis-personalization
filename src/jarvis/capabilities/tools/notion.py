@@ -24,7 +24,7 @@ class NotionTasksTool(Tool):
     _NOTION_VERSION = "2022-06-28"
 
     async def execute(self, **kwargs: object) -> ToolResult:
-        token = settings.notion_token
+        token = settings.notion_token.get_secret_value()
         page_id = settings.notion_page_id
         if not token or not page_id:
             return ToolResult(

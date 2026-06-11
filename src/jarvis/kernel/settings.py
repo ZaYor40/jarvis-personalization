@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _VALID_WHISPER = frozenset(
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     )
 
     # Anthropic
-    anthropic_api_key: str = Field(default="", description="Clé API Anthropic.")
+    anthropic_api_key: SecretStr = Field(default=SecretStr(""), description="Clé API Anthropic.")
     anthropic_model: str = Field(
         default="claude-sonnet-4-6",
         description="Modèle Anthropic à utiliser.",
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     )
 
     # Mistral
-    mistral_api_key: str = Field(default="", description="Clé API Mistral.")
+    mistral_api_key: SecretStr = Field(default=SecretStr(""), description="Clé API Mistral.")
     mistral_model: str = Field(
         default="mistral-large-latest",
         description="Modèle Mistral à utiliser.",
@@ -99,8 +99,8 @@ class Settings(BaseSettings):
             "Obligatoire dès que l'API est exposée hors localhost (Tailscale, VPS)."
         ),
     )
-    api_token: str = Field(
-        default="",
+    api_token: SecretStr = Field(
+        default=SecretStr(""),
         description=(
             "Token Bearer attendu si api_auth_enabled=True. Générer avec : openssl rand -hex 32"
         ),
@@ -218,16 +218,16 @@ class Settings(BaseSettings):
     )
 
     # ── Audio / STT / TTS ─────────────────────────────────────
-    openai_api_key: str = Field(
-        default="",
+    openai_api_key: SecretStr = Field(
+        default=SecretStr(""),
         description="Clé API OpenAI (LLM principal si api_backend=openai, TTS, Vision).",
     )
     stt_provider: Literal["deepgram", "whisper"] = Field(
         default="deepgram",
         description="Backend STT : 'deepgram' (cloud, rapide) ou 'whisper' (local, hors-ligne).",
     )
-    deepgram_api_key: str = Field(
-        default="", description="Clé API Deepgram (STT Nova-2 streaming)."
+    deepgram_api_key: SecretStr = Field(
+        default=SecretStr(""), description="Clé API Deepgram (STT Nova-2 streaming)."
     )
     whisper_model: str = Field(
         default="tiny",
@@ -253,7 +253,7 @@ class Settings(BaseSettings):
         default="models/piper/fr_FR-upmc-medium.onnx",
         description="Chemin vers le modèle Piper ONNX.",
     )
-    elevenlabs_api_key: str = Field(default="", description="Clé API ElevenLabs.")
+    elevenlabs_api_key: SecretStr = Field(default=SecretStr(""), description="Clé API ElevenLabs.")
     elevenlabs_voice_id: str = Field(default="", description="ID de la voix ElevenLabs.")
     elevenlabs_model: str = Field(
         default="eleven_flash_v2_5",
@@ -261,23 +261,28 @@ class Settings(BaseSettings):
     )
 
     # ── Notion ────────────────────────────────────────────────
-    notion_token: str = Field(default="", description="Token d'intégration Notion.")
+    notion_token: SecretStr = Field(
+        default=SecretStr(""), description="Token d'intégration Notion."
+    )
     notion_page_id: str = Field(
         default="",
         description="ID de la page Notion des tâches (depuis l'URL).",
     )
 
     # ── AIS Stream (navires) ─────────────────────────────────
-    aisstream_key: str = Field(default="", description="Clé API AISstream.io (navires temps réel).")
+    aisstream_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="Clé API AISstream.io (navires temps réel).",
+    )
 
     # ── Mapbox (globe natif) ──────────────────────────────────
-    mapbox_token: str = Field(
-        default="", description="Token Mapbox GL JS (projection globe native)."
+    mapbox_token: SecretStr = Field(
+        default=SecretStr(""), description="Token Mapbox GL JS (projection globe native)."
     )
 
     # ── MapTiler (carte détaillée) ────────────────────────────
-    maptiler_key: str = Field(
-        default="", description="Clé API MapTiler (free tier, carte détaillée globe V2)."
+    maptiler_key: SecretStr = Field(
+        default=SecretStr(""), description="Clé API MapTiler (free tier, carte détaillée globe V2)."
     )
 
     # ── Musique ───────────────────────────────────────────────
@@ -287,7 +292,9 @@ class Settings(BaseSettings):
 
     # ── Spotify ───────────────────────────────────────────────
     spotify_client_id: str = Field(default="", description="Spotify app Client ID.")
-    spotify_client_secret: str = Field(default="", description="Spotify app Client Secret.")
+    spotify_client_secret: SecretStr = Field(
+        default=SecretStr(""), description="Spotify app Client Secret."
+    )
     spotify_redirect_uri: str = Field(
         default="http://127.0.0.1:8000/api/spotify/callback",
         description="URI de callback OAuth Spotify.",
@@ -299,7 +306,7 @@ class Settings(BaseSettings):
 
     # ── Deezer ────────────────────────────────────────────────
     deezer_app_id: str = Field(default="", description="Deezer app ID.")
-    deezer_app_secret: str = Field(default="", description="Deezer app secret.")
+    deezer_app_secret: SecretStr = Field(default=SecretStr(""), description="Deezer app secret.")
     deezer_redirect_uri: str = Field(
         default="http://127.0.0.1:8000/api/deezer/callback",
         description="URI de callback OAuth Deezer.",

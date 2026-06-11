@@ -44,7 +44,7 @@ def _save_token(data: dict) -> None:
 
 
 def _basic_auth() -> str:
-    creds = f"{settings.spotify_client_id}:{settings.spotify_client_secret}"
+    creds = f"{settings.spotify_client_id}:{settings.spotify_client_secret.get_secret_value()}"
     return base64.b64encode(creds.encode()).decode()
 
 

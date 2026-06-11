@@ -65,7 +65,7 @@ async def deezer_callback(
             _TOKEN_URL,
             params={
                 "app_id": settings.deezer_app_id,
-                "secret": settings.deezer_app_secret,
+                "secret": settings.deezer_app_secret.get_secret_value(),
                 "code": code,
                 "output": "json",
             },

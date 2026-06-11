@@ -112,7 +112,9 @@ class AnthropicProvider(LLMProvider):
         model: str | None = None,
         tracker: UsageTracker | None = None,
     ) -> None:
-        self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        self._client = anthropic.AsyncAnthropic(
+            api_key=settings.anthropic_api_key.get_secret_value()
+        )
         self._model = model or settings.anthropic_model
         self._max_tokens = max_tokens
         self._tracker = tracker
@@ -340,7 +342,7 @@ class MistralProvider(LLMProvider):
 
     def __init__(self) -> None:
         self._client = AsyncOpenAI(
-            api_key=settings.mistral_api_key,
+            api_key=settings.mistral_api_key.get_secret_value(),
             base_url="https://api.mistral.ai/v1",
         )
         self._model = settings.mistral_model
@@ -820,7 +822,7 @@ class OpenAIProvider(LLMProvider):
     """Provider OpenAI API via SDK officiel."""
 
     def __init__(self, model: str | None = None) -> None:
-        self._client = AsyncOpenAI(api_key=settings.openai_api_key)
+        self._client = AsyncOpenAI(api_key=settings.openai_api_key.get_secret_value())
         self._model = model or settings.openai_model
 
     async def complete(

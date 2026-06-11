@@ -51,7 +51,7 @@ class EventsResponse(BaseModel):
 
 def _notion_headers() -> dict:
     return {
-        "Authorization": f"Bearer {settings.notion_token}",
+        "Authorization": f"Bearer {settings.notion_token.get_secret_value()}",
         "Notion-Version": _NOTION_VERSION,
         "Content-Type": "application/json",
     }
@@ -62,7 +62,7 @@ def _notion_headers() -> dict:
 
 @router.get("/tasks", response_model=TasksResponse)
 async def get_tasks() -> TasksResponse:
-    token = settings.notion_token
+    token = settings.notion_token.get_secret_value()
     page_id = settings.notion_page_id
     if not token or not page_id:
         return TasksResponse(tasks=[])
@@ -146,7 +146,7 @@ async def _find_section_anchor(client: httpx.AsyncClient, page_id: str) -> str |
 
 @router.post("/tasks", response_model=Task)
 async def create_task(body: TaskCreate) -> Task:
-    token = settings.notion_token
+    token = settings.notion_token.get_secret_value()
     page_id = settings.notion_page_id
     if not token or not page_id:
         from fastapi import HTTPException
@@ -180,7 +180,7 @@ async def create_task(body: TaskCreate) -> Task:
 
 @router.patch("/tasks/{block_id}", response_model=Task)
 async def update_task(block_id: str, body: TaskPatch) -> Task:
-    token = settings.notion_token
+    token = settings.notion_token.get_secret_value()
     if not token:
         from fastapi import HTTPException
 
@@ -208,7 +208,7 @@ async def update_task(block_id: str, body: TaskPatch) -> Task:
 
 @router.delete("/tasks/{block_id}")
 async def delete_task(block_id: str) -> dict:
-    token = settings.notion_token
+    token = settings.notion_token.get_secret_value()
     if not token:
         from fastapi import HTTPException
 

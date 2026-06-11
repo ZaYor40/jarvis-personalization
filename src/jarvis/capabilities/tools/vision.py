@@ -74,7 +74,7 @@ class VisionTool(Tool):
     }
 
     def __init__(self, visual_memory: VisualMemory) -> None:
-        self._openai = AsyncOpenAI(api_key=settings.openai_api_key)
+        self._openai = AsyncOpenAI(api_key=settings.openai_api_key.get_secret_value())
         self._visual_memory = visual_memory
 
     async def execute(

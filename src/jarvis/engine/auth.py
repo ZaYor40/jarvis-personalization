@@ -58,7 +58,7 @@ async def verify_api_token(request: HTTPConnection) -> None:
         raise HTTPException(status_code=401, detail="Token Bearer requis.")
 
     token = auth_header[len("Bearer ") :]
-    expected = settings.api_token
+    expected = settings.api_token.get_secret_value()
     if not expected or not hmac.compare_digest(
         token.encode("utf-8"),
         expected.encode("utf-8"),
