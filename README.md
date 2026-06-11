@@ -37,43 +37,68 @@ Jarvis est un assistant personnel IA qui tourne en local. Il expose un serveur F
 
 ---
 
-## Architecture
+## Architecture — couches strictes (CDC §2)
+
+Depuis la migration `refonte/architecture-couches` (v0.2), le code est
+organisé en **4 couches strictes** validées par
+[import-linter](https://pypi.org/project/import-linter/) en CI. Chaque
+règle est exécutable, pas juste de la convention.
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                  Serveur FastAPI (main.py)            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
-│  │ /api/ws  │  │ /api/http│  │  /admin (UI)     │   │
-│  └────┬─────┘  └────┬─────┘  └──────────────────┘   │
-│       │              │                                │
-│  ┌────▼──────────────▼──────────────────────────┐   │
-│  │              Gateway  (core/gateway.py)        │   │
-│  │   session ──► Agent ──► LLM ──► appels outils │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│  Mémoire         Arrière-plan       Proactif         │
-│  sessions/       scheduler/         engine/          │
-│  topics/         worker/            collectors/      │
-│  consolidation   notifications                       │
-└──────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│  L3 — interfaces / app / bootstrap                              │
+│  Point d'entrée serveur (app.py + bootstrap.build()),           │
+│  routers FastAPI (interfaces.api.*), pipeline voix (LiveKit).   │
+│  ─ peut importer toutes les couches en dessous                  │
+├────────────────────────────────────────────────────────────────┤
+│  L2 — engine                                                    │
+│  Gateway, Agent, BudgetGuard, Mission Engine, Proactif,         │
+│  Scheduler, Worker, NotificationQueue.                          │
+│  ─ n'importe QUE jarvis.kernel (RÈGLE 3)                        │
+│  ─ reçoit providers/capabilities PAR INJECTION                  │
+├────────────────────────────────────────────────────────────────┤
+│  L1 — providers │ capabilities │ analytics │ hardware           │
+│  Implémentations concrètes : LLM (Anthropic/Mistral/Gemini/     │
+│  Ollama), TTS, STT, Memory Kernel, Tools, Skills, parsers BT,   │
+│  Macropad. 4 sous-packages indépendants entre eux.              │
+│  ─ n'importent QUE jarvis.kernel (RÈGLE 2)                      │
+├────────────────────────────────────────────────────────────────┤
+│  L0 — kernel                                                    │
+│  Contrats (Protocols), schemas (dataclasses partagées), events  │
+│  bus, settings (pydantic), errors, paths, vocab, permissions.   │
+│  ─ n'importe RIEN du projet (stdlib + pydantic uniquement)      │
+│  ─ RÈGLE 1                                                      │
+└────────────────────────────────────────────────────────────────┘
 
-voice_agent.py  ──LiveKit──►  STT ──► Gateway ──► TTS
+Communication montante : kernel.events.bus (pub/sub asyncio)
+  ◦ BudgetThresholdReached  ─►  NotificationQueue + UI broadcast
+  ◦ MissionCompleted        ─►  Reflexion.reflect()
+  ◦ MemoryIngested          ─►  UI broadcast (compteur facts)
+  ◦ NotificationRequested   ─►  NotificationQueue / WS
 ```
 
-| Module | Rôle |
+| Couche | Package | Rôle |
+|---|---|---|
+| **L0** | `kernel/` | `contracts.py` (Protocols), `schemas.py` (dataclasses partagées), `events.py` (bus pub/sub), `settings.py`, `errors.py`, `vocab.py`, `paths.py`, `permissions.py`, `approval.py`, `notifications.py` |
+| **L1** | `providers/` | LLM (`llm/api.py`, `local.py`, `factory.py`), Memory Kernel SQLite (`memory/kernel.py`, `ingest.py`, `mirror.py`, `search.py`), TTS/STT (`audio/`), Vision (`vision/`), AutoDream + ConsolidationAgent + CrossSessionRecall |
+| **L1** | `capabilities/` | Tools (browser, Gmail, Calendar, Notion, Spotify, vision, filesystem, CLI, memory…), Skills (`registry.py`, `lifecycle.py`, `lab.py`, `synthesizer.py`, `executor.py`) |
+| **L1** | `analytics/`, `hardware/` | Widgets analytics (YouTube, projets, etc.), Macropad 2 touches, parsers Bluetooth |
+| **L2** | `engine/` | Gateway, Agent, Router, SessionManager (composition orchestrale), BudgetGuard, UsageTracker, Mission Engine (`mission/orchestrator.py`, `worker_agent.py`, `verifier.py`, `governance.py`, `reflexion.py`, `capability_engine.py`), Proactif (`proactive/engine.py`, `command_center.py`, `curator.py`, collectors), Background (`background/worker.py`, `scheduler.py`, `notifications.py`) |
+| **L3** | `interfaces/`, `app.py`, `bootstrap.py` | `bootstrap.build()` = composition root unique (instancie ~30 objets, câble le bus, vérifie isinstance Protocols), `app.py` (point d'entrée API), `interfaces/api/*.py` (routers FastAPI : chat, budget, memory, proactive, skills, config/{settings,llm,devices,permissions}, sessions, vision, system, …), `interfaces/voice/agent.py` (pipeline voix LiveKit) |
+
+**Garde-fous permanents** (CI lane rapide, à chaque push) :
+
+| Gate | Vérifie |
 |---|---|
-| `core/` | Agent, Gateway, SessionManager, Router + vocabulaires fermés / niveaux d'accès / niveaux d'autonomie (`vocab.py`), audit immuable (`audit.py`), budget USD (`budget.py`) |
-| `llm/` | Abstraction providers (Anthropic, Mistral, Ollama, Gemini) |
-| `memory/` | Memory Kernel SQLite (`kernel.py`, `schemas.py`), ingestion + réconciliation (`ingest.py`), miroir Markdown unidirectionnel (`mirror.py`), retrieval pondéré (`retrieval.py`), sessions, vault topics, AutoDream / ConsolidationAgent comme producteurs de facts |
-| `tools/` | Tous les outils appelables (navigateur, Gmail, Calendar, vision…) |
-| `agent/` | Mission Engine : orchestrator, worker, project store ; vérification 3 couches (`verifier.py`), gouvernance composite (`governance.py`), reflexion post-mission (`reflexion.py`), Capability Engine (`capability_engine.py`), exécuteur Docker |
-| `skills/` | Skill Lab (`lab.py`) — génération + test sandbox Docker + validation humaine — et cycle de vie (`registry.py`, `lifecycle.py`) ; skills installées dans `installed/` |
-| `audio/` | STT, TTS, VAD, wake word, chunker audio |
-| `proactive/` | Moteur d'initiatives gouvernées, Command Center (`command_center.py`), Curator nocturne (`curator.py`), collectors |
-| `background/` | Scheduler, worker, file de notifications |
-| `api/` | Routeurs FastAPI (WS, HTTP, admin, voice, globe…) |
-| `config/` | Settings (pydantic-settings), `tools.yaml`, `approvals.py`, `permissions.yaml` |
-| `prompts/` | Prompt système (partie statique + contexte dynamique) |
+| `ruff check` | Style + erreurs Python (règles `E W F I B UP ANN ASYNC TID`) |
+| `lint-imports` | 3 contrats `forbidden` qui encodent les RÈGLES 1/2/3 ci-dessus |
+| `mypy` scopé | Conformité des implémentations aux Protocols `kernel.contracts` |
+| `pytest -m "not integration"` | Suite unitaire (~587 tests, < 30s) |
+| `snapshot_routes.py` diff | Les URLs HTTP n'ont pas dévié de la baseline |
+
+La lane lourde (CI déclenchée sur `main` + scheduled hebdo) installe les
+deps système (`cmake`, `openblas`, `portaudio`, `libgl1`) et lance la
+suite complète, incl. les ~28 tests `@pytest.mark.integration`.
 
 ---
 
@@ -242,17 +267,30 @@ TELEGRAM_ENABLED=true
 ## Développement
 
 ```bash
-# Lancer les tests
-uv run pytest
+# Tests + lint + typecheck en un coup (Makefile)
+make test       # uv run pytest -q
+make lint       # ruff + lint-imports
+make typecheck  # mypy scopé kernel + conformité Protocols
 
-# Lint + format
-uv run ruff check .
-uv run ruff format .
+# Détail
+uv run pytest -m "not integration" -q   # suite unit rapide
+uv run pytest -q                         # suite complète
+uv run ruff check
+uv run ruff format
+uv run lint-imports                      # contrat de couches CDC §2
+uv run mypy                              # mypy scopé kernel
 
 # Test LLM manuel
 uv run python scripts/test_llm.py --stream
 uv run python scripts/test_llm.py --provider mistral
+
+# Validation manuelle des phases [LOCAL] (cf. CDC §0.5)
+uv run python scripts/validation/phase{1..6}_real_*.py
 ```
+
+Documentation architecture détaillée : [`docs/architecture/`](docs/architecture/)
+(CDC complet, events bus, ABI skills). Backlog migration et résidus
+documentés en [`docs/migration/BACKLOG.md`](docs/migration/BACKLOG.md).
 
 ---
 
