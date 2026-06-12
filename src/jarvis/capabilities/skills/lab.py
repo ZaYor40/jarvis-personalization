@@ -441,7 +441,7 @@ class SkillLab:
         # Container ad-hoc : workspace tmpfs + candidate montée RO + source jarvis montée RO
         container_name = f"jarvis-skill-lab-{uuid.uuid4().hex[:8]}"
         cand_abs = cand_dir.resolve()
-        jarvis_root = PROJECT_ROOT
+        jarvis_root = PROJECT_ROOT / "src"
 
         # Crée le script de test dans un tmpdir local et le mount aussi
         script_path = cand_abs / "_skill_sandbox_test.py"
@@ -512,7 +512,7 @@ class SkillLab:
         ou en dev local sans Docker daemon).
         """
         cand_abs = cand_dir.resolve()
-        jarvis_root = PROJECT_ROOT
+        jarvis_root = PROJECT_ROOT / "src"
         script_path = cand_abs / "_skill_sandbox_test.py"
         # Remplace /workspace/candidate par cand_abs et /jarvis_src par jarvis_root
         # On crée un script adapté au mode direct.
