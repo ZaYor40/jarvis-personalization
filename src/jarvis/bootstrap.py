@@ -241,7 +241,7 @@ def build(
             get_llm_provider(tracker=tracker)
             if settings.llm_provider == "local"
             else AnthropicProvider(
-                model=settings.voice_anthropic_model, max_tokens=1024, tracker=tracker
+                model=settings.voice_anthropic_model, max_tokens=4096, tracker=tracker
             )
         )
 
