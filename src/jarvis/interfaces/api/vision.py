@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from jarvis.kernel.settings import settings
 from jarvis.providers.vision.daemon import get_face_recognizer
 from jarvis.providers.vision.face_recognizer import FaceRecognizer
 
@@ -20,6 +21,9 @@ async def verify_face() -> dict:
     sinon tente une capture directe (fallback).
     """
     import asyncio
+
+    if not settings.face_recognition_enabled:
+        return {"recognized": True, "name": "disabled", "confidence": 1.0}
 
     recognizer = get_face_recognizer()
 
@@ -50,7 +54,7 @@ async def verify_face() -> dict:
         if not ret:
             return {"recognized": False, "name": "error", "confidence": 0.0}
 
-        res = FaceRecognizer().process(frame)
+        res = FaceRecognizer().process(frame, force=True)
         return {
             "recognized": res.recognized,
             "name": res.name,
@@ -58,6 +62,82 @@ async def verify_face() -> dict:
         }
 
     return await loop.run_in_executor(None, _capture_direct)
+
+
+# Cache module-niveau pour /verify-face-frame : évite de recharger référence.jpg
+# à chaque requête (face_recognition.face_encodings sur 1 image ≈ 100-300 ms).
+_FRAME_RECOGNIZER: FaceRecognizer | None = None
+
+
+def _get_or_init_frame_recognizer() -> FaceRecognizer | None:
+    """Recognizer dédié à /verify-face-frame.
+
+    Préfère le recognizer du daemon vision s'il est actif (mêmes embeddings,
+    pas de double chargement). Sinon en instancie un local mis en cache.
+    """
+    global _FRAME_RECOGNIZER
+    daemon_recognizer = get_face_recognizer()
+    if daemon_recognizer is not None and daemon_recognizer._available:
+        return daemon_recognizer
+    if _FRAME_RECOGNIZER is None:
+        _FRAME_RECOGNIZER = FaceRecognizer()
+    return _FRAME_RECOGNIZER if _FRAME_RECOGNIZER._available else None
+
+
+@router.post("/api/vision/verify-face-frame")
+async def verify_face_frame(request: Request) -> dict:
+    """Vérifie un visage à partir d'une frame envoyée par le client.
+
+    Body : {"image_b64": "<JPEG base64 sans le prefix data:image/jpeg;base64,>"}
+
+    Évite le conflit caméra entre le navigateur (qui détient le flux pour le
+    scan visuel MediaPipe) et le backend qui sinon échouerait sur
+    cv2.VideoCapture(0). La frame est passée au FaceRecognizer existant qui
+    compare avec vision_data/faces/référence.jpg via face_recognition.
+    """
+    import asyncio
+    import base64
+
+    import numpy as np
+
+    # FACE_RECOGNITION_ENABLED=false → on ne reconnaît pas, mais on ne bloque
+    # pas le wake : verdict « pass » (l'animation de scan s'est jouée côté UI).
+    if not settings.face_recognition_enabled:
+        return {"recognized": True, "name": "disabled", "confidence": 1.0}
+
+    try:
+        import cv2
+    except ImportError:
+        return {"recognized": False, "name": "error_no_cv2", "confidence": 0.0}
+
+    data = await request.json()
+    img_b64 = data.get("image_b64", "").strip()
+    if not img_b64:
+        raise HTTPException(400, "image_b64 manquant")
+
+    try:
+        img_bytes = base64.b64decode(img_b64, validate=True)
+    except Exception:
+        return {"recognized": False, "name": "error_decode", "confidence": 0.0}
+
+    img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+    frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    if frame is None:
+        return {"recognized": False, "name": "error_decode", "confidence": 0.0}
+
+    recognizer = _get_or_init_frame_recognizer()
+    if recognizer is None:
+        return {"recognized": False, "name": "error_no_recognizer", "confidence": 0.0}
+
+    # process() est CPU-bound (face_recognition) → executor pour ne pas bloquer la boucle.
+    # force=True : appel discret (1 frame), on contourne le frame-skip 1/4.
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, lambda: recognizer.process(frame, force=True))
+    return {
+        "recognized": res.recognized,
+        "name": res.name,
+        "confidence": round(res.confidence, 2),
+    }
 
 
 @router.post("/api/vision/faces/add")
