@@ -12,6 +12,7 @@ import numpy as np
 from loguru import logger
 
 from jarvis.kernel.paths import FACES_DIR  # noqa: F401
+from jarvis.kernel.settings import settings
 
 
 @dataclass
@@ -19,7 +20,8 @@ class RecognitionResult:
     recognized: bool  # True si Barth est reconnu
     confidence: float  # 0.0-1.0 (1 - distance)
     name: str  # "barth" ou "unknown"
-    face_locations: list = field(default_factory=list)  # Coordonnées (1/4 scale)
+    face_locations: list = field(
+        default_factory=list)  # Coordonnées (1/4 scale)
 
 
 class FaceRecognizer:
@@ -28,7 +30,9 @@ class FaceRecognizer:
     Charge toutes les images dans vision_data/faces/ au démarrage.
     """
 
-    RECOGNITION_THRESHOLD = 0.45  # Distance max pour une correspondance (plus bas = plus strict)
+    # Fallback si FACE_RECOGNITION_THRESHOLD absent du .env.
+    # Distance max pour une correspondance (plus bas = plus strict).
+    RECOGNITION_THRESHOLD = 0.65
     PROCESS_EVERY_N_FRAMES = 4  # Traiter 1 frame sur 4 pour les perfs
 
     def __init__(self) -> None:
@@ -36,6 +40,8 @@ class FaceRecognizer:
         self._known_names: list[str] = []
         self._frame_count = 0
         self._last_result: RecognitionResult | None = None
+        # Seuil piloté par FACE_RECOGNITION_THRESHOLD (.env), fallback constante.
+        self._threshold = settings.face_recognition_threshold or self.RECOGNITION_THRESHOLD
         self._available = self._load_known_faces()
 
     def _load_known_faces(self) -> bool:
@@ -43,7 +49,8 @@ class FaceRecognizer:
         try:
             import face_recognition as fr
         except ImportError:
-            logger.warning("FaceRecognizer: face_recognition non installé — désactivé")
+            logger.warning(
+                "FaceRecognizer: face_recognition non installé — désactivé")
             return False
 
         if not FACES_DIR.exists():
@@ -60,9 +67,11 @@ class FaceRecognizer:
                     self._known_names.append(name)
                     logger.info(f"FaceRecognizer: chargé {name}")
                 else:
-                    logger.warning(f"FaceRecognizer: aucun visage dans {img_path}")
+                    logger.warning(
+                        f"FaceRecognizer: aucun visage dans {img_path}")
             except Exception as e:
-                logger.error(f"FaceRecognizer: erreur chargement {img_path}: {e}")
+                logger.error(
+                    f"FaceRecognizer: erreur chargement {img_path}: {e}")
 
         logger.info(
             f"FaceRecognizer: {len(self._known_names)} visage(s) chargé(s): "
@@ -70,18 +79,25 @@ class FaceRecognizer:
         )
         return True
 
-    def process(self, frame_bgr: object) -> RecognitionResult:
+    def process(self, frame_bgr: object, force: bool = False) -> RecognitionResult:
         """
         Analyse une frame BGR (OpenCV).
         Retourne le dernier résultat si pas le bon frame (optimisation).
+
+        force=True : analyse systématiquement la frame, sans appliquer le
+        frame-skip PROCESS_EVERY_N_FRAMES. À utiliser pour les appels discrets
+        (endpoint /verify-face-frame), qui n'envoient qu'une frame : sinon les
+        3 premiers appels d'un process fraîchement lancé tombent sur n%4≠0 et
+        échouent automatiquement.
         """
-        _empty = RecognitionResult(recognized=False, confidence=0.0, name="unknown")
+        _empty = RecognitionResult(
+            recognized=False, confidence=0.0, name="unknown")
 
         if not self._available:
             return _empty
 
         self._frame_count += 1
-        if self._frame_count % self.PROCESS_EVERY_N_FRAMES != 0:
+        if not force and self._frame_count % self.PROCESS_EVERY_N_FRAMES != 0:
             return self._last_result or _empty
 
         if not self._known_encodings:
@@ -114,7 +130,7 @@ class FaceRecognizer:
                 distance = distances[best_match_idx]
                 confidence = 1.0 - distance
 
-                if distance <= self.RECOGNITION_THRESHOLD:
+                if distance <= self._threshold:
                     best_name = self._known_names[best_match_idx]
                     best_confidence = confidence
                     recognized = True
