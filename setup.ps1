@@ -74,6 +74,25 @@ function Add-PathIfNeeded {
     }
 }
 
+function Get-AvailablePort {
+    param([int]$StartPort = 8000, [int]$MaxAttempts = 20)
+    for ($port = $StartPort; $port -lt ($StartPort + $MaxAttempts); $port++) {
+        $listener = $null
+        try {
+            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
+            $listener.Start()
+            return $port
+        } catch {
+            continue
+        } finally {
+            if ($null -ne $listener) {
+                $listener.Stop()
+            }
+        }
+    }
+    return $StartPort
+}
+
 $stepTotal = 8
 
 Write-Host ""
@@ -202,6 +221,11 @@ if (Test-Path ".env") {
     Copy-Item ".env" ".env.backup.$stamp"
 }
 
+$serverPort = Get-AvailablePort -StartPort 8000
+if ($serverPort -ne 8000) {
+    Write-Host "Port 8000 indisponible, utilisation du port $serverPort." -ForegroundColor Yellow
+}
+
 $envContent = @"
 USER_FIRSTNAME=$userFirstname
 LLM_PROVIDER=api
@@ -211,7 +235,7 @@ ANTHROPIC_MODEL=$anthropicModel
 OPENAI_API_KEY=$openaiApiKey
 OPENAI_MODEL=$openaiModel
 HOST=0.0.0.0
-PORT=8000
+PORT=$serverPort
 ENVIRONMENT=development
 LOG_LEVEL=INFO
 PROACTIVE_LAT=$proactiveLat

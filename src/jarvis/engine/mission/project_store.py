@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import json
 import uuid
 from datetime import datetime
@@ -10,6 +9,7 @@ from pathlib import Path
 
 from jarvis.engine.mission.schemas import LogEntry, Project, ProjectStatus, Step, StepStatus
 from jarvis.engine.vocab import AccessLevel
+from jarvis.kernel.file_lock import exclusive_file_lock
 from jarvis.kernel.paths import WORKSPACE_DIR as _WORKSPACE
 
 WORKSPACE_DIR = _WORKSPACE / "projects"
@@ -110,24 +110,20 @@ class ProjectStore:
         claims_file = jarvis_dir / "step_claims.json"
         lock_path = jarvis_dir / "claims.lock"
 
-        with lock_path.open("w") as lf:
-            fcntl.flock(lf, fcntl.LOCK_EX)
-            try:
-                claims: dict[str, str] = {}
-                if claims_file.exists():
-                    try:
-                        claims = json.loads(claims_file.read_text(encoding="utf-8"))
-                    except Exception:
-                        pass
+        with exclusive_file_lock(lock_path):
+            claims: dict[str, str] = {}
+            if claims_file.exists():
+                try:
+                    claims = json.loads(claims_file.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
 
-                if step_id in claims:
-                    return False  # déjà réclamée
+            if step_id in claims:
+                return False
 
-                claims[step_id] = worker_id
-                claims_file.write_text(json.dumps(claims, indent=2), encoding="utf-8")
-                return True
-            finally:
-                fcntl.flock(lf, fcntl.LOCK_UN)
+            claims[step_id] = worker_id
+            claims_file.write_text(json.dumps(claims, indent=2), encoding="utf-8")
+            return True
 
     def release_step_claim(self, project_id: str, step_id: str) -> None:
         """Libère le claim d'une étape (budget pause ou fin normale)."""
@@ -136,18 +132,14 @@ class ProjectStore:
         if not claims_file.exists():
             return
 
-        with lock_path.open("w") as lf:
-            fcntl.flock(lf, fcntl.LOCK_EX)
+        with exclusive_file_lock(lock_path):
+            claims: dict[str, str] = {}
             try:
-                claims: dict[str, str] = {}
-                try:
-                    claims = json.loads(claims_file.read_text(encoding="utf-8"))
-                except Exception:
-                    pass
-                claims.pop(step_id, None)
-                claims_file.write_text(json.dumps(claims, indent=2), encoding="utf-8")
-            finally:
-                fcntl.flock(lf, fcntl.LOCK_UN)
+                claims = json.loads(claims_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+            claims.pop(step_id, None)
+            claims_file.write_text(json.dumps(claims, indent=2), encoding="utf-8")
 
     # ── Pause / reprise budget ─────────────────────────────────────────────────
 

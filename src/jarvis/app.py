@@ -240,7 +240,9 @@ app = FastAPI(
 # CORS : origines explicites si configurées, localhost par défaut en mode local.
 # allow_credentials=True exige des origines nommées (jamais "*" + credentials).
 _cors_origins: list[str] = settings.cors_allow_origins or (
-    ["http://localhost:8000", "http://127.0.0.1:8000"] if not settings.api_auth_enabled else []
+    [f"http://localhost:{settings.port}", f"http://127.0.0.1:{settings.port}"]
+    if not settings.api_auth_enabled
+    else []
 )
 app.add_middleware(
     CORSMiddleware,
