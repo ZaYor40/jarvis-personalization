@@ -25,12 +25,14 @@ echo "[1/5] Sync Python env into bundle/.venv"
 rm -rf "$VENV_PATH"
 uv venv "$VENV_PATH" --python 3.11
 uv sync --python "$VENV_PATH" --extra vision
+uv pip install --python "$VENV_PATH" -e .
 
 BUNDLE_PYTHON="$VENV_PATH/bin/python"
 if [[ ! -x "$BUNDLE_PYTHON" ]]; then
   echo "bundle python missing"
   exit 1
 fi
+"$BUNDLE_PYTHON" -c "import jarvis.setup_app"
 
 echo "[2/5] Copy uv binary"
 cp "$(command -v uv)" "$BIN_DIR/uv"
@@ -55,29 +57,42 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 LK_TARGET="$BIN_DIR/livekit-server"
 if [[ ! -x "$LK_TARGET" ]]; then
+  RELEASE_JSON="$(curl -fsSL -H "User-Agent: jarvis-bundle" "https://api.github.com/repos/livekit/livekit/releases/latest")"
   case "$OS" in
     Darwin)
       if [[ "$ARCH" == "arm64" ]]; then
-        URL="https://github.com/livekit/livekit/releases/latest/download/livekit-server_darwin_arm64.zip"
+        PATTERN='livekit_.*_darwin_arm64\.tar\.gz'
       else
-        URL="https://github.com/livekit/livekit/releases/latest/download/livekit-server_darwin_amd64.zip"
+        PATTERN='livekit_.*_darwin_amd64\.tar\.gz'
       fi
       ;;
     Linux)
-      URL="https://github.com/livekit/livekit/releases/latest/download/livekit-server_linux_amd64.zip"
+      if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+        PATTERN='livekit_.*_linux_arm64\.tar\.gz'
+      else
+        PATTERN='livekit_.*_linux_amd64\.tar\.gz'
+      fi
       ;;
     *)
       echo "Unsupported OS for bundled livekit-server"
-      URL=""
+      PATTERN=""
       ;;
   esac
-  if [[ -n "$URL" ]]; then
-    TMP_ZIP="$(mktemp).zip"
-    curl -L --silent -o "$TMP_ZIP" "$URL"
-    unzip -o "$TMP_ZIP" -d "$BIN_DIR"
-    chmod +x "$BIN_DIR"/livekit-server*
-    mv "$BIN_DIR"/livekit-server* "$LK_TARGET" 2>/dev/null || true
-    rm -f "$TMP_ZIP"
+  if [[ -n "$PATTERN" ]]; then
+    URL="$(python3 -c "import json,re,sys; r=json.load(sys.stdin); a=next(x for x in r['assets'] if re.search(sys.argv[1], x['name'])); print(a['browser_download_url'])" "$PATTERN" <<< "$RELEASE_JSON")"
+    TMP_ARCHIVE="$(mktemp)"
+    curl -fL --retry 3 -o "$TMP_ARCHIVE" "$URL"
+    EXTRACT_DIR="$(mktemp -d)"
+    tar -xzf "$TMP_ARCHIVE" -C "$EXTRACT_DIR"
+    EXTRACTED="$(find "$EXTRACT_DIR" -name 'livekit-server' -type f | head -n 1)"
+    if [[ -z "$EXTRACTED" ]]; then
+      echo "livekit-server binary not found in archive"
+      exit 1
+    fi
+    cp "$EXTRACTED" "$LK_TARGET"
+    chmod +x "$LK_TARGET"
+    rm -f "$TMP_ARCHIVE"
+    rm -rf "$EXTRACT_DIR"
   fi
 fi
 

@@ -34,6 +34,15 @@ function Ensure-Uv {
     }
 }
 
+function Ensure-JarvisPackage {
+    param([string]$PythonPath)
+    & $PythonPath -c "import jarvis.setup_app" 2>$null
+    if ($LASTEXITCODE -eq 0) { return }
+    if (-not (Ensure-Command "uv")) { throw "jarvis package missing in venv and uv unavailable." }
+    uv pip install --python $PythonPath -e .
+    if ($LASTEXITCODE -ne 0) { throw "jarvis package install failed." }
+}
+
 if ($Ci) {
     Write-Host "JARVIS V3 - setup --Ci (mode non-interactif)" -ForegroundColor Cyan
     $py = Get-JarvisPython
@@ -94,6 +103,8 @@ if (-not $python) {
 if (-not $python) {
     throw "Impossible de demarrer l'assistant de configuration."
 }
+
+Ensure-JarvisPackage -PythonPath $python
 
 Write-Host "Ouverture de http://127.0.0.1:8765/setup" -ForegroundColor Green
 Write-Host "Ctrl-C pour arreter l'assistant." -ForegroundColor DarkGray

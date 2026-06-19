@@ -8,8 +8,8 @@ $modelsDir = Join-Path $bundleRoot "models"
 $piperDir = Join-Path $modelsDir "piper"
 $binDir = Join-Path $bundleRoot "bin"
 
-Write-Host "Jarvis — build offline bundle (Windows)" -ForegroundColor Cyan
-Write-Host "Ce script telecharge une fois Python, les deps et les modeles." -ForegroundColor DarkGray
+Write-Host "Jarvis - build offline bundle (Windows)" -ForegroundColor Cyan
+Write-Host "This script downloads Python, deps and models once." -ForegroundColor DarkGray
 Write-Host ""
 
 function Ensure-Command {
@@ -18,13 +18,15 @@ function Ensure-Command {
 }
 
 if (-not (Ensure-Command "uv")) {
-    Write-Host "Installation de uv..." -ForegroundColor Yellow
+    Write-Host "Installing uv..." -ForegroundColor Yellow
     powershell -ExecutionPolicy ByPass -NoProfile -Command "irm https://astral.sh/uv/install.ps1 | iex"
     $uvBin = Join-Path $env:USERPROFILE ".local\bin"
-    if ($env:PATH -notlike "*$uvBin*") { $env:PATH = "$uvBin;$env:PATH" }
+    if ($env:PATH -notlike "*$uvBin*") {
+        $env:PATH = "$uvBin;$env:PATH"
+    }
 }
 if (-not (Ensure-Command "uv")) {
-    throw "uv introuvable."
+    throw "uv not found."
 }
 
 New-Item -ItemType Directory -Path $bundleRoot, $modelsDir, $piperDir, $binDir -Force | Out-Null
@@ -36,9 +38,13 @@ if (Test-Path $venvPath) {
 uv venv $venvPath --python 3.11
 uv sync --python $venvPath
 if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
+uv pip install --python $venvPath -e .
+if ($LASTEXITCODE -ne 0) { throw "jarvis package install failed." }
 
 $bundlePython = Join-Path $venvPath "Scripts\python.exe"
 if (-not (Test-Path $bundlePython)) { throw "bundle python missing." }
+& $bundlePython -c "import jarvis.setup_app"
+if ($LASTEXITCODE -ne 0) { throw "jarvis.setup_app not importable in bundle venv." }
 
 Write-Host "[2/5] Copy uv binary" -ForegroundColor Cyan
 $uvExe = (Get-Command uv).Source
@@ -61,14 +67,27 @@ if (-not (Test-Path $piperOnnx)) {
 Write-Host "[4/5] Download livekit-server" -ForegroundColor Cyan
 $lkTarget = Join-Path $binDir "livekit-server.exe"
 if (-not (Test-Path $lkTarget)) {
-    $release = "https://github.com/livekit/livekit/releases/latest/download/livekit-server_windows_amd64.zip"
-    $zipPath = Join-Path $env:TEMP "livekit-server.zip"
-    curl.exe -L --silent -o $zipPath $release
-    Expand-Archive -Path $zipPath -DestinationPath $binDir -Force
-    $extracted = Get-ChildItem $binDir -Filter "livekit-server*.exe" | Select-Object -First 1
-    if ($extracted) {
-        Move-Item $extracted.FullName $lkTarget -Force
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/livekit/livekit/releases/latest" -Headers @{ "User-Agent" = "jarvis-bundle" }
+    $asset = $release.assets | Where-Object { $_.name -match '^livekit_.*_windows_amd64\.zip$' } | Select-Object -First 1
+    if (-not $asset) {
+        throw "livekit windows asset not found in latest release."
     }
+    $zipPath = Join-Path $env:TEMP "livekit-server.zip"
+    if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+    curl.exe -fL --retry 3 -o $zipPath $asset.browser_download_url
+    if ($LASTEXITCODE -ne 0) { throw "livekit download failed." }
+    $zipSize = (Get-Item $zipPath).Length
+    if ($zipSize -lt 1000000) { throw "livekit zip too small ($zipSize bytes), download likely corrupted." }
+    $extractDir = Join-Path $env:TEMP "livekit-extract"
+    if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+    tar -xf $zipPath -C $extractDir
+    if ($LASTEXITCODE -ne 0) { throw "livekit zip extraction failed." }
+    $extracted = Get-ChildItem $extractDir -Filter "livekit-server.exe" -Recurse | Select-Object -First 1
+    if (-not $extracted) { throw "livekit-server.exe not found in archive." }
+    Copy-Item $extracted.FullName $lkTarget -Force
+    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+    Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "[5/5] Write manifest" -ForegroundColor Cyan
@@ -87,8 +106,10 @@ $manifest = @{
         livekit = "bin/livekit-server.exe"
     }
 } | ConvertTo-Json -Depth 5
-Set-Content -Path (Join-Path $bundleRoot "manifest.json") -Value $manifest -Encoding UTF8
+$manifestPath = Join-Path $bundleRoot "manifest.json"
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($manifestPath, $manifest, $utf8NoBom)
 
 Write-Host ""
 Write-Host "Bundle ready: $bundleRoot" -ForegroundColor Green
-Write-Host "Next: .\jarvis.ps1 eclosion" -ForegroundColor White
+Write-Host 'Next: .\jarvis.ps1 setup' -ForegroundColor White

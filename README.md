@@ -73,31 +73,74 @@ suite complète, incl. les ~28 tests `@pytest.mark.integration`.
 
 ## Prérequis
 
+Deux profils distincts :
+
+### Utilisateur final (Windows, release offline)
+
+Tu télécharges une archive **avec le dossier `bundle/` déjà inclus**. Tu n'as **pas** besoin d'installer Python, uv, cmake, Visual C++ ni LiveKit sur ta machine.
+
+| Requis | Notes |
+|---|---|
+| Windows 10/11 | |
+| PowerShell | Pour lancer `jarvis.ps1` |
+| Navigateur web | Configuration sur `http://127.0.0.1:8765/setup` |
+| Clés API (LLM, etc.) | OpenAI ou Anthropic au minimum — saisies dans l'assistant web |
+
+Le bundle embarque déjà : Python 3.11, les dépendances Python, les modèles ML (YOLO, Piper), `livekit-server` et `uv.exe`.
+
+### Développeur — construire le bundle
+
+Une seule fois, **avec réseau**, pour produire `bundle/` (release ou usage local sans clone vide).
+
 | Outil | Version | Notes |
 |---|---|---|
-| Python | 3.11+ | |
-| [uv](https://docs.astral.sh/uv/) | latest | Gestionnaire de paquets |
-| [LiveKit](https://livekit.io/) | cloud ou self-hosted | Pipeline vocal uniquement |
-| Docker | optionnel | Requis par la fonctionnalité code-agent |
-| `nowplaying-cli` | optionnel (macOS) | Lecture locale « now playing » — `brew install nowplaying-cli` |
+| [uv](https://docs.astral.sh/uv/) | latest | Télécharge Python 3.11 dans `bundle/.venv` |
+| Réseau | | Téléchargement des deps, modèles et binaires |
 
-**Windows (supplémentaire) :**
+Python système et LiveKit **ne sont pas requis** : le script de build les intègre au bundle.
+
+### Modules optionnels (hors install de base)
 
 | Outil | Notes |
 |---|---|
-| Bundle offline | Release ou `scripts/release/build_bundle.ps1` — embarque Python, deps, modèles (aucun VS C++ requis pour l'install de base) |
-| [livekit-server](https://github.com/livekit/livekit/releases) | Inclus dans le bundle ; requis pour le mode vocal local |
+| [LiveKit Cloud](https://livekit.io/) | Alternative au serveur local (déjà dans le bundle) |
+| Docker | Code-agent, Skill Lab sandbox |
+| `uv sync --extra vision` | Reconnaissance faciale (`dlib`) — peut exiger des outils C++ selon l'OS |
+| `nowplaying-cli` | macOS uniquement — lecture locale « now playing » |
 
 ---
 
 ## Installation
 
-L'installation se fait en **deux phases** :
+### Parcours A — Utilisateur final (Windows)
 
-1. **Bundle offline** (une seule fois, avec réseau) — embarque Python, les dépendances, les modèles ML et `livekit-server`
-2. **Configuration web** (locale, sans téléchargement) — assistant sur `http://127.0.0.1:8765/setup`
+**Tu as reçu une release ou une archive avec `bundle/`** — aucun téléchargement à l'installation.
 
-### Étape 1 — Préparer le bundle
+```powershell
+# 1. Décompresser l'archive, puis ouvrir le dossier du projet
+cd jarvis-OS
+
+# 2. Configuration web (navigateur, sans prompt terminal)
+.\jarvis.ps1 setup
+
+# 3. Démarrage
+.\jarvis.ps1 run
+```
+
+L'assistant web configure l'identité, les clés API, les modules optionnels et la photo de référence. Une fois terminé, l'interface admin est sur `http://127.0.0.1:<PORT>/admin` (`PORT` dans `.env`, souvent `8000`).
+
+| Commande | Rôle |
+|---|---|
+| `.\jarvis.ps1 setup` | Assistant de configuration (`:8765`) |
+| `.\jarvis.ps1 run` | LiveKit + API + pipeline vocal |
+| `.\jarvis.ps1 api` | Serveur FastAPI seul |
+| `.\jarvis.ps1 doctor` | Diagnostic rapide |
+
+> **Sans `bundle/`** : ce parcours ne fonctionne pas. Passe au parcours B ou télécharge une release offline.
+
+### Parcours B — Construire le bundle (développeur)
+
+À faire **une fois**, avec réseau, avant de distribuer ou d'utiliser le parcours A.
 
 **Windows :**
 
@@ -105,6 +148,7 @@ L'installation se fait en **deux phases** :
 git clone https://github.com/Grominet95/jarvis-OS.git
 cd jarvis-OS
 .\scripts\release\build_bundle.ps1
+.\jarvis.ps1 setup
 ```
 
 **Linux / macOS :**
@@ -113,27 +157,26 @@ cd jarvis-OS
 git clone https://github.com/Grominet95/jarvis-OS.git
 cd jarvis-OS
 bash scripts/release/build_bundle.sh
-```
-
-> Utilisateurs finaux : télécharge une **release offline** (archive avec `bundle/` inclus) — pas de Python, C++ ou cmake à installer.
-
-### Étape 2 — Configuration web locale
-
-**Windows :**
-
-```powershell
-.\jarvis.ps1 setup
-```
-
-**Linux / macOS :**
-
-```bash
 ./jarvis eclosion
 ```
 
-Un navigateur s'ouvre sur l'assistant (identité, clés API, modules optionnels, photo de référence). Aucun prompt terminal.
+Le script crée `bundle/` : `.venv`, modèles, `livekit-server`, `manifest.json`. Ensuite, la configuration et le démarrage suivent le même flux que le parcours A (sans nouveau téléchargement).
 
-### Démarrage
+### Parcours C — Développement sans bundle (Linux / macOS / Windows)
+
+Installation classique avec uv sur la machine (téléchargements à chaque `uv sync`) :
+
+```bash
+uv sync
+# reconnaissance faciale optionnelle :
+uv sync --extra vision
+```
+
+Puis `./jarvis eclosion` ou `.\jarvis.ps1 setup` selon l'OS.
+
+---
+
+### Démarrage (rappel)
 
 **Windows :**
 
@@ -157,7 +200,7 @@ Les deux peuvent tourner simultanément : le voice agent délègue au gateway du
 
 ## Configuration
 
-Tout est configuré pendant l'éclosion. Pour modifier une clé après coup, édite `.env` à la racine du projet.
+Tout est configuré via l'assistant web (`.\jarvis.ps1 setup` ou `./jarvis eclosion`). Pour modifier une clé après coup, édite `.env` à la racine du projet.
 
 **Intégrations Google (Gmail / Calendar) :** place ton `credentials.json` issu de Google Cloud Console dans `config/google_credentials.json`, puis démarre Jarvis — il ouvrira le flux d'authentification OAuth et sauvegardera les tokens en local (ils sont gitignorés).
 

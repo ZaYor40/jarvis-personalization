@@ -36,7 +36,7 @@ def read_env_file(env_path: Path) -> dict[str, str]:
     if not env_path.exists():
         return {}
     result: dict[str, str] = {}
-    for line in env_path.read_text(encoding="utf-8").splitlines():
+    for line in env_path.read_text(encoding="utf-8-sig").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#") or "=" not in stripped:
             continue
@@ -48,7 +48,7 @@ def read_env_file(env_path: Path) -> dict[str, str]:
 def is_setup_complete(env_path: Path | None = None) -> bool:
     path = env_path or Path(".env")
     env = read_env_file(path)
-    if env.get("SETUP_COMPLETE", "").lower() not in ("true", "1", "yes"):
+    if not env.get("USER_FIRSTNAME", "").strip():
         return False
     if env.get("API_BACKEND") == "openai":
         return bool(env.get("OPENAI_API_KEY", "").strip())

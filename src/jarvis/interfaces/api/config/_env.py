@@ -95,7 +95,7 @@ def _read_env() -> dict[str, str]:
     if not _ENV_PATH.exists():
         return {}
     result: dict[str, str] = {}
-    for line in _ENV_PATH.read_text(encoding="utf-8").splitlines():
+    for line in _ENV_PATH.read_text(encoding="utf-8-sig").splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -106,7 +106,7 @@ def _read_env() -> dict[str, str]:
 
 
 def _write_env(updates: dict[str, str]) -> None:
-    lines = _ENV_PATH.read_text(encoding="utf-8").splitlines() if _ENV_PATH.exists() else []
+    lines = _ENV_PATH.read_text(encoding="utf-8-sig").splitlines() if _ENV_PATH.exists() else []
     written: set[str] = set()
     new_lines: list[str] = []
     for line in lines:

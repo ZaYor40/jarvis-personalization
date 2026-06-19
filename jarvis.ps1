@@ -139,7 +139,7 @@ function Invoke-JarvisRun {
     if (Wait-HttpOk -Url "http://127.0.0.1:7880/" -TimeoutSeconds 40) {
         Write-Host "  LiveKit  ws://localhost:7880" -ForegroundColor Green
     } else {
-        Write-Host "  LiveKit  timeout — voir $lkLog" -ForegroundColor Red
+        Write-Host "  LiveKit  timeout - voir $lkLog" -ForegroundColor Red
         foreach ($p in $procs) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
         exit 1
     }
@@ -155,7 +155,7 @@ function Invoke-JarvisRun {
     if (Wait-HttpOk -Url "http://127.0.0.1:$apiPort/health" -TimeoutSeconds 90) {
         Write-Host "  API      http://localhost:$apiPort" -ForegroundColor Green
     } else {
-        Write-Host "  API      timeout — voir $apiLog" -ForegroundColor Red
+        Write-Host "  API      timeout - voir $apiLog" -ForegroundColor Red
         foreach ($p in $procs) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
         exit 1
     }
@@ -175,7 +175,7 @@ function Invoke-JarvisRun {
     if (Wait-LogMatch -LogPath $voiceLog -Pattern "Jarvis vocal prêt" -TimeoutSeconds 90) {
         Write-Host "  Vocal    pret" -ForegroundColor Green
     } else {
-        Write-Host "  Vocal    prechauffement long — voir $voiceLog" -ForegroundColor Yellow
+        Write-Host "  Vocal    prechauffement long - voir $voiceLog" -ForegroundColor Yellow
     }
 
     Write-Host ""

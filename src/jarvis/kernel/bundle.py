@@ -26,7 +26,7 @@ def bundle_available() -> bool:
 def load_manifest() -> dict[str, Any]:
     if not MANIFEST_PATH.is_file():
         return {}
-    return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    return json.loads(MANIFEST_PATH.read_text(encoding="utf-8-sig"))
 
 
 def resolve_python() -> Path:

@@ -84,6 +84,10 @@ if [[ -z "$PYTHON_BIN" ]]; then
   exit 1
 fi
 
+if ! "$PYTHON_BIN" -c "import jarvis.setup_app" 2>/dev/null; then
+  uv pip install --python "$PYTHON_BIN" -e .
+fi
+
 echo ""
 echo "Ouverture de http://127.0.0.1:8765/setup"
 echo "Ctrl-C pour arreter l'assistant."

@@ -228,6 +228,8 @@
     try {
       cachedStatus = await J.api.get("/api/setup/status");
       await J.api.post("/api/setup/bootstrap", {});
+      if (cachedStatus.user_firstname) form.user_firstname = cachedStatus.user_firstname;
+      if (cachedStatus.api_backend) form.api_backend = cachedStatus.api_backend;
       if (cachedStatus.complete && step < STEPS.length - 1) {
         doneUrl = "http://127.0.0.1:" + (cachedStatus.port || 8000) + "/admin";
         step = STEPS.length - 1;
