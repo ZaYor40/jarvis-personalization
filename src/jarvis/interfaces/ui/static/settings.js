@@ -213,6 +213,12 @@
     const fnCtrl  = el("div", { style: { display:"flex", gap:"8px" } });
     fnCtrl.appendChild(fnInput); fnCtrl.appendChild(fnSave);
     identList.appendChild(settingRow("Prénom", "USER_FIRSTNAME", fnCtrl));
+    const upInput = el("input", { class: "input-mono", style: { width:"220px" }, value: jarvis.user_profile || "", placeholder: "entrepreneur tech, Lyon…" });
+    const upSave  = el("button", { class: "m-btn", text: "Sauv." });
+    upSave.addEventListener("click", () => saveSetting("USER_PROFILE", upInput.value, upSave));
+    const upCtrl  = el("div", { style: { display:"flex", gap:"8px" } });
+    upCtrl.appendChild(upInput); upCtrl.appendChild(upSave);
+    identList.appendChild(settingRow("Profil", "USER_PROFILE", upCtrl));
     wrap.appendChild(ghostSec("Identité", "comment Jarvis s'adresse à toi", null, identList));
 
     // ── Langue & style ──
