@@ -184,7 +184,8 @@ class AutoDream:
         files = sorted(self._sessions_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
         return files[-_MAX_SESSIONS_PER_DEEP:]
 
-    def _session_to_text(self, path: Path) -> str:
+    @staticmethod
+    def _session_to_text(path: Path, name: str = "Barth") -> str:
         """Concatène les messages d'une session JSONL en un texte unique.
 
         Format : alternance '<prénom> : ...' / 'Jarvis : ...'.
@@ -208,7 +209,7 @@ class AutoDream:
             content = obj.get("content", "")
             if not isinstance(content, str) or not content.strip():
                 continue
-            speaker = self._name if role == "user" else "Jarvis"
+            speaker = name if role == "user" else "Jarvis"
             parts.append(f"{speaker} : {content.strip()}")
         text = "\n".join(parts)
         # Tronque au tail si la session est très longue : on garde le contexte
@@ -226,7 +227,7 @@ class AutoDream:
         results: list[IngestResult] = []
         files = self._list_recent_session_files()
         for path in files:
-            text = self._session_to_text(path)
+            text = self._session_to_text(path, self._name)
             if not text.strip():
                 continue
             try:
