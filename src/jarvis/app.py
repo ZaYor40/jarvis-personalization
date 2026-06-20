@@ -1,7 +1,19 @@
 from __future__ import annotations
 
-import asyncio
 import sys
+
+# Force UTF-8 on stdout/stderr before anything logs. When the process is launched
+# with its streams redirected to a file (e.g. jarvis.ps1 run), Python defaults to the
+# legacy ANSI code page (cp1252 on FR Windows) with strict errors, so a single log
+# line carrying a non-cp1252 glyph raises UnicodeEncodeError and crashes startup with
+# an empty log. backslashreplace guarantees logging never raises again.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="backslashreplace")  # type: ignore[union-attr]
+    except (AttributeError, ValueError, OSError):
+        pass
+
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
