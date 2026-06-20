@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import socket
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -156,7 +155,7 @@ async def setup_complete(body: SetupCompletePayload) -> dict:
 
 
 @router.post("/api/setup/upload-face")
-async def setup_upload_face(file: UploadFile = File(...)) -> dict:
+async def setup_upload_face(file: UploadFile = File(...)) -> dict:  # noqa: B008
     if not file.filename or not file.filename.lower().endswith((".jpg", ".jpeg")):
         raise HTTPException(400, "Fichier JPG requis.")
     FACES_DIR.mkdir(parents=True, exist_ok=True)

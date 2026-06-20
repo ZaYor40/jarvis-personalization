@@ -844,7 +844,7 @@ class OpenAIProvider(LLMProvider):
     def supports_tools(self) -> bool:
         return True
 
-    def _track(self, response: Any, context: str) -> None:
+    def _track(self, response: Any, context: str) -> None:  # noqa: ANN401
         usage = getattr(response, "usage", None)
         if usage is None or self._tracker is None:
             return
