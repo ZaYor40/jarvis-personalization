@@ -1,17 +1,43 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
+import sys
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from jeepney import DBusAddress, Properties, new_method_call
+from jeepney.io.blocking import DBusConnection, open_dbus_connection
 from loguru import logger
 
 router = APIRouter(prefix="/api/local-music")
 
+# ── Backend macOS : nowplaying-cli (champs ligne par ligne) ───────────────────
 _FIELDS = ["title", "artist", "album", "artworkURL", "playbackRate", "duration", "elapsedTime"]
 
+# ── Backend Linux : MPRIS2 via D-Bus (jeepney, multi-distro, sans binaire) ────
+_MPRIS_PREFIX = "org.mpris.MediaPlayer2."
+_MPRIS_PATH = "/org/mpris/MediaPlayer2"
+_MPRIS_IFACE = "org.mpris.MediaPlayer2.Player"
+_MPRIS_METHODS = {"play": "Play", "pause": "Pause", "next": "Next", "previous": "Previous"}
 
+_DBUS_DAEMON = DBusAddress(
+    "/org/freedesktop/DBus", bus_name="org.freedesktop.DBus", interface="org.freedesktop.DBus"
+)
+
+
+def _backend() -> str | None:
+    """Stratégie "now playing" : macOS (nowplaying-cli) ou Linux (MPRIS/D-Bus)."""
+    if shutil.which("nowplaying-cli"):
+        return "macos"
+    if sys.platform.startswith("linux"):
+        return "linux"
+    return None
+
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
 async def _run(cmd: str, *args: str) -> str | None:
+    """Exécute nowplaying-cli (macOS)."""
     try:
         proc = await asyncio.create_subprocess_exec(
             "nowplaying-cli",
@@ -25,16 +51,13 @@ async def _run(cmd: str, *args: str) -> str | None:
     except FileNotFoundError:
         logger.debug("nowplaying-cli not installed")
         return None
-    except (TimeoutError, Exception) as e:
+    except (TimeoutError, Exception) as e:  # noqa: BLE001
         logger.debug("nowplaying-cli error", error=str(e))
         return None
 
 
-async def _get_player_state() -> dict:
-    output = await _run("get", *_FIELDS)
-    if output is None:
-        return {"connected": False}
-
+def _macos_state_from_output(output: str) -> dict:
+    """Parse la sortie de `nowplaying-cli get`."""
     lines = output.split("\n")
     if len(lines) < len(_FIELDS):
         return {"connected": True, "is_playing": False, "track": None}
@@ -70,6 +93,129 @@ async def _get_player_state() -> dict:
     }
 
 
+async def _macos_player_state() -> dict:
+    output = await _run("get", *_FIELDS)
+    if output is None:
+        return {"connected": False}
+    return _macos_state_from_output(output)
+
+
+# ── Linux (MPRIS / D-Bus) ──────────────────────────────────────────────────────
+def _state_from_mpris(status: str, metadata: dict, position_us: int) -> dict:
+    """Construit l'état lecteur depuis les propriétés MPRIS (variants déjà déballés)."""
+    title = str(metadata.get("xesam:title") or "").strip()
+    if not title:
+        return {"connected": True, "is_playing": False, "track": None}
+
+    artist_val = metadata.get("xesam:artist")
+    if isinstance(artist_val, (list, tuple)):
+        artist = ", ".join(str(a) for a in artist_val)
+    else:
+        artist = str(artist_val or "")
+
+    try:
+        duration_ms = int(metadata.get("mpris:length") or 0) // 1000
+    except (ValueError, TypeError):
+        duration_ms = 0
+
+    art = str(metadata.get("mpris:artUrl") or "")
+    return {
+        "connected": True,
+        "is_playing": status == "Playing",
+        "track": title,
+        "artist": artist,
+        "album": str(metadata.get("xesam:album") or ""),
+        "album_art": art or None,
+        "progress_ms": int(position_us) // 1000,
+        "duration_ms": duration_ms,
+    }
+
+
+def _list_players(conn: DBusConnection) -> list[str]:
+    names = conn.send_and_get_reply(new_method_call(_DBUS_DAEMON, "ListNames")).body[0]
+    return [n for n in names if n.startswith(_MPRIS_PREFIX)]
+
+
+def _pick_player(conn: DBusConnection, players: list[str]) -> str:
+    """Préfère un lecteur en cours de lecture, sinon le premier disponible."""
+    for p in players:
+        try:
+            props = Properties(DBusAddress(_MPRIS_PATH, bus_name=p, interface=_MPRIS_IFACE))
+            status = conn.send_and_get_reply(props.get("PlaybackStatus")).body[0][1]
+            if status == "Playing":
+                return p
+        except Exception:  # noqa: BLE001
+            continue
+    return players[0]
+
+
+def _mpris_state_blocking() -> dict:
+    """Lit l'état MPRIS via D-Bus (bloquant — à lancer dans un thread)."""
+    try:
+        conn = open_dbus_connection(bus="SESSION")
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Session D-Bus indisponible", error=str(e))
+        return {"connected": False}
+    try:
+        players = _list_players(conn)
+        if not players:
+            return {"connected": True, "is_playing": False, "track": None}
+        props = Properties(
+            DBusAddress(_MPRIS_PATH, bus_name=_pick_player(conn, players), interface=_MPRIS_IFACE)
+        )
+        status = conn.send_and_get_reply(props.get("PlaybackStatus")).body[0][1]
+        raw_meta = conn.send_and_get_reply(props.get("Metadata")).body[0][1]
+        metadata = {k: v[1] for k, v in raw_meta.items()}
+        try:
+            position = conn.send_and_get_reply(props.get("Position")).body[0][1]
+        except Exception:  # noqa: BLE001
+            position = 0
+        return _state_from_mpris(status, metadata, int(position or 0))
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Lecture MPRIS échouée", error=str(e))
+        return {"connected": True, "is_playing": False, "track": None}
+    finally:
+        conn.close()
+
+
+def _mpris_control_blocking(method: str) -> None:
+    """Envoie une commande MPRIS (Play/Pause/Next/Previous)."""
+    try:
+        conn = open_dbus_connection(bus="SESSION")
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        players = _list_players(conn)
+        if not players:
+            return
+        addr = DBusAddress(
+            _MPRIS_PATH, bus_name=_pick_player(conn, players), interface=_MPRIS_IFACE
+        )
+        conn.send_and_get_reply(new_method_call(addr, method))
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Contrôle MPRIS échoué", error=str(e))
+    finally:
+        conn.close()
+
+
+# ── Dispatch ────────────────────────────────────────────────────────────────────
+async def _get_player_state() -> dict:
+    backend = _backend()
+    if backend == "macos":
+        return await _macos_player_state()
+    if backend == "linux":
+        return await asyncio.to_thread(_mpris_state_blocking)
+    return {"connected": False}
+
+
+async def _control(action: str) -> None:
+    backend = _backend()
+    if backend == "macos":
+        await _run(action)
+    elif backend == "linux":
+        await asyncio.to_thread(_mpris_control_blocking, _MPRIS_METHODS[action])
+
+
 @router.get("/player")
 async def get_player() -> JSONResponse:
     return JSONResponse(await _get_player_state())
@@ -77,23 +223,23 @@ async def get_player() -> JSONResponse:
 
 @router.post("/play")
 async def play() -> JSONResponse:
-    await _run("play")
+    await _control("play")
     return JSONResponse({"ok": True})
 
 
 @router.post("/pause")
 async def pause() -> JSONResponse:
-    await _run("pause")
+    await _control("pause")
     return JSONResponse({"ok": True})
 
 
 @router.post("/next")
 async def next_track() -> JSONResponse:
-    await _run("next")
+    await _control("next")
     return JSONResponse({"ok": True})
 
 
 @router.post("/previous")
 async def previous_track() -> JSONResponse:
-    await _run("previous")
+    await _control("previous")
     return JSONResponse({"ok": True})
