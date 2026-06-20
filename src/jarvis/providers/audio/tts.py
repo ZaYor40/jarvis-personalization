@@ -54,10 +54,15 @@ class TTSEngine:
             "text": text,
             "model_id": settings.elevenlabs_model,
             "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.8,
+                # stability + : voix plus posée, moins de variations
+                # similarity_boost + : reste proche de la voix de référence
+                # speed - : un peu plus lente (pour eleven_multilingual_v2)
+                # use_speaker_boost : présence renforcée
+                "stability": 0.72,
+                "similarity_boost": 0.88,
                 "style": 0.0,
                 "use_speaker_boost": True,
+                "speed": 0.88,
             },
             "optimize_streaming_latency": 3,
         }
