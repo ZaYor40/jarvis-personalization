@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import shutil
 import sys
+from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -11,6 +14,9 @@ from jeepney.io.blocking import DBusConnection, open_dbus_connection
 from loguru import logger
 
 router = APIRouter(prefix="/api/local-music")
+
+# Pochette : on n'embarque que des fichiers locaux raisonnables (anti-DoS mémoire).
+_ART_MAX_BYTES = 5 * 1024 * 1024
 
 # ── Backend macOS : nowplaying-cli (champs ligne par ligne) ───────────────────
 _FIELDS = ["title", "artist", "album", "artworkURL", "playbackRate", "duration", "elapsedTime"]
@@ -101,6 +107,40 @@ async def _macos_player_state() -> dict:
 
 
 # ── Linux (MPRIS / D-Bus) ──────────────────────────────────────────────────────
+def _sniff_mime(data: bytes) -> str:
+    if data[:8].startswith(b"\x89PNG"):
+        return "image/png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:4] == b"GIF8":
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/png"
+
+
+def _resolve_art(art_url: str) -> str | None:
+    """URL de pochette utilisable par le navigateur.
+
+    http(s)/data → tels quels ; file:// → lus et embarqués en data: URI (le
+    navigateur refuse les file:// servis depuis une page http). Sinon None.
+    """
+    if not art_url:
+        return None
+    if art_url.startswith(("http://", "https://", "data:")):
+        return art_url
+    if art_url.startswith("file://"):
+        try:
+            path = Path(unquote(urlparse(art_url).path))
+            if not path.is_file() or path.stat().st_size > _ART_MAX_BYTES:
+                return None
+            data = path.read_bytes()
+        except OSError:
+            return None
+        return f"data:{_sniff_mime(data)};base64,{base64.b64encode(data).decode('ascii')}"
+    return None
+
+
 def _state_from_mpris(status: str, metadata: dict, position_us: int) -> dict:
     """Construit l'état lecteur depuis les propriétés MPRIS (variants déjà déballés)."""
     title = str(metadata.get("xesam:title") or "").strip()
@@ -118,14 +158,13 @@ def _state_from_mpris(status: str, metadata: dict, position_us: int) -> dict:
     except (ValueError, TypeError):
         duration_ms = 0
 
-    art = str(metadata.get("mpris:artUrl") or "")
     return {
         "connected": True,
         "is_playing": status == "Playing",
         "track": title,
         "artist": artist,
         "album": str(metadata.get("xesam:album") or ""),
-        "album_art": art or None,
+        "album_art": _resolve_art(str(metadata.get("mpris:artUrl") or "")),
         "progress_ms": int(position_us) // 1000,
         "duration_ms": duration_ms,
     }
