@@ -13,7 +13,7 @@
 
 Assistant personnel IA, texte & voix temps réel, self-hosted, stack open source.
 
-![Jarvis OS](Cover_Jarvis_Github.png)
+![Jarvis OS](JARVISINTERFACEGITHUB.png)
 
 </div>
 
