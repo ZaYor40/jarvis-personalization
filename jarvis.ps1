@@ -6,6 +6,13 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
+# Force UTF-8 for every child Python process. When stdout/stderr are redirected to
+# a log file (run command), Python otherwise falls back to the legacy ANSI code page
+# (cp1252) with strict error handling, so any non-cp1252 char in a log line (e.g. the
+# arrow glyph) raises UnicodeEncodeError, kills the process and leaves an empty log.
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
+
 function Repair-BundleVenv {
     $rehome = Join-Path $PSScriptRoot "scripts\release\rehome_bundle.ps1"
     if (Test-Path $rehome) {
@@ -103,7 +110,11 @@ function Start-BackgroundProcess {
         [string]$CommandLine,
         [string]$LogPath
     )
-    $wrapped = "$CommandLine > `"$LogPath`" 2>&1"
+    # Wrap the whole command in an outer quote pair. `cmd /c` strips that outer pair
+    # before executing; without it, a CommandLine that starts with a quoted path (e.g.
+    # "C:\...\python.exe") triggers cmd's quote-stripping rule, mangles the command and
+    # it silently never runs — leaving an empty log and an API that never binds.
+    $wrapped = "`"$CommandLine > `"$LogPath`" 2>&1`""
     return Start-Process -FilePath "cmd.exe" `
         -ArgumentList @("/c", $wrapped) `
         -WorkingDirectory $PSScriptRoot `
