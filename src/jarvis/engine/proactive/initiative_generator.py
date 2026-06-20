@@ -213,7 +213,8 @@ def _draft_system(name: str) -> str:
     return (
         f"\nTu es Jarvis, assistant de {name}. Rédige un brouillon d'email professionnel,\n"
         "direct, 3 phrases max (50 mots max).\n"
-        "Réponds UNIQUEMENT avec le corps du message, sans salutation formelle inutile, en français.\n"
+        "Réponds UNIQUEMENT avec le corps du message, sans salutation formelle "
+        "inutile, en français.\n"
     )
 
 

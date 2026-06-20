@@ -12,7 +12,8 @@ class NotionTasksTool(Tool):
 
     name = "notion_tasks"
     description = (
-        "Récupère les tâches non cochées de la section 'Tâches du jour' de la page Notion de l'utilisateur."
+        "Récupère les tâches non cochées de la section 'Tâches du jour' "
+        "de la page Notion de l'utilisateur."
     )
     input_schema: dict = {  # noqa: RUF012
         "type": "object",

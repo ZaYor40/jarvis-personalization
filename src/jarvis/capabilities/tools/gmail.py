@@ -54,7 +54,8 @@ class GmailListTool(Tool):
     name = "list_emails"
     description = (
         "Liste les emails Gmail de l'utilisateur. "
-        "Utilise cet outil quand l'utilisateur demande ses mails, sa boîte mail, ses messages non lus."
+        "Utilise cet outil quand l'utilisateur demande ses mails, sa boîte mail, "
+        "ses messages non lus."
     )
     input_schema = {
         "type": "object",

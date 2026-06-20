@@ -61,7 +61,8 @@ class ReadFileTool(Tool):
     name = "read_file"
     description = (
         "Lit le contenu d'un fichier texte sur le Mac de l'utilisateur (lecture seule, aucune "
-        "modification). Utilise cet outil quand l'utilisateur demande de lire ou analyser un fichier."
+        "modification). Utilise cet outil quand l'utilisateur demande de lire ou analyser "
+        "un fichier."
     )
     input_schema = {
         "type": "object",
