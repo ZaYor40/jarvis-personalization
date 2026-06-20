@@ -202,7 +202,7 @@ async def webhook_face_recognition(body: FaceRecognitionPayload, request: Reques
     if body.recognized:
         notifications = request.app.state.notifications
         notifications.add(
-            f"Barth est détecté devant la caméra "
+            f"{settings.display_name} est détecté devant la caméra "
             f"(confiance {body.confidence:.0%}). Mode normal actif."
         )
     return {"status": "ok"}

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from jarvis.engine.background.notifications import broadcast_event
 from jarvis.engine.background.worker import BackgroundTask
 from jarvis.engine.router import RouteEnum
+from jarvis.kernel.settings import settings
 from jarvis.providers.audio.tts import tts_engine
 
 router = APIRouter()
@@ -166,7 +167,7 @@ async def get_voice_token(session_id: str | None = None) -> dict:  # noqa: ARG00
     token = (
         AccessToken(api_key=api_key, api_secret=api_secret)
         .with_identity("barth")
-        .with_name("Barth")
+        .with_name(settings.display_name)
         .with_grants(
             VideoGrants(
                 room_join=True,
