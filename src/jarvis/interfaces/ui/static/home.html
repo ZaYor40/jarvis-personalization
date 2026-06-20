@@ -186,9 +186,158 @@
 <script src="/_shared.js"></script>
 <script src="/config/sphereStyle.js"></script>
 <script src="/orb.js"></script>
+<script src="/wake_sequence.js"></script>
+<script>
+// ── Cold boot — étape 1 : flag AVANT home.js + masque la shell ─────────
+// Comportement par défaut : sleep screen, clap double pour wake.
+// ?wake=0 → skip tout (dashboard direct, pour dev)
+// ?wake=1 → bypass sleep, wake immédiat (pour dev sans micro)
+(function () {
+  const params = new URLSearchParams(location.search);
+  const mode   = params.get('wake');
+  if (mode === '0') return;             // skip total
+  window.__jarvisWakeActive = true;
+  window.__jarvisWakeForceImmediate = (mode === '1');
+  // Cache TOUT le chrome dashboard sauf l'orbe (le wake utilise #orb-canvas).
+  // Cible les éléments un-à-un pour ne pas masquer .home-orb-wrap qui est
+  // dans #home-shell. Inclut les éléments appendChild'és sur document.body
+  // par _shared.js (Mission Control, watermark, rooms nav, etc.).
+  const css = document.createElement('style');
+  css.id = 'wake-shell-hider';
+  css.textContent = ''
+    + '.home-top, .cam-overlay, .hc-widget, .home-channel,'
+    + ' .rooms-mc, .rooms-pages, .mode-watermark, .scene-card,'
+    + ' .mission-overlay, .cmdk-root, .notif-stack, .inspect-hint,'
+    + ' .mode-glow, #globe-container, #page-frame {'
+    + ' opacity: 0 !important; pointer-events: none !important;'
+    + ' transition: opacity 0.4s cubic-bezier(0.32,0.72,0,1); }';
+  document.head.appendChild(css);
+}());
+</script>
 <script src="/voice.js"></script>
 <script src="/mediapipe_vision.js"></script>
 <script src="/home.js"></script>
+<script>
+// ── Cold boot — étape 2 : sleep screen → clap → wake_sequence ─────────
+// Cycle complet :
+//   1. À l'arrivée : sleep screen (z-index 9500, sleep visible)
+//   2. CustomEvent 'jarvis-wake' (clap backend OU window.triggerWake() dev)
+//      → fade out sleep, mount wake_sequence
+//   3a. wake_sequence onComplete : inject orb dashboard, fade in shell
+//   3b. wake_sequence onFailure (FACE refusée) : destroy wake, re-mount sleep
+(function () {
+  if (!window.__jarvisWakeActive) return;
+  if (typeof window.createWakeSequence !== 'function' ||
+      typeof window.createSleepScreen  !== 'function') return;
+
+  let sleep = null;
+  let seq   = null;
+  // Prénom configuré (USER_FIRSTNAME) — récupéré tôt, fire-and-forget, pour que
+  // mountWake() reste synchrone (le crossfade sleep/wake ne tolère aucun délai).
+  // Repli sur '' (le wake n'affiche alors aucun nom).
+  let _userName = '';
+  fetch('/api/wakeup/status')
+    .then(function (r) { return r.json(); })
+    .then(function (s) { _userName = (s && s.user_firstname) || ''; })
+    .catch(function () {});
+
+  function mountSleep() {
+    const sleepRoot = document.createElement('div');
+    sleepRoot.id = 'wake-sleep-root';
+    document.body.appendChild(sleepRoot);
+    sleep = window.createSleepScreen(sleepRoot, { onWake: enterWake });
+  }
+
+  function enterWake() {
+    if (!sleep) return;
+    const oldSleep = sleep;
+    sleep = null;
+    // Fade out sleep + mount wake en parallèle (crossfade)
+    // Sleep fade 200ms (court) — le wake est mounté INSTANTANÉMENT en-dessous,
+    // donc dès que le sleep s'efface, le wake est déjà entièrement rendu.
+    // Pas de zone de transparence pendant laquelle on verrait juste le bg sombre.
+    oldSleep.fadeOut(200, function () { oldSleep.destroy(); });
+    mountWake();
+  }
+
+  function mountWake() {
+    const root = document.createElement('div');
+    root.id = 'wake-cold-boot-root';
+    // Mount INSTANT (pas de fade-in) : le sleep par-dessus gère le crossfade.
+    // Comme ça il n'y a jamais un moment où ni sleep ni wake n'est entièrement
+    // rendu, donc pas de moment où on voit le fond noir.
+    document.body.appendChild(root);
+
+    seq = window.createWakeSequence(root, {
+      userName:     _userName,
+      requireFace:  true,
+      targetCanvas: document.getElementById('orb-canvas'),
+      onComplete:   onWakeComplete,
+      onFailure:    onWakeFailure,
+    });
+
+    if (!seq) onWakeFailure();
+  }
+
+  function onWakeComplete() {
+    window.__jarvisWakeActive = false;
+    if (typeof window.__jarvisInjectOrb === 'function' && seq && seq.getOrb) {
+      window.__jarvisInjectOrb(seq.getOrb());
+    }
+    // Shell + chrome via transition opacité 0→1 (mêmes cibles que le masquage)
+    const hider = document.getElementById('wake-shell-hider');
+    if (hider) {
+      hider.textContent = ''
+        + '.home-top, .cam-overlay, .hc-widget, .home-channel,'
+        + ' .rooms-mc, .rooms-pages, .mode-watermark, .scene-card,'
+        + ' .mission-overlay, .cmdk-root, .notif-stack, .inspect-hint,'
+        + ' #globe-container, #page-frame {'
+        + ' opacity: 1; transition: opacity 0.4s cubic-bezier(0.32,0.72,0,1); }';
+      setTimeout(function () { if (hider.parentNode) hider.parentNode.removeChild(hider); }, 450);
+    }
+    // Fade out overlay wake (UI uniquement, l'orbe reste sur #orb-canvas)
+    const r = document.getElementById('wake-cold-boot-root');
+    if (r) {
+      r.style.transition = 'opacity 0.35s cubic-bezier(0.32,0.72,0,1)';
+      r.style.opacity = '0';
+      setTimeout(function () {
+        try { seq.destroy(); } catch (e) {}
+        seq = null;
+        if (r.parentNode) r.parentNode.removeChild(r);
+      }, 400);
+    }
+  }
+
+  function onWakeFailure() {
+    // BLOCAGE accès. Détruit wake (et l'orbe partagé pour libérer canvas),
+    // re-monte le sleep screen.
+    const orbRef = seq && seq.getOrb ? seq.getOrb() : null;
+    const r = document.getElementById('wake-cold-boot-root');
+    if (r) {
+      r.style.transition = 'opacity 0.35s cubic-bezier(0.32,0.72,0,1)';
+      r.style.opacity = '0';
+      setTimeout(function () {
+        try { if (seq) seq.destroy(); } catch (e) {}
+        try { if (orbRef && orbRef.destroy) orbRef.destroy(); } catch (e) {}
+        seq = null;
+        if (r.parentNode) r.parentNode.removeChild(r);
+        mountSleep();
+      }, 400);
+    } else {
+      try { if (seq) seq.destroy(); } catch (e) {}
+      seq = null;
+      mountSleep();
+    }
+  }
+
+  // Lancement
+  if (window.__jarvisWakeForceImmediate) {
+    mountWake();   // ?wake=1 : bypass sleep
+  } else {
+    mountSleep(); // défaut : attente clap
+  }
+})();
+</script>
 <script>
 window.loadViewSkills = async function () {
   try {

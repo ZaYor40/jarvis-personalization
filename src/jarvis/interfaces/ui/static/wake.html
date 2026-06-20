@@ -36,16 +36,20 @@
     <div id="wake-dev-overlay">
         <span>STATE :</span><span data-state>boot</span>
         <button id="restart">RESTART</button>
+        <button id="skip-converge">→ CONVERGE</button>
         <button id="skip-online">→ ONLINE</button>
     </div>
 
     <script src="/three.min.js"></script>
     <script src="/config/sphereStyle.js"></script>
+    <script src="/orb.js"></script>
     <script src="/wake_sequence.js"></script>
     <script>
         (function () {
             const root  = document.getElementById('wake-root');
             const label = document.querySelector('#wake-dev-overlay [data-state]');
+            const params = new URLSearchParams(location.search);
+            const benchOn = params.get('bench') !== '0';   // default ON pour étape A
             let seq = null;
 
             function mount() {
@@ -53,8 +57,8 @@
                 root.innerHTML = '';
                 seq = window.createWakeSequence(root, {
                     onComplete: () => console.log('[wake] ONLINE — onComplete fired at', new Date().toISOString()),
-                    userName: 'BARTH',
-                    requireFace: false, // étape 2b : phase FACE non implémentée, on saute
+                    requireFace: true,  // phase FACE active : caméra + MediaPipe + /api/vision/verify-face
+                    debugBenchmark: benchOn,
                 });
                 pollState();
             }
@@ -67,11 +71,12 @@
             }
 
             document.getElementById('restart').addEventListener('click', mount);
+            document.getElementById('skip-converge').addEventListener('click', () => {
+                if (seq && seq.skipTo) seq.skipTo('converge');
+            });
             document.getElementById('skip-online').addEventListener('click', () => {
-                // skip clic/touche est géré par la séquence ; on déclenche un skip 3 fois
-                // (boot/face → converge → ignite → online — sauf ignite incompressible)
-                // Plus simple : remonter avec requireFace=false et envoyer 3 clics via dispatchEvent
-                ['boot', 'converge'].forEach(() => root.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+                if (!seq || !seq.skipTo) return;
+                seq.skipTo('converge'); seq.skipTo('ignite'); seq.skipTo('online');
             });
 
             mount();

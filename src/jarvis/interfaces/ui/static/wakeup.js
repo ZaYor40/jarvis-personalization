@@ -505,7 +505,7 @@ async function deployUI() {
         const r = await fetch('/api/voice/speak', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: 'Systèmes en ligne. Bonjour Barth.' }),
+            body: JSON.stringify({ text: _userFirstname ? 'Systèmes en ligne. Bonjour ' + _userFirstname + '.' : 'Systèmes en ligne.' }),
         });
         const data = await r.json();
         if (data.audio_b64) await _playBase64Audio(data.audio_b64);

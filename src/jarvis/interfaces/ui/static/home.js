@@ -89,12 +89,23 @@
       setTimeout(initOrb, 100);
       return;
     }
+    // Cold boot wake : la séquence va mounter l'orbe sur #orb-canvas en
+    // frozen, puis nous le rendra via injectWakeOrb() à l'entrée ONLINE.
+    if (window.__jarvisWakeActive) return;
     const canvas = document.getElementById("orb-canvas");
     if (!canvas) return;
     _orb = new JarvisOrb(canvas);
     setOrbState("idle");
   }
   initOrb();
+
+  // ── Bascule depuis la séquence de réveil ────────────────────────────
+  // wake_sequence.js appelle ça à l'entrée ONLINE : l'orbe partagé est
+  // remis à home.js, qui prend la main pour les states voice/audio/music.
+  window.__jarvisInjectOrb = function (orb) {
+    _orb = orb;
+    setOrbState("idle");
+  };
 
   // ── body.view-active : source de vérité unique pour toutes les vues ─
   const _origViewActivate   = J.views.activate.bind(J.views);
@@ -246,10 +257,16 @@
   // ── Greeting vocal (comme l'ancien repo) ──────────────────────────
   async function playGreeting() {
     try {
+      let fn = "";
+      try {
+        const s = await fetch("/api/wakeup/status").then((r) => r.json());
+        fn = (s && s.user_firstname) || "";
+      } catch { /* repli sans prénom */ }
+      const greeting = fn ? `Systèmes en ligne. Bonjour ${fn}.` : "Systèmes en ligne.";
       const resp = await fetch("/api/voice/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: "Systèmes en ligne. Bonjour Barth." }),
+        body: JSON.stringify({ text: greeting }),
       });
       const data = await resp.json();
       if (!data.audio_b64) return;
@@ -675,6 +692,7 @@
 
       if (data.type === "voice_state") setOrbState(data.state || "idle");
       if (data.type === "audio_level" && _orb) _orb.setAudioLevel(data.level || 0);
+      if (data.type === "wake_up") window.dispatchEvent(new CustomEvent("jarvis-wake", { detail: data }));
 
       if (data.type === "message" && data.role === "assistant" && data.text) {
         showChannel(data.text);
