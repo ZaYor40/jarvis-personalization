@@ -102,6 +102,11 @@ ban-relative-imports = "all"
 # E402 : `from jarvis.kernel.paths import PROJECT_ROOT` doit venir après
 # `load_dotenv` qui s'exécute au top — résolu en C avec une vraie composition root.
 "src/jarvis/interfaces/voice/agent.py" = ["E501", "E402"]
+# src/jarvis/app.py : le bloc qui force l'encodage UTF-8 de stdout/stderr DOIT
+# s'exécuter avant tout import (sinon une ligne de log non-cp1252 crashe le
+# démarrage sous Windows, cf. jarvis.ps1 run). Ce code-avant-imports volontaire
+# déclenche E402 sur tous les imports suivants.
+"src/jarvis/app.py" = ["E402"]
 # tests/test_settings_consumers.py utilise `Any` dans des Spy classes qui
 # capturent des kwargs arbitraires des constructeurs patchés (AsyncOpenAI,
 # AsyncAnthropic, httpx.AsyncClient). Typer ces kwargs précisément demanderait
