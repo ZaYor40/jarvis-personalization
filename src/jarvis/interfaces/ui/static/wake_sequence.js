@@ -1295,7 +1295,7 @@
             + '<div class="wake-sleep-content">'
             + '  <div class="wake-sleep-title">JARVIS</div>'
             + '  <div class="wake-sleep-status">· STANDBY ·</div>'
-            + '  <div class="wake-sleep-hint">DOUBLE CLAP POUR RÉVEILLER</div>'
+            + '  <div class="wake-sleep-hint">DOUBLE CLAP OU CLIC POUR RÉVEILLER</div>'
             + '</div>';
 
         let triggered = false;
@@ -1305,6 +1305,11 @@
             onWake();
         }
         window.addEventListener('jarvis-wake', handleWake);
+        // Échappatoire manuel : un clic ou une touche réveillent aussi. Sans ça,
+        // sur une install sans micro/clap (VPS, headless), l'écran de veille est
+        // un cul-de-sac (le seul déclencheur serait l'event clap, indisponible).
+        rootEl.addEventListener('click', handleWake);
+        window.addEventListener('keydown', handleWake);
 
         return {
             fadeOut: function (durationMs, then) {
@@ -1315,6 +1320,8 @@
             },
             destroy: function () {
                 window.removeEventListener('jarvis-wake', handleWake);
+                rootEl.removeEventListener('click', handleWake);
+                window.removeEventListener('keydown', handleWake);
                 if (rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
             },
         };
