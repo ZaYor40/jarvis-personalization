@@ -74,8 +74,20 @@ class VisionTool(Tool):
     }
 
     def __init__(self, visual_memory: VisualMemory) -> None:
-        self._openai = AsyncOpenAI(api_key=settings.openai_api_key.get_secret_value())
+        # Client OpenAI construit À LA DEMANDE. L'instancier ici (eager) crashait
+        # tout le démarrage de l'API si l'utilisateur n'a pas de clé OpenAI (ex.
+        # backend principal Mistral/Gemini/local) : AsyncOpenAI(api_key="") lève
+        # « Missing credentials ». La vision se désactive proprement à l'usage.
+        self._openai: AsyncOpenAI | None = None
         self._visual_memory = visual_memory
+
+    def _get_openai_client(self) -> AsyncOpenAI | None:
+        if self._openai is None:
+            key = settings.openai_api_key.get_secret_value()
+            if not key:
+                return None
+            self._openai = AsyncOpenAI(api_key=key)
+        return self._openai
 
     async def execute(
         self,
@@ -135,8 +147,19 @@ class VisionTool(Tool):
 
         prompt = self._build_prompt(action, question)
 
+        client = self._get_openai_client()
+        if client is None:
+            return ToolResult(
+                content=(
+                    "Vision indisponible : aucune clé OpenAI configurée. L'analyse d'image "
+                    "passe par l'API OpenAI (VISION_MODEL). Renseigne OPENAI_API_KEY dans les "
+                    "réglages pour activer la vision."
+                ),
+                is_error=True,
+            )
+
         try:
-            response = await self._openai.chat.completions.create(
+            response = await client.chat.completions.create(
                 model=settings.vision_model,
                 max_tokens=2000 if action in ("read_document", "analyze_schema") else 1024,
                 messages=[
