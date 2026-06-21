@@ -275,9 +275,11 @@
 
     seq = window.createWakeSequence(root, {
       userName:     _userName,
-      // Scan facial seulement si la reconnaissance faciale est activée (sinon, sur
-      // une install sans photo de référence / sans caméra, ça force un scan inutile).
-      requireFace:  window.JARVIS_FACE_ENABLED === true,
+      // Scan facial cinématique toujours actif quand la séquence de veille tourne.
+      // FACE_RECOGNITION_ENABLED ne gate PAS l'affichage : le backend auto-valide
+      // (recognized:true) si la reconnaissance est off, et l'absence de caméra est
+      // gérée à l'exécution (dérogation). Le no-veille se règle via WAKEUP_ENABLED.
+      requireFace:  true,
       targetCanvas: document.getElementById('orb-canvas'),
       onComplete:   onWakeComplete,
       onFailure:    onWakeFailure,
