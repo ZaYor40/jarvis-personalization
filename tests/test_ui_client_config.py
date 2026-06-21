@@ -11,8 +11,19 @@ from pydantic import SecretStr
 from jarvis.interfaces.api import ui
 
 
-def _fake_settings(enabled: bool, token: str) -> SimpleNamespace:
-    return SimpleNamespace(api_auth_enabled=enabled, api_token=SecretStr(token))
+def _fake_settings(enabled: bool, token: str, wakeup_enabled: bool = False) -> SimpleNamespace:
+    return SimpleNamespace(
+        api_auth_enabled=enabled,
+        api_token=SecretStr(token),
+        wakeup_enabled=wakeup_enabled,
+    )
+
+
+def test_inject_wakeup_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ui, "settings", _fake_settings(False, "", wakeup_enabled=True))
+    assert "window.JARVIS_WAKEUP_ENABLED=true" in ui.inject_client_config("<head></head>")
+    monkeypatch.setattr(ui, "settings", _fake_settings(False, "", wakeup_enabled=False))
+    assert "window.JARVIS_WAKEUP_ENABLED=false" in ui.inject_client_config("<head></head>")
 
 
 def test_inject_adds_token_when_auth_enabled(monkeypatch: pytest.MonkeyPatch) -> None:

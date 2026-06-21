@@ -155,7 +155,11 @@ def test_openai_provider_passes_str(secret_sentinels: dict[str, str]) -> None:
 
 
 def test_vision_tool_passes_str(secret_sentinels: dict[str, str]) -> None:
-    """`AsyncOpenAI(api_key=...)` Vision doit recevoir str."""
+    """`AsyncOpenAI(api_key=...)` Vision doit recevoir str.
+
+    Le client est construit À LA DEMANDE (lazy) pour ne pas crasher le démarrage
+    sans clé OpenAI ; on déclenche donc la construction via _get_openai_client().
+    """
     from jarvis.capabilities.tools import vision as mod
 
     captured: dict[str, Any] = {}
@@ -165,7 +169,8 @@ def test_vision_tool_passes_str(secret_sentinels: dict[str, str]) -> None:
             captured.update(kw)
 
     with patch.object(mod, "AsyncOpenAI", Spy):
-        mod.VisionTool(visual_memory=MagicMock())
+        tool = mod.VisionTool(visual_memory=MagicMock())
+        tool._get_openai_client()
 
     _assert_str_and_eq(captured["api_key"], secret_sentinels["openai_api_key"], "VisionTool")
 
