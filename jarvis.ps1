@@ -129,21 +129,26 @@ function Invoke-JarvisRun {
     $lkLog = Join-Path $logDir "livekit.log"
     $apiLog = Join-Path $logDir "api.log"
     $voiceLog = Join-Path $logDir "voice.log"
-    foreach ($log in @($lkLog, $apiLog, $voiceLog)) {
-        "" | Set-Content $log
-    }
-
     Write-Host ""
-    Write-Host "  J · A · R · V · I · S" -ForegroundColor Cyan
+    Write-Host "  J A R V I S" -ForegroundColor Cyan
     Write-Host "  activation systeme" -ForegroundColor DarkGray
     Write-Host ""
 
+    # Tuer les process residuels AVANT de toucher aux logs : un livekit-server
+    # (ou un python jarvis) encore vivant d'un run precedent garde son .log
+    # ouvert, et "" | Set-Content echouerait avec "le fichier est en cours
+    # d'utilisation par un autre processus".
     Stop-Process -Name "livekit-server" -Force -ErrorAction SilentlyContinue
     Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -match "jarvis\.(app|interfaces\.voice\.agent)" } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Stop-PortListeners -Ports @(7880, 7881, $apiPort)
     Start-Sleep -Milliseconds 300
+
+    # Logs (re)initialises une fois les locks liberes ; -ErrorAction par securite.
+    foreach ($log in @($lkLog, $apiLog, $voiceLog)) {
+        "" | Set-Content $log -ErrorAction SilentlyContinue
+    }
 
     $procs = @()
 
@@ -205,7 +210,13 @@ function Invoke-JarvisRun {
     Write-Host ""
 
     try {
-        Wait-Process -Id ($procs | ForEach-Object { $_.Id })
+        # N'attendre que les process encore vivants : si l'un est deja sorti
+        # (ex. agent vocal qui crashe au warmup), Wait-Process leverait
+        # "Impossible de trouver un processus assorti de l'identificateur".
+        $alive = @($procs | Where-Object { $_ -and -not $_.HasExited })
+        if ($alive) {
+            Wait-Process -Id ($alive | ForEach-Object { $_.Id }) -ErrorAction SilentlyContinue
+        }
     } finally {
         Write-Host ""
         Write-Host "  arret en cours..." -ForegroundColor DarkGray
