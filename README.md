@@ -9,9 +9,9 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![LiveKit](https://img.shields.io/badge/LiveKit-voice-F5A623?style=flat-square)](https://livekit.io)
 [![Claude](https://img.shields.io/badge/Claude-Anthropic-8B5CF6?style=flat-square)](https://anthropic.com)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue?style=flat-square)](./LICENSE)
 
-Assistant personnel IA, texte & voix temps réel, self-hosted, stack open source.
+Assistant personnel IA, texte & voix temps réel, self-hosted, open source (AGPL-3.0).
 
 ![Jarvis OS](JARVISINTERFACEGITHUB.png)
 
@@ -395,4 +395,8 @@ documentés en [`docs/migration/BACKLOG.md`](docs/migration/BACKLOG.md).
 
 ## Licence
 
-[Proprietary Source License](LICENSE) · © 2026 Barthélemy Houot. All rights reserved.
+[GNU Affero General Public License v3.0](./LICENSE) · © 2026 Barthélemy Houot.
+
+Jarvis OS est un logiciel libre : vous pouvez le redistribuer et/ou le modifier
+selon les termes de l'AGPL-3.0. Si vous le faites tourner sur un serveur accessible
+en réseau, vous devez en proposer le code source aux utilisateurs (clause AGPL §13).
