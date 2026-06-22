@@ -1005,8 +1005,8 @@
     // ── Métadonnées ───────────────────────────────────────────
     const meta = el("dl", { class: "about2-meta" });
     [
-      ["Auteur",  "Barth Houot"],
-      ["Licence", "Propriétaire · Tous droits réservés"],
+      ["Auteur",  "Barthélemy Houot"],
+      ["Licence", "GNU AGPL-3.0"],
       ["Année",   String(year)],
     ].forEach(([k, v]) => {
       meta.appendChild(el("dt", { class: "about2-dt", text: k }));
@@ -1014,11 +1014,21 @@
     });
     wrap.appendChild(meta);
 
+    // ── Code source (AGPL) ────────────────────────────────────
+    const srcLink = el("a", {
+      class: "about2-src",
+      href: "https://github.com/Grominet95/jarvis-OS",
+      text: "Code source (AGPL)",
+    });
+    srcLink.target = "_blank";
+    srcLink.rel = "noopener noreferrer";
+    wrap.appendChild(srcLink);
+
     wrap.appendChild(el("div", { class: "about2-sep" }));
 
     // ── Copyright ─────────────────────────────────────────────
     wrap.appendChild(el("p", { class: "about2-copy",
-      text: `© ${year} Barth Houot — Tous droits réservés.` }));
+      text: `© ${year} Barthélemy Houot · GNU AGPL-3.0` }));
 
     // ── Bouton mise à jour ────────────────────────────────────
     const updateBtn = el("button", { class: "about2-update-btn", text: "Vérifier les mises à jour" });

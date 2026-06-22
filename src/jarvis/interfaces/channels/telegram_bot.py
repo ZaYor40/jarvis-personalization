@@ -309,6 +309,9 @@ class TelegramChannel(ChannelAdapter):
             '• "Lance le preset travail"\n'
             '• "Mets du Booba sur Spotify"\n'
             '• "Quelles sont mes tâches du jour ?"\n'
-            '• "État de mon impression 3D ?"_'
+            '• "État de mon impression 3D ?"_\n\n'
+            "📄 Code source (AGPL-3.0) : https://github.com/Grominet95/jarvis-OS"
         )
-        await update.message.reply_text(text, parse_mode="Markdown")
+        await update.message.reply_text(
+            text, parse_mode="Markdown", disable_web_page_preview=True
+        )
