@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import secrets
 from pathlib import Path
@@ -26,6 +27,11 @@ _SCOPES_GMAIL = [
 ]
 _SCOPES_CALENDAR = ["https://www.googleapis.com/auth/calendar"]
 
+# Endpoints OAuth2 Google — constants, communs à toutes les apps.
+_GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
+_GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
+_GOOGLE_CERT_URI = "https://www.googleapis.com/oauth2/v1/certs"
+
 # In-memory state store (single-user JARVIS)
 _pending: dict[str, dict] = {}
 
@@ -39,6 +45,40 @@ def _credentials_path() -> Path:
     return Path(settings.google_credentials_path)
 
 
+def _maybe_write_credentials_from_env(request: Request) -> None:
+    """Régénère google_credentials.json à partir de GOOGLE_CLIENT_ID/SECRET.
+
+    Permet de configurer Google depuis l'UI/.env (comme Spotify/Deezer) sans
+    déposer le fichier JSON à la main : les champs variables sont client_id +
+    client_secret, le reste (auth_uri/token_uri/cert) est constant et les
+    redirect_uris se déduisent du host courant.
+
+    Ne fait rien si les credentials .env sont absents → un fichier déjà présent
+    (install historique) continue d'être utilisé tel quel, zéro régression.
+    """
+    client_id = settings.google_client_id
+    client_secret = settings.google_client_secret.get_secret_value()
+    if not client_id or not client_secret:
+        return
+
+    config = {
+        "web": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": _GOOGLE_AUTH_URI,
+            "token_uri": _GOOGLE_TOKEN_URI,
+            "auth_provider_x509_cert_url": _GOOGLE_CERT_URI,
+            "redirect_uris": [
+                _redirect_uri(request, "gmail"),
+                _redirect_uri(request, "calendar"),
+            ],
+        }
+    }
+    path = _credentials_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(config, indent=2))
+
+
 def _token_path(service: str) -> Path:
     base = Path(settings.google_token_path)
     if service == "gmail":
@@ -50,6 +90,10 @@ def _token_path(service: str) -> Path:
 async def google_auth(service: str, request: Request) -> RedirectResponse:
     if service not in ("gmail", "calendar"):
         return RedirectResponse("/capabilities?error=unknown_service")
+
+    # Si les credentials sont fournis en .env (UI), (re)génère le fichier JSON
+    # que le reste du flux (et les consommateurs gmail/calendar) attendent.
+    _maybe_write_credentials_from_env(request)
 
     creds_path = _credentials_path()
     if not creds_path.exists():
