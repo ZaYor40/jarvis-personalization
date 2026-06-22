@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from loguru import logger
 
 from jarvis.kernel.settings import settings
@@ -17,6 +17,28 @@ _AUTH_URL = "https://connect.deezer.com/oauth/auth.php"
 _TOKEN_URL = "https://connect.deezer.com/oauth/access_token.php"
 _API_BASE = "https://api.deezer.com"
 _PERMS = "basic_access,email,offline_access,listening_history,manage_library"
+
+# Deezer n'a pas de PKCE : l'échange du token EXIGE le secret de l'app, qu'on
+# ne peut donc pas embarquer en repo public. Chaque utilisateur enregistre sa
+# propre app (developers.deezer.com/myapps) et colle App ID + Secret dans
+# Mission Control → Capacités → Deezer. Ce garde-fou évite la page d'erreur
+# Deezer cryptique (« You must specify a valid redirect_uri ») quand rien
+# n'est configuré.
+_UNCONFIGURED_HTML = (
+    "<!doctype html><meta charset='utf-8'>"
+    "<body style='font-family:system-ui;background:#0e0e12;color:#e8e8ec;"
+    "padding:48px;max-width:560px;margin:auto'>"
+    "<h2>Deezer non configuré</h2>"
+    "<p>Il manque l'<b>App ID</b> et/ou la <b>Secret Key</b> de ton application "
+    "Deezer. Crée une app sur "
+    "<a style='color:#7aa2ff' href='https://developers.deezer.com/myapps' "
+    "target='_blank' rel='noopener'>developers.deezer.com/myapps</a> "
+    "(Redirect URL : <code>http://127.0.0.1:8000/api/deezer/callback</code>), "
+    "puis renseigne les identifiants dans "
+    "<b>Mission Control → Capacités → Deezer</b>.</p>"
+    "<p><a style='color:#7aa2ff' href='/capabilities#integrations'>← Retour aux capacités</a></p>"
+    "</body>"
+)
 
 
 def _token_path() -> Path:
@@ -43,7 +65,9 @@ def _get_access_token() -> str | None:
 
 
 @router.get("/auth")
-async def deezer_auth() -> RedirectResponse:
+async def deezer_auth() -> Response:
+    if not settings.deezer_app_id or not settings.deezer_app_secret.get_secret_value():
+        return HTMLResponse(_UNCONFIGURED_HTML, status_code=400)
     params = {
         "app_id": settings.deezer_app_id,
         "redirect_uri": settings.deezer_redirect_uri,

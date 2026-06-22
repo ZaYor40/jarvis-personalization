@@ -82,6 +82,8 @@ _SETTINGS_FIELD_MAP: dict[str, str] = {
     "WAKEUP_ENABLED": "wakeup_enabled",
     "CLAP_DETECTION_ENABLED": "clap_detection_enabled",
     "MUSIC_PROVIDER": "music_provider",
+    "SPOTIFY_CLIENT_ID": "spotify_client_id",
+    "SPOTIFY_CLIENT_SECRET": "spotify_client_secret",
     "DEEZER_APP_ID": "deezer_app_id",
     "DEEZER_APP_SECRET": "deezer_app_secret",
     "API_BACKEND": "api_backend",

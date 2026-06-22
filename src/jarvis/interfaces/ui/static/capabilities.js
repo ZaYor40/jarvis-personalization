@@ -24,8 +24,14 @@
   const CONNECTOR_CONFIG = {
     "Gmail":              { kind: "oauth", url: "/api/google/auth/gmail" },
     "Google Calendar":    { kind: "oauth", url: "/api/google/auth/calendar" },
-    "Spotify":            { kind: "oauth", url: "/api/spotify/auth" },
-    "Deezer":             { kind: "oauth", url: "/api/deezer/auth" },
+    "Spotify":            { kind: "oauth_key", url: "/api/spotify/auth", keys: [
+      { key: "SPOTIFY_CLIENT_ID",     label: "Client ID",     secret: false, hint: "developer.spotify.com/dashboard · Redirect URI : http://127.0.0.1:8000/api/spotify/callback" },
+      { key: "SPOTIFY_CLIENT_SECRET", label: "Client Secret", secret: true },
+    ]},
+    "Deezer":             { kind: "oauth_key", url: "/api/deezer/auth", keys: [
+      { key: "DEEZER_APP_ID",     label: "App ID",     secret: false, hint: "developers.deezer.com/myapps · Redirect URL : http://127.0.0.1:8000/api/deezer/callback" },
+      { key: "DEEZER_APP_SECRET", label: "Secret Key", secret: true },
+    ]},
     "Notion":             { kind: "key",   keys: [{ key: "NOTION_TOKEN",         label: "Token d'intégration", secret: true }] },
     "Anthropic (Claude)": { kind: "key",   keys: [{ key: "ANTHROPIC_API_KEY",    label: "Clé API Anthropic",   secret: true }] },
     "ElevenLabs":         { kind: "key",   keys: [{ key: "ELEVENLABS_API_KEY",   label: "Clé API ElevenLabs",  secret: true }] },
@@ -548,7 +554,7 @@
       expandEl.classList.add("open");
       return;
     }
-    if (cfg.kind === "key" || cfg.kind === "messaging") {
+    if (cfg.kind === "key" || cfg.kind === "messaging" || cfg.kind === "oauth_key") {
       // Toggle expand with input fields
       if (expandEl.classList.contains("open")) {
         expandEl.classList.remove("open");
@@ -602,15 +608,30 @@
             }
           }
           J.notify({ kind: "success", text: c.name + " · configuré" });
-          expandEl.classList.remove("open");
-          expandEl.innerHTML = "";
-          renderIntegrations();
+          if (cfg.kind !== "oauth_key") {
+            expandEl.classList.remove("open");
+            expandEl.innerHTML = "";
+            renderIntegrations();
+          }
         } catch (e) {
           J.notify({ kind: "error", text: e.message });
           saveBtn.textContent = "Sauvegarder"; saveBtn.disabled = false;
         }
       });
       expandEl.appendChild(saveBtn);
+
+      // Connecteurs hybrides : on saisit/sauvegarde les credentials de l'app
+      // (App ID + Secret), puis on lance le flux OAuth pour lier son compte.
+      if (cfg.kind === "oauth_key") {
+        expandEl.appendChild(el("div", {
+          class: "cn-field-hint",
+          text: "Sauvegarde tes identifiants d'app, puis connecte ton compte.",
+          style: { marginTop: "10px" },
+        }));
+        const connectBtn = el("button", { class: "cn-save-btn", text: "Connecter mon compte →" });
+        connectBtn.addEventListener("click", () => { window.location.href = cfg.url; });
+        expandEl.appendChild(connectBtn);
+      }
       expandEl.classList.add("open");
     }
   }
