@@ -80,6 +80,8 @@ async def get_settings_endpoint() -> dict:
             "tts_provider": _ev("TTS_PROVIDER", "tts_provider"),
             "elevenlabs_model": _ev("ELEVENLABS_MODEL", "elevenlabs_model"),
             "whisper_model": _ev("WHISPER_MODEL", "whisper_model"),
+            "gemini_tts_model": _ev("GEMINI_TTS_MODEL", "gemini_tts_model"),
+            "gemini_tts_voice": _ev("GEMINI_TTS_VOICE", "gemini_tts_voice"),
         },
         "llm": {
             "llm_provider": _ev("LLM_PROVIDER", "llm_provider"),

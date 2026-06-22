@@ -46,6 +46,8 @@ _RESTART_KEYS = {
     "VOICE_ANTHROPIC_MODEL",
     "TTS_PROVIDER",
     "ELEVENLABS_MODEL",
+    "GEMINI_TTS_MODEL",
+    "GEMINI_TTS_VOICE",
 }
 
 # Ces clés déclenchent un hot-swap du provider LLM sans redémarrage.
@@ -55,6 +57,8 @@ _SETTINGS_FIELD_MAP: dict[str, str] = {
     "TTS_PROVIDER": "tts_provider",
     "ELEVENLABS_MODEL": "elevenlabs_model",
     "ELEVENLABS_VOICE_ID": "elevenlabs_voice_id",
+    "GEMINI_TTS_MODEL": "gemini_tts_model",
+    "GEMINI_TTS_VOICE": "gemini_tts_voice",
     "WHISPER_MODEL": "whisper_model",
     "LLM_PROVIDER": "llm_provider",
     "ANTHROPIC_MODEL": "anthropic_model",

@@ -520,9 +520,18 @@
 
     // ── Audio & voix ──
     const audioList = el("div");
+    const GEMINI_TTS_VOICES = [
+      "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede",
+      "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba",
+      "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar",
+      "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi",
+      "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat",
+    ];
     [
-      { label: "TTS Provider",     sub: "TTS_PROVIDER",     options: ["piper", "elevenlabs"],                      val: audio.tts_provider },
+      { label: "TTS Provider",     sub: "TTS_PROVIDER",     options: ["piper", "elevenlabs", "gemini"],            val: audio.tts_provider },
       { label: "ElevenLabs model", sub: "ELEVENLABS_MODEL",  options: ["eleven_flash_v2_5", "eleven_turbo_v2_5"],   val: audio.elevenlabs_model },
+      { label: "Gemini TTS model", sub: "GEMINI_TTS_MODEL",  options: ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"], val: audio.gemini_tts_model },
+      { label: "Voix Gemini",      sub: "GEMINI_TTS_VOICE",  options: GEMINI_TTS_VOICES,                            val: audio.gemini_tts_voice },
       { label: "Whisper model",    sub: "WHISPER_MODEL",     options: ["tiny", "base", "small", "medium", "large"], val: audio.whisper_model },
     ].forEach(f => audioList.appendChild(settingRow(f.label, f.sub, makeSelect(f.options, f.val, f.sub))));
 
