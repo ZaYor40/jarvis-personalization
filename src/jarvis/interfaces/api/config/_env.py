@@ -32,6 +32,8 @@ _SENSITIVE_KEYS = {
     "SPOTIFY_CLIENT_SECRET",
     "DEEZER_APP_ID",
     "DEEZER_APP_SECRET",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
     "TELEGRAM_BOT_TOKEN",
     "DISCORD_BOT_TOKEN",
 }
@@ -90,6 +92,8 @@ _SETTINGS_FIELD_MAP: dict[str, str] = {
     "SPOTIFY_CLIENT_SECRET": "spotify_client_secret",
     "DEEZER_APP_ID": "deezer_app_id",
     "DEEZER_APP_SECRET": "deezer_app_secret",
+    "GOOGLE_CLIENT_ID": "google_client_id",
+    "GOOGLE_CLIENT_SECRET": "google_client_secret",
     "API_BACKEND": "api_backend",
     "OLLAMA_MODEL": "ollama_model",
     "OLLAMA_BASE_URL": "ollama_base_url",
