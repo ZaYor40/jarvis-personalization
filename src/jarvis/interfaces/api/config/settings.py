@@ -17,7 +17,7 @@ from typing import Any
 from dotenv import dotenv_values
 from fastapi import APIRouter, Query, Request
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 from jarvis.interfaces.api.config._env import (
     _LLM_HOT_SWAP_KEYS,
@@ -154,6 +154,11 @@ async def update_setting(request: Request, body: SettingUpdateBody) -> dict:
                 converted = int(body.value)
             elif annotation is float:
                 converted = float(body.value)
+            elif annotation is SecretStr:
+                # Hot-apply bypasse la validation pydantic : sans ce wrap, un
+                # champ SecretStr finirait en str brut et casserait tout
+                # .get_secret_value() consommateur (Spotify/Deezer OAuth…).
+                converted = SecretStr(body.value)
             else:
                 converted = body.value
             object.__setattr__(_s, field_name, converted)
