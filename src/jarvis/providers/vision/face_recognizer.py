@@ -53,8 +53,16 @@ class FaceRecognizer:
         try:
             import face_recognition as fr
         except ImportError:
-            logger.warning(
-                "FaceRecognizer: face_recognition non installé — désactivé")
+            if settings.face_recognition_enabled:
+                logger.warning(
+                    "FaceRecognizer: FACE_RECOGNITION_ENABLED=true mais la lib "
+                    "'face_recognition' (dlib) n'est PAS installée -> reconnaissance "
+                    "DESACTIVEE. Installe l'extra vision : `uv sync --extra vision` "
+                    "(ou `uv pip install face-recognition`). Sinon mets "
+                    "FACE_RECOGNITION_ENABLED=false pour masquer cet avertissement."
+                )
+            else:
+                logger.info("FaceRecognizer: lib vision absente (reconnaissance desactivee).")
             return False
 
         if not FACES_DIR.exists():
