@@ -88,7 +88,7 @@ class MessagingGateway:
         )
 
         # Persiste le session_id (nouveau ou restauré)
-        self._session_map[msg.session_key] = session.id
+        self._session_map[msg.session_key] = str(session.id)
         self._save_session_map()
 
         adapter = self._adapters.get(msg.platform.value)
