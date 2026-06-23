@@ -43,7 +43,7 @@ class JarvisLiveKitClient {
 
     let tokenData;
     try {
-      tokenData = await fetch(tokenUrl).then((r) => r.json());
+      tokenData = await fetch(tokenUrl, { headers: window.Jarvis && Jarvis.authHeaders ? Jarvis.authHeaders() : {} }).then((r) => r.json());
     } catch (e) {
       console.error("[LiveKit] Impossible de récupérer le token:", e);
       throw e;
