@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 from loguru import logger
 
+from jarvis.kernel.paths import PROJECT_ROOT
 from jarvis.providers.memory.topics import TopicStore
 
 _DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -83,7 +84,13 @@ class VectorIndex:
                 "fastembed n'est pas installé. Ajoute 'fastembed' à pyproject.toml."
             ) from e
         logger.info("VectorIndex: chargement du modèle", model=self._model_name)
-        self._model = TextEmbedding(model_name=self._model_name)
+        # cache_dir PERSISTANT : sans ça, fastembed télécharge le modèle dans un
+        # dossier temporaire (/var/folders sur macOS, /tmp ailleurs) que l'OS purge
+        # -> NO_SUCHFILE + re-téléchargement (~470 MB) à chaque session. On le fige
+        # dans le projet pour fiabiliser la mémoire et permettre le bundle offline.
+        cache_dir = PROJECT_ROOT / ".models" / "fastembed"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        self._model = TextEmbedding(model_name=self._model_name, cache_dir=str(cache_dir))
 
     def _embed_sync(self, texts: list[str]) -> np.ndarray:
         """Encode une liste de textes en vecteurs normalisés (synchrone)."""
