@@ -79,8 +79,8 @@
     _registry: {},
     _active: null,
 
-    register(id, { meta, show, hide, command }) {
-      this._registry[id] = { meta: meta || {}, show, hide, command };
+    register(id, { meta, show, hide, command, gestures }) {
+      this._registry[id] = { meta: meta || {}, show, hide, command, gestures: gestures || null };
     },
 
     list() {

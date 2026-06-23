@@ -25,15 +25,9 @@ const _PRESENCE_ON_MS  = 2000;
 const _PRESENCE_OFF_MS = 5000;
 
 // ── Gestes ────────────────────────────────────────────────────────────────────
-// Gestes → LLM (réponse contextuelle de Jarvis)
-const _GESTURE_LLM = {
-  Thumb_Up:    'Oui, confirme',
-  Thumb_Down:  'Non, annule',
-  Pointing_Up: 'Hey Jarvis',
-};
-// Gestes → action directe Spotify (pas de LLM)
-const _GESTURE_DIRECT = new Set(['Open_Palm', 'Victory']);
-
+// Ce module est un CAPTEUR : il détecte des gestes et émet des événements neutres
+// vers le GestureRouter. Le SENS (Spotify, LLM, vues…) vit dans les bindings,
+// pas ici. Le seul mapping conservé est l'affichage à l'écran.
 const _GESTURE_LABELS = {
   Thumb_Up:    'POUCE HAUT',
   Thumb_Down:  'POUCE BAS',
@@ -41,6 +35,20 @@ const _GESTURE_LABELS = {
   Victory:     'VICTOIRE',
   Pointing_Up: 'POINTER',
 };
+
+// Mapping global (fallback hors vue) — reproduit EXACTEMENT le comportement
+// historique : paume/victoire → Spotify direct, pouces/pointer → LLM,
+// pincement vertical → volume.
+if (window.Jarvis?.gestures) {
+  Jarvis.gestures.registerGlobal({
+    Open_Palm:   { type: 'ws',  event: 'gesture_direct', gesture: 'Open_Palm' },  // play/pause
+    Victory:     { type: 'ws',  event: 'gesture_direct', gesture: 'Victory' },    // piste suivante
+    Thumb_Up:    { type: 'llm', gesture: 'Thumb_Up',    label: _GESTURE_LABELS.Thumb_Up },
+    Thumb_Down:  { type: 'llm', gesture: 'Thumb_Down',  label: _GESTURE_LABELS.Thumb_Down },
+    Pointing_Up: { type: 'llm', gesture: 'Pointing_Up', label: _GESTURE_LABELS.Pointing_Up },
+    pinch_y:     { type: 'ws',  event: 'gesture_volume' },
+  });
+}
 
 // Connexions de la main (indices MediaPipe)
 const _HAND_CONN = [
@@ -278,7 +286,7 @@ function _handlePresence(detected, now) {
 // ── Geste ─────────────────────────────────────────────────────────────────────
 function _handleGesture(gesture, now) {
   if (_pinchActive) { _lastGestureSeen = null; _lastGestureSince = 0; return; }
-  const known = gesture && (_GESTURE_LLM[gesture] || _GESTURE_DIRECT.has(gesture));
+  const known = gesture && _GESTURE_LABELS[gesture];
   if (!known) { _lastGestureSeen = null; _lastGestureSince = 0; return; }
 
   if (gesture !== _lastGestureSeen) {
@@ -294,19 +302,17 @@ function _handleGesture(gesture, now) {
   }
   if (now - _lastGestureSent < _GESTURE_COOLDOWN_MS) return;
 
-  // Déclenchement
+  // Déclenchement — émission d'un événement neutre, le routeur décide du sens
+  // (vue active sinon fallback global). La bulle de chat LLM est gérée par le
+  // binding `type:'llm'` (champ label), plus ici.
   _lastGestureSent  = now;
   _lastGestureSince = now;
   _showGesture('→ ' + _GESTURE_LABELS[gesture], true);
 
-  if (_GESTURE_DIRECT.has(gesture)) {
-    // Action Spotify directe — pas de bulle de chat
-    _sendEvent({ event: 'gesture_direct', gesture });
-  } else {
-    // Passe par l'IA
-    if (typeof addMsg === 'function') addMsg('vous', '/ ' + _GESTURE_LABELS[gesture]);
-    _sendEvent({ event: 'gesture', gesture });
-  }
+  Jarvis.gestures?.route({
+    source: 'mediapipe', type: 'gesture', name: gesture,
+    phase: 'confirmed', confidence: 1, ts: now,
+  });
 }
 
 // ── Pincement ─────────────────────────────────────────────────────────────────
@@ -334,7 +340,10 @@ function _handlePinch(landmarks, now) {
     _pinchRefY     = midY;
     _pinchLastSent = now;
     _showGesture(dir > 0 ? '▲ VOL' : '▼ VOL', false);
-    _sendEvent({ event: 'gesture_volume', delta: dir });
+    Jarvis.gestures?.route({
+      source: 'mediapipe', type: 'pinch', name: 'pinch_y',
+      phase: 'continuous', axis: 'y', delta: dir, ts: now,
+    });
   }
 }
 
