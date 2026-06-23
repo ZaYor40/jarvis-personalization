@@ -77,6 +77,9 @@ def _voice_system_base(name: str, profile: str = "") -> str:
         "- Si tu dois faire quelque chose d'écran (code, liste longue), dis-le brièvement\n"
         "  et propose de l'envoyer par écrit dans l'interface.\n"
         f"{bio_line}"
+        f"- MÉMOIRE : pour toute question sur {name} (sa vie, sa famille, ses préférences, ses\n"
+        "  projets, son passé, ce qu'il t'a déjà dit), appelle TOUJOURS l'outil memory_search\n"
+        '  AVANT de répondre. Ne réponds jamais "je ne sais pas" sans avoir cherché en mémoire.\n'
         '- Quand tu utilises un outil, annonce-le en 1 phrase courte avant (ex: "Je vérifie l\'imprimante…").\n\n'
         f"Réponds en français sauf si {name} parle en anglais.\n"
     )
@@ -201,7 +204,7 @@ def prewarm(proc: object) -> None:
     # ce coût au premier clic micro.
     proc.userdata["vad"] = silero.VAD.load(  # type: ignore[attr-defined]
         min_speech_duration=0.05,
-        min_silence_duration=0.2,
+        min_silence_duration=0.4,
         activation_threshold=0.5,
     )
     logger.info("=" * 40)
@@ -386,7 +389,7 @@ async def entrypoint(ctx: object) -> None:
     tools = userdata.get("tools") or _build_voice_tools()
     vad = userdata.get("vad") or silero.VAD.load(
         min_speech_duration=0.05,
-        min_silence_duration=0.2,
+        min_silence_duration=0.4,
         activation_threshold=0.5,
     )
 
