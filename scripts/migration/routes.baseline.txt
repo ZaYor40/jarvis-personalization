@@ -1,6 +1,5 @@
 APIWebSocketRoute /ws
 APIWebSocketRoute /ws/logs
-APIWebSocketRoute /ws/voice
 DELETE  /admin/api/memory/topics/{filename}
 DELETE  /api/analytics/remove/{widget_id}
 DELETE  /api/memory/topics/{name}
