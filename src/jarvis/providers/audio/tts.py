@@ -162,7 +162,16 @@ class TTSEngine:
             logger.debug(f"Gemini TTS done — {len(text)} chars, {len(pcm)} pcm bytes")
             return _pcm_to_wav(pcm, sample_rate=24000)
         except Exception as e:
-            logger.error("Gemini TTS failed", error=str(e))
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+                logger.warning(
+                    "Gemini TTS: QUOTA atteint (free tier limité/jour sur les modèles "
+                    "*-preview-tts). Repli Piper. Lie un compte de facturation Google, "
+                    "ou repasse TTS_PROVIDER=elevenlabs/piper. ({})",
+                    msg[:140],
+                )
+            else:
+                logger.error("Gemini TTS failed: {}", msg[:200])
             return await self._synthesize_piper(text)
 
     async def _synthesize_piper(self, text: str) -> bytes:
