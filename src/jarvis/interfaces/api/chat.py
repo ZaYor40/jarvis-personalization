@@ -200,3 +200,25 @@ async def internal_broadcast(request: Request) -> dict:
     event = await request.json()
     await broadcast_event(event)
     return {"ok": True}
+
+
+# ── Internal : proxy d'exécution des tools mémoire (process voix) ──────────────
+# Le process voix LiveKit appelle ces tools via HTTP plutôt que d'instancier son
+# PROPRE modèle d'embeddings (~470 MB) : l'API a déjà le modèle chargé. On évite
+# ainsi de doubler la RAM (et le chargement lent au 1er appel) côté voix.
+# Restreint aux tools mémoire — pas d'exécution d'outils arbitraire via HTTP.
+_PROXYABLE_MEMORY_TOOLS = frozenset(
+    {"memory_search", "session_recall", "memory_write", "memory_load_topic"}
+)
+
+
+@router.post("/internal/memory_tool", include_in_schema=False)
+async def internal_memory_tool(request: Request) -> dict:
+    """Exécute un tool mémoire côté API pour le process voix. Retourne {content, is_error}."""
+    body = await request.json()
+    name = str(body.get("name", ""))
+    args = body.get("args") or {}
+    if name not in _PROXYABLE_MEMORY_TOOLS:
+        return {"content": f"[ERREUR] tool '{name}' non proxifiable", "is_error": True}
+    result = await request.app.state.tool_registry.call(name, args)
+    return {"content": result.content, "is_error": result.is_error}

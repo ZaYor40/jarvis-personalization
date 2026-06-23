@@ -138,6 +138,53 @@ def _voice_broadcast(event: dict) -> None:
     threading.Thread(target=_post, daemon=True).start()
 
 
+def _call_api_memory_tool(name: str, args: dict) -> tuple[str, bool]:
+    """Exécute un tool mémoire côté API via HTTP (le modèle d'embeddings y est déjà
+    chargé). Synchrone — appelé dans un thread. Lève en cas d'échec réseau."""
+    import json as _json
+    import urllib.request
+
+    url = f"http://localhost:{settings.port}/internal/memory_tool"
+    payload = _json.dumps({"name": name, "args": args}).encode()
+    headers = {"Content-Type": "application/json"}
+    if settings.api_auth_enabled:
+        headers["Authorization"] = f"Bearer {settings.api_token.get_secret_value()}"
+    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = _json.loads(resp.read().decode())
+    return data.get("content", ""), bool(data.get("is_error", False))
+
+
+class _ProxyMemoryTool:
+    """Proxy d'un tool mémoire : délègue l'exécution à l'API (modèle d'embeddings
+    déjà chargé là-bas) pour ne PAS charger un 2e modèle (~470 MB) dans le process
+    voix. Repli sur le tool local si l'API est injoignable — la mémoire reste
+    fonctionnelle (le modèle se chargera alors côté voix)."""
+
+    def __init__(self, real_tool: object) -> None:
+        self._real = real_tool
+        self.name = real_tool.name  # type: ignore[attr-defined]
+
+    def to_claude_schema(self) -> dict:
+        return self._real.to_claude_schema()  # type: ignore[attr-defined]
+
+    async def execute(self, **kwargs: object) -> object:
+        import asyncio as _asyncio
+
+        from jarvis.capabilities.tools.base import ToolResult
+
+        try:
+            content, is_error = await _asyncio.to_thread(
+                _call_api_memory_tool, self.name, dict(kwargs)
+            )
+            return ToolResult(content=content, is_error=is_error)
+        except Exception as e:
+            logger.warning(
+                "Proxy mémoire '%s' -> API injoignable (%s), repli local", self.name, e
+            )
+            return await self._real.execute(**kwargs)  # type: ignore[attr-defined]
+
+
 def _build_voice_tools() -> list:
     """Retourne les LiveKit tools en miroir du mode texte (jarvis.app).
 
@@ -168,6 +215,15 @@ def _build_voice_tools() -> list:
     # get_all_tools()) — voir bootstrap.build() section 5. Pas besoin
     # d'appel séparé à SkillRegistry ici.
     jarvis_tools = list(container.tool_registry._tools.values())
+
+    # Les tools mémoire à embeddings sont proxifiés vers l'API (qui a déjà le
+    # modèle chargé) pour ne pas charger un 2e modèle ~470 MB dans ce process —
+    # cf. _ProxyMemoryTool. memory_load_topic reste local (pas d'embeddings).
+    _PROXY_MEMORY = {"memory_search", "session_recall", "memory_write"}
+    jarvis_tools = [
+        _ProxyMemoryTool(t) if getattr(t, "name", None) in _PROXY_MEMORY else t
+        for t in jarvis_tools
+    ]
 
     tools = [_make_livekit_tool(t) for t in jarvis_tools]
     logger.info("Voice tools chargés: %s", [t._info.name for t in tools])
