@@ -241,9 +241,13 @@ class Settings(BaseSettings):
         default=SecretStr(""),
         description="Clé API OpenAI (LLM principal si api_backend=openai, TTS, Vision).",
     )
-    stt_provider: Literal["deepgram", "whisper"] = Field(
+    stt_provider: Literal["deepgram", "openai", "google", "whisper"] = Field(
         default="deepgram",
-        description="Backend STT : 'deepgram' (cloud, rapide) ou 'whisper' (local, hors-ligne).",
+        description=(
+            "Backend STT du pipeline LiveKit : 'deepgram' (cloud, rapide, défaut), "
+            "'openai' (Whisper cloud), 'google' (Cloud Speech, service account), "
+            "'whisper' (local, hors-ligne — adaptateur à venir)."
+        ),
     )
     deepgram_api_key: SecretStr = Field(
         default=SecretStr(""), description="Clé API Deepgram (STT Nova-2 streaming)."

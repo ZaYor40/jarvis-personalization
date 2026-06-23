@@ -529,6 +529,7 @@
     ];
     [
       { label: "TTS Provider",     sub: "TTS_PROVIDER",     options: ["piper", "elevenlabs", "gemini"],            val: audio.tts_provider },
+      { label: "STT Provider",     sub: "STT_PROVIDER",     options: ["deepgram", "openai", "google"],             val: audio.stt_provider },
       { label: "ElevenLabs model", sub: "ELEVENLABS_MODEL",  options: ["eleven_flash_v2_5", "eleven_turbo_v2_5"],   val: audio.elevenlabs_model },
       { label: "Gemini TTS model", sub: "GEMINI_TTS_MODEL",  options: ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"], val: audio.gemini_tts_model },
       { label: "Voix Gemini",      sub: "GEMINI_TTS_VOICE",  options: GEMINI_TTS_VOICES,                            val: audio.gemini_tts_voice },

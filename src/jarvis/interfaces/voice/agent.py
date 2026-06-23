@@ -211,6 +211,38 @@ def prewarm(proc: object) -> None:
 # ─── Routing LLM du pipeline LiveKit ───────────────────────────────────────────
 
 
+def _build_voice_stt(env: dict) -> object:
+    """STT du pipeline LiveKit, sélectionné via STT_PROVIDER (cloud).
+
+    'deepgram' (défaut, meilleure latence) | 'openai' (Whisper) | 'google'
+    (Cloud Speech, nécessite un service account GOOGLE_APPLICATION_CREDENTIALS).
+    Repli sur Deepgram en cas d'erreur de construction (auth manquante, etc.).
+    """
+    provider = env.get("STT_PROVIDER", "deepgram").strip().lower()
+    try:
+        if provider == "openai":
+            from livekit.plugins import openai as lk_openai
+
+            stt = lk_openai.STT(
+                model="gpt-4o-mini-transcribe",
+                language="fr",
+                api_key=env.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", "")),
+            )
+            logger.info("STT pipeline = OpenAI (gpt-4o-mini-transcribe)")
+            return stt
+        if provider == "google":
+            stt = lk_google.STT(languages="fr-FR", model="latest_long")
+            logger.info("STT pipeline = Google Cloud Speech (latest_long)")
+            return stt
+    except Exception as e:
+        logger.warning("STT '%s' indisponible (%s) -> repli Deepgram", provider, e)
+
+    logger.info("STT pipeline = Deepgram (nova-2)")
+    return deepgram.STT(
+        model="nova-2", language="fr", smart_format=True, interim_results=True
+    )
+
+
 def _build_voice_llm(env: dict) -> object:
     """Construit le LLM du pipeline vocal LiveKit selon API_BACKEND.
 
@@ -336,13 +368,8 @@ async def entrypoint(ctx: object) -> None:
     session = AgentSession(
         # VAD — détection de voix (pré-chargé dans prewarm)
         vad=vad,
-        # STT — Deepgram Nova-2 streaming
-        stt=deepgram.STT(
-            model="nova-2",
-            language="fr",
-            smart_format=True,
-            interim_results=True,
-        ),
+        # STT — sélectionné via STT_PROVIDER (deepgram / openai / google).
+        stt=_build_voice_stt(_env),
         # LLM — routé selon API_BACKEND (fallback Gemini 2.5 Flash)
         llm=_build_voice_llm(_env),
         # TTS — sélectionné plus haut selon TTS_PROVIDER (Gemini ou ElevenLabs).
