@@ -168,9 +168,13 @@ async def get_voice_token(session_id: str | None = None) -> dict:  # noqa: ARG00
             CreateAgentDispatchRequest(room=room_name, agent_name="jarvis")
         )
 
+    # Identité du participant = prénom configuré (et plus "barth" en dur), visible
+    # dans les logs LiveKit. Slug minimal (minuscules, sans espaces) ; repli "user".
+    identity = (settings.user_firstname or "").strip().lower().replace(" ", "-") or "user"
+
     token = (
         AccessToken(api_key=api_key, api_secret=api_secret)
-        .with_identity("barth")
+        .with_identity(identity)
         .with_name(settings.display_name)
         .with_grants(
             VideoGrants(
