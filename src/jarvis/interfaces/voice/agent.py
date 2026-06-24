@@ -15,6 +15,8 @@ import logging
 import os
 import sys
 import warnings
+from datetime import datetime
+from pathlib import Path
 
 from dotenv import dotenv_values, load_dotenv
 from livekit import rtc as lk_rtc
@@ -77,9 +79,12 @@ def _voice_system_base(name: str, profile: str = "") -> str:
         "- Si tu dois faire quelque chose d'écran (code, liste longue), dis-le brièvement\n"
         "  et propose de l'envoyer par écrit dans l'interface.\n"
         f"{bio_line}"
-        f"- MÉMOIRE : pour toute question sur {name} (sa vie, sa famille, ses préférences, ses\n"
-        "  projets, son passé, ce qu'il t'a déjà dit), appelle TOUJOURS l'outil memory_search\n"
-        '  AVANT de répondre. Ne réponds jamais "je ne sais pas" sans avoir cherché en mémoire.\n'
+        "- DATE/HEURE : la date et l'heure actuelles te sont données dans le CONTEXTE en haut.\n"
+        "  Réponds-y directement — n'utilise JAMAIS execute_cli ni aucun outil pour lire l'heure.\n"
+        f"- PROFIL : les infos de base sur {name} (famille, projets, préférences, dates) sont dans\n"
+        "  son PROFIL fourni en contexte : utilise-les DIRECTEMENT. Pour un souvenir précis absent\n"
+        '  du profil, appelle memory_search avant de répondre — ne réponds jamais "je ne sais pas"\n'
+        "  sans avoir cherché.\n"
         '- Quand tu utilises un outil, annonce-le en 1 phrase courte avant (ex: "Je vérifie l\'imprimante…").\n\n'
         f"Réponds en français sauf si {name} parle en anglais.\n"
     )
@@ -99,6 +104,50 @@ def _build_voice_instructions() -> str:
     except Exception as e:
         logger.warning("Skills non chargés pour les instructions vocales: %s", e)
     return base
+
+
+# ─── Contexte dynamique (injecté PAR SESSION, donc date/heure fraîches) ─────────
+
+_JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+_MOIS = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]
+
+
+def _now_context() -> str:
+    """Date + heure courantes en français (recalculées à chaque session vocale)."""
+    now = datetime.now()
+    return (
+        f"Nous sommes le {_JOURS[now.weekday()]} {now.day} {_MOIS[now.month - 1]} "
+        f"{now.year}, il est {now.hour}h{now.minute:02d}."
+    )
+
+
+def _load_user_profile() -> str:
+    """Contenu de la fiche profil (memory_data/topics/user_profile.md), si présente."""
+    try:
+        path = Path(settings.memory_dir) / "topics" / "user_profile.md"
+        if path.exists():
+            return path.read_text(encoding="utf-8").strip()
+    except Exception as e:
+        logger.warning("Profil utilisateur non chargé: %s", e)
+    return ""
+
+
+def _dynamic_context() -> str:
+    """Contexte en tête de prompt : date/heure + profil, mis DIRECTEMENT à dispo.
+
+    Évite de dépendre d'un appel d'outil non-déterministe (memory_search) pour les
+    infos perso, et de execute_cli pour l'heure. Reconstruit à chaque job → frais.
+    """
+    parts = [f"# CONTEXTE ACTUEL\n{_now_context()}"]
+    profile = _load_user_profile()
+    if profile:
+        parts.append(
+            "# PROFIL DE L'UTILISATEUR (réponds directement à partir de ces infos)\n\n" + profile
+        )
+    return "\n\n".join(parts)
 
 
 def _make_livekit_tool(jarvis_tool: object) -> lk_llm.RawFunctionTool:
@@ -442,6 +491,10 @@ async def entrypoint(ctx: object) -> None:
     userdata = getattr(ctx, "proc", None)
     userdata = getattr(userdata, "userdata", {}) if userdata else {}
     instructions = userdata.get("instructions") or _build_voice_instructions()
+    # Préfixe le contexte dynamique (date/heure + profil) à CHAQUE session : les
+    # instructions de base sont préchauffées une fois, mais la date/heure doit être
+    # fraîche et le profil disponible directement (pas via memory_search).
+    instructions = _dynamic_context() + "\n\n" + instructions
     tools = userdata.get("tools") or _build_voice_tools()
     vad = userdata.get("vad") or silero.VAD.load(
         min_speech_duration=0.05,
