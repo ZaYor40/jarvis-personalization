@@ -114,7 +114,9 @@ class EmailCollector(CollectorBase):
             r = await client.get(
                 f"{_GMAIL_BASE}/messages",
                 headers=headers,
-                params={"labelIds": "UNREAD", "maxResults": 15},
+                # UNREAD + INBOX : restreint aux non-lus de la boîte de réception
+                # (exclut archivés/Promotions/Social), cohérent avec le tool gmail.
+                params={"labelIds": ["UNREAD", "INBOX"], "maxResults": 15},
             )
             r.raise_for_status()
             messages = r.json().get("messages", [])
