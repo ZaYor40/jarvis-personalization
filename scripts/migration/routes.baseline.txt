@@ -182,6 +182,7 @@ POST    /api/voice/speak
 POST    /api/webhooks/face_recognition
 POST    /api/webhooks/object_detected
 POST    /internal/broadcast
+POST    /internal/memory_tool
 PUT     /admin/api/memory/index
 PUT     /admin/api/memory/prefs
 PUT     /admin/api/memory/topics/{filename}
