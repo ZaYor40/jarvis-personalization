@@ -184,6 +184,7 @@
 
 <script src="/three.min.js"></script>
 <script src="/_shared.js"></script>
+<script src="/briefing.js"></script>
 <script src="/gesture_router.js"></script>
 <script src="/config/sphereStyle.js"></script>
 <script src="/orb.js"></script>
@@ -318,6 +319,10 @@
         if (r.parentNode) r.parentNode.removeChild(r);
       }, 400);
     }
+
+    // Briefing automatique post-wakeup (no-op si BRIEFING_ENABLED=false côté backend).
+    try { window.runBriefing && window.runBriefing(window._briefingPreset || 'morning'); }
+    catch (e) { console.warn('[wake] briefing', e); }
   }
 
   function onWakeFailure() {
