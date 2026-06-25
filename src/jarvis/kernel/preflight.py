@@ -22,6 +22,8 @@ import importlib
 import os
 import socket
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 _USE_COLOR = sys.stderr.isatty() and os.name != "nt"
@@ -184,7 +186,59 @@ CONSÉQUENCE : Jarvis va démarrer, mais ne pourra PAS répondre (ni chat, ni vo
 FIX : mets ta vraie clé {key_name} dans .env (la clé brute, sans guillemets).
 """,
             )
+        else:
+            _check_llm_key_live(backend, key_name, val)
     return True
+
+
+# Endpoint /models : valide la clé SANS consommer de crédits (≠ une vraie requête).
+_LLM_MODELS = {
+    "anthropic": (
+        "https://api.anthropic.com/v1/models",
+        {"x-api-key": "{key}", "anthropic-version": "2023-06-01"},
+    ),
+    "openai": ("https://api.openai.com/v1/models", {"Authorization": "Bearer {key}"}),
+    "mistral": ("https://api.mistral.ai/v1/models", {"Authorization": "Bearer {key}"}),
+}
+
+
+def _check_llm_key_live(backend: str, key_name: str, key: str) -> None:
+    """Valide la clé LLM en vrai (appel /models). Non bloquant, offline-safe.
+
+    Distingue la clé ERRONÉE (401/403) du QUOTA/CRÉDITS (429). Un /models ne
+    consomme pas de tokens : il valide la clé mais NE détecte PAS un solde épuisé
+    (ça, ça n'apparaît qu'à une vraie requête → on le précise dans le message 429).
+    """
+    url, headers_tmpl = _LLM_MODELS.get(backend, (None, None))
+    if not url:
+        return
+    headers = {k: v.replace("{key}", key) for k, v in headers_tmpl.items()}
+    try:
+        urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=6)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            _warn(
+                "Clé LLM refusée par le fournisseur",
+                f"""
+{key_name} est remplie mais {backend} la REFUSE (HTTP {e.code}).
+CAUSE : clé erronée, révoquée, expirée, ou copiée incomplètement.
+CONSÉQUENCE : Jarvis démarre mais ne pourra PAS répondre.
+FIX : régénère une clé sur le tableau de bord {backend} et remplace {key_name} dans .env.
+""",
+            )
+        elif e.code == 429:
+            _warn(
+                "Quota / crédits LLM atteints",
+                f"""
+{backend} répond 429 sur {key_name} : limite de débit atteinte, ou plus de crédits.
+FIX : vérifie ton solde / ta facturation sur le tableau de bord {backend}, ou change
+de backend (API_BACKEND) le temps de recharger.
+""",
+            )
+        # autres codes (5xx, etc.) : transitoire côté fournisseur, on n'alarme pas.
+    except Exception:
+        # Réseau coupé / offline / DNS : on NE bloque PAS (mode hors-ligne légitime).
+        pass
 
 
 # ── 4. Port de l'API ──────────────────────────────────────────────────────────
