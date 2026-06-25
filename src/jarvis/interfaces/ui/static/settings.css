@@ -511,3 +511,27 @@ body[data-mode="config"] { overflow-y: auto; overflow-x: hidden; }
 .ollama-pull-status {
   font-family: var(--mono); font-size: 11px; color: var(--fg-3); min-height: 16px;
 }
+
+/* ── Apparence : sélecteur de thème (couleurs prédéfinies, à la Apple) ── */
+.theme-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.theme-swatch {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 12px 10px 10px; min-width: 76px;
+  background: transparent;
+  border: 1px solid var(--line-2, rgba(255,255,255,0.08));
+  border-radius: 12px; cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.theme-swatch:hover { background: rgba(255,255,255,0.03); }
+.theme-swatch[data-active="true"] {
+  border-color: var(--accent); background: var(--accent-soft);
+}
+.theme-dot {
+  width: 34px; height: 34px; border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 2px 8px rgba(0,0,0,0.3);
+}
+.theme-swatch[data-active="true"] .theme-dot {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent);
+}
+.theme-name { font-size: 0.78rem; color: var(--fg-2, #aaa); letter-spacing: 0.02em; }
+.theme-swatch[data-active="true"] .theme-name { color: var(--fg-0, #fff); }

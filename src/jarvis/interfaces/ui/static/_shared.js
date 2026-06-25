@@ -22,6 +22,40 @@
 
   const Jarvis = (window.Jarvis = window.Jarvis || {});
 
+  /* ───────── Thème : couleurs d'accent prédéfinies (à la Apple) ─────────
+     Pas de picker libre, pas de grain/vignette : une poignée de modes carrés.
+     On swappe --accent et ses dérivés (déjà utilisés partout dans _shared.css). */
+  const THEMES = {
+    bleu:     { label: "Bleu",     rgb: "74, 158, 255" },
+    violet:   { label: "Violet",   rgb: "167, 139, 250" },
+    vert:     { label: "Vert",     rgb: "52, 211, 153" },
+    ambre:    { label: "Ambre",    rgb: "245, 180, 80" },
+    rose:     { label: "Rose",     rgb: "244, 114, 182" },
+    graphite: { label: "Graphite", rgb: "150, 165, 190" },
+  };
+  const _DEFAULT_THEME = "bleu";
+  Jarvis.THEMES = THEMES;
+
+  Jarvis.currentTheme = function () {
+    try {
+      const id = localStorage.getItem("jarvis_theme");
+      return id && THEMES[id] ? id : _DEFAULT_THEME;
+    } catch (e) { return _DEFAULT_THEME; }
+  };
+
+  Jarvis.applyTheme = function (id) {
+    const t = THEMES[id] || THEMES[_DEFAULT_THEME];
+    const s = document.documentElement.style;
+    s.setProperty("--accent", "rgb(" + t.rgb + ")");
+    s.setProperty("--accent-soft", "rgba(" + t.rgb + ", 0.14)");
+    s.setProperty("--accent-line", "rgba(" + t.rgb + ", 0.32)");
+    try { localStorage.setItem("jarvis_theme", THEMES[id] ? id : _DEFAULT_THEME); } catch (e) {}
+    window.dispatchEvent(new CustomEvent("jarvis:theme", { detail: { id: id, rgb: t.rgb } }));
+  };
+
+  // Applique le thème sauvegardé tout de suite (avant le paint → pas de flash).
+  Jarvis.applyTheme(Jarvis.currentTheme());
+
   /* ───────── Tiny DOM helpers ───────── */
   function el(tag, attrs, children) {
     const node = document.createElement(tag);

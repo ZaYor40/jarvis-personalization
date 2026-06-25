@@ -10,6 +10,7 @@
     { id: "modeles",     label: "Modèles" },
     { id: "conso",       label: "Conso" },
     { id: "systeme",     label: "Système" },
+    { id: "apparence",   label: "Apparence" },
     { id: "apropos",     label: "À propos" },
   ];
 
@@ -1077,12 +1078,51 @@
     root.innerHTML = ""; root.appendChild(page);
   }
 
+  function renderApparence() {
+    const current = J.currentTheme();
+    const themes = J.THEMES || {};
+
+    const grid = el("div", { class: "theme-grid" });
+    Object.keys(themes).forEach((id) => {
+      const t = themes[id];
+      const sw = el("button", {
+        class: "theme-swatch",
+        dataset: { theme: id, active: id === current ? "true" : "false" },
+        title: t.label,
+        onclick: () => {
+          J.applyTheme(id);
+          grid.querySelectorAll(".theme-swatch").forEach((b) => {
+            b.dataset.active = b.dataset.theme === id ? "true" : "false";
+          });
+        },
+      });
+      sw.appendChild(el("span", { class: "theme-dot", style: { background: "rgb(" + t.rgb + ")" } }));
+      sw.appendChild(el("span", { class: "theme-name", text: t.label }));
+      grid.appendChild(sw);
+    });
+
+    const body = el("div");
+    body.appendChild(
+      ghostSec(
+        "Couleur d'accent",
+        "Choisis une teinte. Elle s'applique à toute l'interface, instantanément.",
+        null,
+        grid,
+      ),
+    );
+
+    const page = pageWrapper("apparence", "Apparence", "Thème de l'interface", body);
+    root.innerHTML = "";
+    root.appendChild(page);
+  }
+
   /* ───────── Router ───────── */
   const RENDERERS = {
     preferences: renderPreferences,
     modeles:     renderModeles,
     conso:       renderConso,
     systeme:     renderSysteme,
+    apparence:   renderApparence,
     apropos:     renderApropos,
   };
 
