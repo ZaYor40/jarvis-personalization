@@ -203,6 +203,13 @@
   // « double clap pour réveiller » bloque tout accès (le seul déclencheur est
   // le clap, désactivé). ?wake=1 force quand même la séquence (dev).
   if (mode !== '1' && window.JARVIS_WAKEUP_ENABLED === false) return;
+  // Déjà réveillé dans cette session de navigateur ? On ne rejoue PAS le wake à
+  // chaque retour sur la home (revenir d'un onglet = reload de home.html). Le flag
+  // sessionStorage s'efface à la fermeture de l'onglet → wake une fois par session.
+  // ?wake=1 force quand même (dev).
+  if (mode !== '1') {
+    try { if (sessionStorage.getItem('jarvis_woke') === '1') return; } catch (e) {}
+  }
   window.__jarvisWakeActive = true;
   window.__jarvisWakeForceImmediate = (mode === '1');
   // Cache TOUT le chrome dashboard sauf l'orbe (le wake utilise #orb-canvas).
@@ -300,6 +307,9 @@
 
   function onWakeComplete() {
     window.__jarvisWakeActive = false;
+    // Marque le réveil comme fait pour cette session → pas de replay en revenant
+    // sur la home depuis un autre espace.
+    try { sessionStorage.setItem('jarvis_woke', '1'); } catch (e) {}
     if (typeof window.__jarvisInjectOrb === 'function' && seq && seq.getOrb) {
       window.__jarvisInjectOrb(seq.getOrb());
     }
