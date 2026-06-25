@@ -1,0 +1,88 @@
+name: Build Windows offline bundle
+
+# Sur push d'un tag vX.Y.Z : build le bundle offline Windows (snapshot figé du
+# code au tag), zippe le PROJET + bundle/, crée la release et y attache le zip.
+# Le bundle est version-agnostique : la version ne sert qu'au nom du zip / tag.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # créer la release + uploader l'asset
+
+jobs:
+  build:
+    # IMPÉRATIF : bundle Windows (Python portable Windows + binaires natifs +
+    # livekit-server.exe). Ne se build PAS sur Ubuntu.
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout (au tag)
+        uses: actions/checkout@v4
+
+      # uv géré comme dans ci.yml (cache intégré). Le script sait aussi
+      # auto-installer uv, mais on le fige ici pour la fiabilité CI.
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      # Script de build EXISTANT, inchangé : produit bundle/ (python portable,
+      # venv relocalisable, deps, modèles ML, uv.exe, livekit-server.exe).
+      - name: Build offline bundle
+        shell: pwsh
+        run: .\scripts\release\build_bundle.ps1
+
+      - name: Vérifier que le bundle est complet
+        shell: pwsh
+        run: |
+          $required = @(
+            "bundle\manifest.json",
+            "bundle\.venv\Scripts\python.exe",
+            "bundle\python\python.exe",
+            "bundle\bin\uv.exe",
+            "bundle\bin\livekit-server.exe",
+            "bundle\models\yolov8n.pt",
+            "bundle\models\piper\fr_FR-upmc-medium.onnx"
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) {
+            Write-Host "::error::Bundle incomplet — manquants : $($missing -join ', ')"
+            exit 1
+          }
+          Write-Host "Bundle complet."
+
+      # Le distribuable = le projet (code source figé) AVEC bundle/ inclus,
+      # exactement comme les releases manuelles précédentes (~700 MB). On exclut
+      # seulement .git. Le nom respecte la convention jarvis-offline-windows-<tag>.zip.
+      - name: Packager le zip
+        shell: pwsh
+        run: |
+          $zip = "jarvis-offline-windows-${{ github.ref_name }}.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          $items = Get-ChildItem -Force -Path . |
+            Where-Object { $_.Name -ne '.git' -and $_.Name -ne $zip }
+          Compress-Archive -Path $items.FullName -DestinationPath $zip -CompressionLevel Optimal
+          $sizeMB = [math]::Round((Get-Item $zip).Length / 1MB)
+          Write-Host "Zip produit : $zip ($sizeMB MB)"
+          # Garde-fou : un vrai bundle pèse ~700 MB. Trop petit = build incomplet
+          # (modèles/venv non embarqués) → on échoue explicitement plutôt que de
+          # publier un zip cassé.
+          if ($sizeMB -lt 300) {
+            Write-Host "::error::Zip trop petit ($sizeMB MB) — build probablement incomplet."
+            exit 1
+          }
+          "ZIP_PATH=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Créer la release + attacher le zip
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true # CHANGELOG indexé par phase, pas par version
+          files: ${{ env.ZIP_PATH }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
