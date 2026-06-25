@@ -178,7 +178,17 @@ function Invoke-JarvisRun {
     if (Wait-HttpOk -Url "http://127.0.0.1:$apiPort/health" -TimeoutSeconds 90) {
         Write-Host "  API      http://localhost:$apiPort" -ForegroundColor Green
     } else {
-        Write-Host "  API      timeout - voir $apiLog" -ForegroundColor Red
+        Write-Host "  API      timeout - l'API n'a pas demarre (ce n'est PAS l'API LLM)" -ForegroundColor Red
+        # Affiche la fin du log : la vraie erreur y est (crash au demarrage :
+        # dependance native manquante, .env invalide, port 8000 occupe...).
+        if (Test-Path $apiLog) {
+            Write-Host ""
+            Write-Host "  --- dernieres lignes de $apiLog ---" -ForegroundColor DarkGray
+            Get-Content $apiLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-Host "  $_" -ForegroundColor DarkGray
+            }
+            Write-Host ""
+        }
         foreach ($p in $procs) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
         exit 1
     }

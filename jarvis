@@ -120,7 +120,12 @@ case "${1:-}" in
       if _wait_http "http://127.0.0.1:8000/health" 90; then
         printf "$CLEAR_LINE"; _row_ok "API" "http://localhost:8000"
       else
-        printf "$CLEAR_LINE"; _row_err "API" "timeout — voir $API_LOG"
+        printf "$CLEAR_LINE"; _row_err "API" "l API n a pas demarre (ce n est PAS l API LLM)"
+        # La vraie erreur est dans le log (crash au demarrage : dep native
+        # manquante, .env invalide, port 8000 occupe...). On l affiche direct.
+        printf "  ${DG}--- dernieres lignes de %s ---${R}\n" "$API_LOG"
+        tail -n 20 "$API_LOG" 2>/dev/null | sed "s/^/  /"
+        printf "\n"
         exit 1
       fi
 
