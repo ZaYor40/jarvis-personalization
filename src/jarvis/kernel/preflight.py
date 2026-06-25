@@ -209,9 +209,10 @@ def _check_llm_key_live(backend: str, key_name: str, key: str) -> None:
     consomme pas de tokens : il valide la clé mais NE détecte PAS un solde épuisé
     (ça, ça n'apparaît qu'à une vraie requête → on le précise dans le message 429).
     """
-    url, headers_tmpl = _LLM_MODELS.get(backend, (None, None))
-    if not url:
+    entry = _LLM_MODELS.get(backend)
+    if entry is None:
         return
+    url, headers_tmpl = entry
     headers = {k: v.replace("{key}", key) for k, v in headers_tmpl.items()}
     try:
         urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=6)
