@@ -114,7 +114,7 @@ Python système et LiveKit **ne sont pas requis** : le script de build les intè
 
 ---
 
-## Installation
+## Installations
 
 ### Parcours A : Utilisateur final (Windows)
 
