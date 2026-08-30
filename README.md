@@ -1,6 +1,6 @@
 <div align="center">
 
-# Jarvis OS
+# Jarvis OS (modifié sur GitHub)
 
 [![Jarvis OS](https://img.shields.io/badge/jarvis--OS-main-0A0E16?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Grominet95/jarvis-OS)
 [![Jarvis Skills](https://img.shields.io/badge/jarvis--skills-plugins-1a1f2e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Grominet95/jarvis-skills)
