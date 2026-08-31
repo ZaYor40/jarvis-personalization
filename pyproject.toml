@@ -14,7 +14,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.32.0",
     # Config
-    "pydantic>=2.9.0",
+    "pydantic>=2.13.4",
     "pydantic-settings>=2.6.0",
     "python-dotenv>=1.0.0",
     # LLM providers
